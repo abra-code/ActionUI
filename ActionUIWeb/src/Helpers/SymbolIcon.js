@@ -12,7 +12,8 @@
 //     FILL/wght axes, given already-resolved values.
 //   * materialNameGlyph / sfSymbolGlyph - resolve a name to a glyph and
 //     return the node. systemName/systemImage resolves through the bundled
-//     SF→Material map; because the map loads via `fetch`, the glyph renders blank
+//     SF->Material map, then the Fluent fill-in map (drawn from the Fluent font);
+//     because the maps load via `fetch`, the glyph renders blank
 //     for one frame then fills (and warns-and-skips when a name has no mapping).
 //
 // selectLabelIcon / labelIcon are the image-label seam (Android's
@@ -97,8 +98,14 @@ function markMissingGlyph(glyph, name) {
     glyph.title = `Unmapped SF Symbol: ${name}`;
 }
 
+// A Fluent fill-in (entry.font "fluent") draws from the Fluent font, which has
+// no axes: the material* overrides do not apply to it.
 function applySFSymbol(glyph, entry, props) {
     glyph.textContent = String.fromCodePoint(entry.codepoint);
+    if (entry.font === "fluent") {
+        glyph.classList.add("aui-symbol-fluent");
+        return;
+    }
     setAxes(glyph, symbolFill(props, entry.fill), symbolWeight(props, entry.weight));
 }
 
@@ -141,7 +148,7 @@ export function labelIcon(source, props, elementName, logger) {
     }
     if (source.kind === "system") {
         return sfSymbolGlyph(source.name, props, logger, (name) =>
-            `${elementName} systemImage '${name}' has no SF→Material mapping; icon ` +
+            `${elementName} systemImage '${name}' has no SF->Material or SF->Fluent mapping; icon ` +
             `omitted. Use 'materialName:web' for an explicit Material glyph.`);
     }
     return null;

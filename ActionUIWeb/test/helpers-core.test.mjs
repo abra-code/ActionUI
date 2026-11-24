@@ -4,9 +4,12 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { makeElement, makeLogger } from "./dom-stub.mjs";
 import { resolveLoadableSource, classifyLoadableSource } from "../src/Helpers/LoadableSource.js";
-import { parseSFSymbolMap, MATERIAL_WEIGHT_MIN, MATERIAL_WEIGHT_MAX } from "../src/Helpers/MaterialSymbolResolver.js";
+import {
+    parseSFSymbolMap, withFluentRows, MATERIAL_WEIGHT_MIN, MATERIAL_WEIGHT_MAX,
+} from "../src/Helpers/MaterialSymbolResolver.js";
 import { symbolFill, symbolWeight } from "../src/Helpers/SymbolIcon.js";
 import { substituteString, substituteElement } from "../src/Helpers/TemplateHelper.js";
 import {
@@ -52,6 +55,39 @@ test("parseSFSymbolMap: codepoints, fill, weight; skips comments/blanks", () => 
     assert.equal(map.get("filled").weight, 600);
     assert.equal(map.get("weird").weight, null, "out-of-range weight ignored");
     assert.equal(map.has("bad"), false, "non-hex codepoint row skipped");
+    assert.equal(map.get("search").font, "material");
+});
+
+test("withFluentRows: adds Fluent rows for names Material lacks; Material rows win", () => {
+    const map = parseSFSymbolMap("star f09a\nheart.fill e87d 1\n");
+    const fluentText = [
+        "# comment", "",
+        "barometer e973",
+        "star e000",           // Material has it: ignored
+        "bad notHex",          // non-hex codepoint skipped
+        "too many e001 e002",  // not a name and one codepoint: skipped
+    ].join("\n");
+    const merged = withFluentRows(map, fluentText);
+    assert.equal(merged, map, "merges in place");
+    assert.deepEqual(merged.get("barometer"), { codepoint: 0xe973, fill: false, weight: null, font: "fluent" });
+    assert.deepEqual(merged.get("star"), { codepoint: 0xf09a, fill: false, weight: null, font: "material" });
+    assert.equal(merged.get("heart.fill").fill, true);
+    assert.equal(merged.has("bad"), false);
+    assert.equal(merged.has("too"), false);
+    assert.equal(withFluentRows(new Map(), "").size, 0, "no Fluent map: nothing added");
+});
+
+test("the Fluent map fills in the SF Symbols the Material map lacks", () => {
+    const materialText = readFileSync(new URL("../assets/symbols/sf_to_material.map", import.meta.url), "utf8");
+    const fluentText = readFileSync(new URL("../../Tools/fluent_symbols/sf_to_fluent.map", import.meta.url), "utf8");
+    const material = parseSFSymbolMap(materialText);
+    const merged = withFluentRows(parseSFSymbolMap(materialText), fluentText);
+    assert.deepEqual(merged.get("barometer"), { codepoint: 0xe973, fill: false, weight: null, font: "fluent" });
+    for (const [name, entry] of material) {
+        assert.deepEqual(merged.get(name), entry, `Material row '${name}' unchanged`);
+    }
+    const fluentNames = [...merged.values()].filter((entry) => entry.font === "fluent").length;
+    assert.ok(fluentNames > 800, `Fluent fill-ins: ${fluentNames}`);
 });
 
 // ---------------- SymbolIcon axes ----------------

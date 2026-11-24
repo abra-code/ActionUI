@@ -75,7 +75,7 @@ dependencies {
 //     Tools/material_symbols/fetch-material-symbols-font.sh records compatible additions, or with
 //     --accept a reviewed change.
 //   Fluent: the commit in Tools/fluent_symbols/fluent-icons-font.commit, the one the map was made for.
-// generateSymbolFonts then runs Tools/material_symbols/make_android_symbol_fonts.py with fontTools,
+// generateSymbolFonts then runs Tools/material_symbols/make_symbol_fonts.py (mode "android") with fontTools,
 // installed at a pinned version into a private Python environment under the build's .gradle folder.
 // A first build therefore needs Python 3 and network access to GitHub and PyPI; later builds need
 // neither until a map, a commit file or the fontTools version changes.
@@ -320,8 +320,8 @@ abstract class GenerateSymbolFonts : DefaultTask() {
         val out = outputDir.get().asFile
         fileOperations.delete { delete(out) }
         // -I: only the private environment's packages, whatever PYTHONPATH or user site packages hold.
-        if (!run(python.path, "-I", generator.get().asFile.path, out.path)) {
-            throw GradleException("$name: make_android_symbol_fonts.py failed; its message is above.")
+        if (!run(python.path, "-I", generator.get().asFile.path, "android", out.path)) {
+            throw GradleException("$name: make_symbol_fonts.py failed; its message is above.")
         }
     }
 }
@@ -351,7 +351,7 @@ val generateSymbolFonts by tasks.registering(GenerateSymbolFonts::class) {
         symbolToolsDir.file("fluent_symbols/sf_to_fluent.map"),
         symbolToolsDir.file("fluent_symbols/fluent-icons-font.commit"),
     )
-    generator.set(symbolToolsDir.file("material_symbols/make_android_symbol_fonts.py"))
+    generator.set(symbolToolsDir.file("material_symbols/make_symbol_fonts.py"))
     fontToolsVersion.set(pinnedFontToolsVersion)
     pythonFolder.set(rootProject.layout.projectDirectory.dir(".gradle/symbol-fonts-python"))
     outputDir.set(layout.buildDirectory.dir("generated/symbolFonts"))

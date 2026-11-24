@@ -127,7 +127,7 @@ function render(node, source, props, ctx) {
 
     if (typeof source.systemName === "string") {
         node.appendChild(sfSymbolGlyph(source.systemName, props, ctx.logger, (name) =>
-            `Image systemName '${name}' has no SF→Material mapping; nothing rendered. ` +
+            `Image systemName '${name}' has no SF->Material or SF->Fluent mapping; nothing rendered. ` +
             `Use 'materialName' for an explicit Material glyph.`));
         return;
     }

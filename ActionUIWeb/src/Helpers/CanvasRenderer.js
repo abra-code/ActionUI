@@ -403,12 +403,14 @@ function fontWeightFromString(name) {
 const DEG = Math.PI / 180;
 const DEFAULT_FONT_SIZE = 17; // px, when a text op omits fontSize (Apple uses the platform default)
 const MATERIAL_FONT = '"Material Symbols Rounded"';
+const FLUENT_FONT = '"ActionUI Fluent Symbols"'; // SF names only the Fluent map has
 
 // Walks the typed operations against `ctx`. `size` = {width, height} is the
 // normalization space (the element size, or a layer frame inside a layer);
 // `pointsMode` switches coordinates to raw px. `env` carries the async/host hooks
 // (see Views/Canvas.js): { logger, glyphColor, resolveSymbol, image, fontReady,
-// warned }. `state` threads the inherited filter + layer state into nested layers.
+// fluentFontReady, warned }. `state` threads the inherited filter + layer state
+// into nested layers.
 export function drawCanvasOperations(ctx, ops, size, pointsMode, env, state = {}) {
     const { shadow = null, blur = null, layerAlpha = 1, layerBlend = "source-over" } = state;
     let activeShadow = shadow;
@@ -523,8 +525,13 @@ function drawImage(ctx, op, frame, env, withDrawState) {
     // Glyph (systemName mapped codepoint, or materialName ligature).
     if (!env.fontReady) return; // redraw fires when the Material Symbols font loads
     let glyph = null;
+    let family = MATERIAL_FONT;
     if (op.source.kind === "system") {
         const entry = env.resolveSymbol(op.source.name);
+        if (entry?.font === "fluent") {
+            if (!env.fluentFontReady) return; // redraw fires when the Fluent font loads
+            family = FLUENT_FONT;
+        }
         if (entry) glyph = String.fromCodePoint(entry.codepoint);
     } else if (op.source.kind === "material") {
         glyph = op.source.name; // the font renders the ligature
@@ -533,13 +540,13 @@ function drawImage(ctx, op, frame, env, withDrawState) {
         const id = `${op.source.kind}:${op.source.name}`;
         if (env.warned && !env.warned.has(id)) {
             env.warned.add(id);
-            env.logger?.log(`Canvas image glyph '${op.source.name}' has no Material mapping (or the map is still loading). Nothing rendered.`, "warning");
+            env.logger?.log(`Canvas image glyph '${op.source.name}' has no Material or Fluent mapping (or the maps are still loading). Nothing rendered.`, "warning");
         }
         return;
     }
     const fontSize = frame.h;
     withDrawState(op.opacity, () => {
-        ctx.font = `${fontSize}px ${MATERIAL_FONT}`;
+        ctx.font = `${fontSize}px ${family}`;
         ctx.fillStyle = env.glyphColor;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";

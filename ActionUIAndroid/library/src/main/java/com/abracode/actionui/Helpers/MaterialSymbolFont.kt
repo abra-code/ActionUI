@@ -31,7 +31,7 @@ import kotlin.math.roundToInt
  * ## The bundled fonts
  *
  * Both are made by the library's Gradle build (generateSymbolFonts, running
- * Tools/material_symbols/make_android_symbol_fonts.py) and packaged as generated
+ * Tools/material_symbols/make_symbol_fonts.py) and packaged as generated
  * assets:
  *
  * - `assets/fonts/MaterialSymbols.ttf`: every glyph of Material Symbols Rounded,

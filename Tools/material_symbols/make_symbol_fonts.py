@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-"""make_android_symbol_fonts.py - builds the two symbol fonts ActionUI's Android library draws SF Symbols and
-materialName with. The library's Gradle build runs it (task generateSymbolFonts) into a generated assets
-folder; nothing it writes is committed.
+"""make_symbol_fonts.py - builds the symbol fonts ActionUI draws SF Symbols and materialName with on Android
+and on the web. Nothing it writes is committed.
+
+Mode "android": the library's Gradle build runs it (task generateSymbolFonts) into a generated assets folder,
+which receives:
 
   fonts/MaterialSymbols.ttf
       Every glyph of Material Symbols Rounded (Tools/material_symbols/font), still a variable font on its
@@ -25,6 +27,15 @@ folder; nothing it writes is committed.
 The two fonts' code points overlap (Fluent's lie inside Material's private use range), so they stay two
 fonts, and the library draws each glyph from the font its map row names.
 
+Mode "web": ActionUIWeb/scripts/make-symbol-fonts.sh runs it into ActionUIWeb/assets, which receives only the
+Fluent half, since the web draws Material with the Material Symbols web font the host page loads:
+
+  fonts/FluentSymbols.woff2
+      The same font as Android's FluentSymbols.ttf, compressed as WOFF2 (which needs the brotli module). Its
+      line box is Material Symbols Rounded's (MATERIAL_LINE_BOX), so this mode needs no Material font.
+  symbols/sf_to_fluent.map, licenses/FluentSystemIcons-LICENSE.txt
+      As in mode "android".
+
 Licenses - both allow taking parts of the fonts, changing them, and shipping the result:
   - Material Symbols, Apache License 2.0: section 2 grants making and distributing derivative works, and
     section 4 sets the conditions, met here: the license ships with the result (licenses/), the changed font
@@ -37,14 +48,15 @@ Licenses - both allow taking parts of the fonts, changing them, and shipping the
     FLUENT_FAMILY), so neither passes for the upstream font; the Apache License grants no use of the
     licensor's trade names (section 6). On Android a name could not collide in any case: an app cannot
     install a font system-wide, and the library builds its typefaces from the asset bytes, never looking
-    a font up by family name.
+    a font up by family name. On the web the family name is scoped to the page that declares it.
 
-Needs: fontTools (the Gradle build installs a pinned version into a private Python environment), and the two
-fonts with their LICENSE and COMMIT files, which the Gradle build downloads, as do
-Tools/material_symbols/fetch-material-symbols-font.sh and Tools/fluent_symbols/fetch-fluent-icons-font.sh.
+Needs: fontTools (the Gradle build and the web script install a pinned version into a private Python
+environment; the web script adds brotli), and the fonts with their LICENSE and COMMIT files, which the Gradle
+build downloads, as do Tools/material_symbols/fetch-material-symbols-font.sh and
+Tools/fluent_symbols/fetch-fluent-icons-font.sh. Mode "web" needs only the Fluent font.
 
-Usage: python3 Tools/material_symbols/make_android_symbol_fonts.py OUTPUT_FOLDER
-Exit status: 0 written, 1 an input is missing or does not fit the map.
+Usage: python3 Tools/material_symbols/make_symbol_fonts.py android|web OUTPUT_FOLDER
+Exit status: 0 written, 1 an input is missing or does not fit the map, 64 bad arguments.
 """
 
 import math
@@ -62,6 +74,7 @@ FLUENT_MAP = REPO / "Tools" / "fluent_symbols" / "sf_to_fluent.map"
 
 MATERIAL_OUT = Path("fonts") / "MaterialSymbols.ttf"
 FLUENT_OUT = Path("fonts") / "FluentSymbols.ttf"
+FLUENT_WEB_OUT = Path("fonts") / "FluentSymbols.woff2"
 FLUENT_MAP_OUT = Path("symbols") / "sf_to_fluent.map"
 LICENSES_OUT = Path("licenses")
 
@@ -71,10 +84,19 @@ FLUENT_FAMILY = "ActionUI Fluent Symbols"
 # (Tools/material_symbols/generate-symbol-icons.c), where HarfBuzz rounds the strength to whole font units.
 FLUENT_EMBOLDEN_UNITS = 6
 
+# Material Symbols Rounded's line box, in its 960 units (hhea and OS/2): mode "web" gives the Fluent font these
+# proportions without reading the Material font; mode "android" reads them from the font it instances.
+MATERIAL_LINE_BOX = {
+    "units": 960,
+    "ascent": 1056, "descent": -96, "lineGap": 0,
+    "sTypoAscender": 1056, "sTypoDescender": -96, "sTypoLineGap": 0,
+    "usWinAscent": 1062, "usWinDescent": 91,
+}
 
-def fail(message):
-    print(f"make_android_symbol_fonts: {message}", file=sys.stderr)
-    return 1
+
+def fail(message, status=1):
+    print(f"make_symbol_fonts: {message}", file=sys.stderr)
+    return status
 
 
 def read_commit(path):
@@ -289,12 +311,25 @@ def build_material(commit):
     font["post"].formatType = 3.0
     set_names(font, MATERIAL_FAMILY, "ActionUIMaterialSymbols",
               f"Material Symbols Rounded by Google (Apache License 2.0), commit {commit}, instanced at grade 0 "
-              "and optical size 24 by ActionUI's make_android_symbol_fonts.py.")
+              "and optical size 24 by ActionUI's make_symbol_fonts.py.")
     return font
 
 
-def build_fluent(codepoints, commit, material):
-    """The Fluent glyphs of `codepoints`, the regular ones emboldened, with Material's line box."""
+def line_box_of(material):
+    """The line box of the Material font `material`, in the shape of MATERIAL_LINE_BOX."""
+    hhea = material["hhea"]
+    os2 = material["OS/2"]
+    return {
+        "units": material["head"].unitsPerEm,
+        "ascent": hhea.ascent, "descent": hhea.descent, "lineGap": hhea.lineGap,
+        "sTypoAscender": os2.sTypoAscender, "sTypoDescender": os2.sTypoDescender,
+        "sTypoLineGap": os2.sTypoLineGap,
+        "usWinAscent": os2.usWinAscent, "usWinDescent": os2.usWinDescent,
+    }
+
+
+def build_fluent(codepoints, commit, line_box):
+    """The Fluent glyphs of `codepoints`, the regular ones emboldened, with Material's line box `line_box`."""
     from fontTools import subset
     from fontTools.ttLib import TTFont
 
@@ -332,28 +367,20 @@ def build_fluent(codepoints, commit, material):
 
     # Material's line box in proportion to the em (above the baseline 1.1 em, below it 0.1 em at 960 units),
     # so a Fluent glyph is placed and sized in its text line as a Material one is.
-    material_units = material["head"].unitsPerEm
+    def scaled(key):
+        return round(line_box[key] * units / line_box["units"])
 
-    def scaled(value):
-        return round(value * units / material_units)
-
-    material_hhea = material["hhea"]
-    material_os2 = material["OS/2"]
     hhea = font["hhea"]
     os2 = font["OS/2"]
-    hhea.ascent = scaled(material_hhea.ascent)
-    hhea.descent = scaled(material_hhea.descent)
-    hhea.lineGap = scaled(material_hhea.lineGap)
-    os2.sTypoAscender = scaled(material_os2.sTypoAscender)
-    os2.sTypoDescender = scaled(material_os2.sTypoDescender)
-    os2.sTypoLineGap = scaled(material_os2.sTypoLineGap)
-    os2.usWinAscent = scaled(material_os2.usWinAscent)
-    os2.usWinDescent = scaled(material_os2.usWinDescent)
+    for key in ("ascent", "descent", "lineGap"):
+        setattr(hhea, key, scaled(key))
+    for key in ("sTypoAscender", "sTypoDescender", "sTypoLineGap", "usWinAscent", "usWinDescent"):
+        setattr(os2, key, scaled(key))
 
     set_names(font, FLUENT_FAMILY, "ActionUIFluentSymbols",
               f"Fluent System Icons (Resizable) by Microsoft (MIT License), commit {commit}: the glyphs "
               "ActionUI's sf_to_fluent.map uses, the regular ones emboldened, with the line box of Material "
-              "Symbols, by ActionUI's make_android_symbol_fonts.py.")
+              "Symbols, by ActionUI's make_symbol_fonts.py.")
     return font
 
 
@@ -372,14 +399,67 @@ def license_text(title, paragraph, license_path):
     return f"{title}\n\n{paragraph}\n\n" + license_path.read_text(encoding="utf-8")
 
 
-def main():
-    if len(sys.argv) != 2 or sys.argv[1].startswith("-"):
-        return fail("usage: make_android_symbol_fonts.py OUTPUT_FOLDER")
-    out = Path(sys.argv[1])
+def write_fluent_extras(out, fluent_commit, font_path):
+    """The Fluent map, copied unchanged, and the Fluent license naming the changed font `font_path`."""
+    shutil.copyfile(FLUENT_MAP, out / FLUENT_MAP_OUT)
+    (out / LICENSES_OUT / "FluentSystemIcons-LICENSE.txt").write_text(license_text(
+        "Fluent System Icons",
+        "The symbol icons of this library that Material Symbols has no glyph for are glyphs of the Fluent "
+        "System Icons font by Microsoft\n(https://github.com/microsoft/fluentui-system-icons, commit "
+        f"{fluent_commit}),\nthe regular ones emboldened, in {font_path.as_posix()}, a changed version "
+        "named \"ActionUI Fluent Symbols\".\nThe MIT License below permits using, modifying and merging "
+        "them; they are used under it:",
+        FLUENT_FOLDER / "LICENSE"), encoding="utf-8")
+
+
+def make_web(out, fluent_commit):
+    """Mode "web": the Fluent font as WOFF2, the Fluent map and its license."""
+    try:
+        import brotli  # noqa: F401
+    except ImportError:
+        return fail("the brotli module is needed for WOFF2 (pip install brotli)")
+    codepoints = fluent_codepoints(FLUENT_MAP)
+    fluent = build_fluent(codepoints, fluent_commit, MATERIAL_LINE_BOX)
+    fluent.flavor = "woff2"
+    for folder in (FLUENT_WEB_OUT.parent, FLUENT_MAP_OUT.parent, LICENSES_OUT):
+        (out / folder).mkdir(parents=True, exist_ok=True)
+    save(fluent, out / FLUENT_WEB_OUT)
+    write_fluent_extras(out, fluent_commit, FLUENT_WEB_OUT)
+    print(f"{out / FLUENT_WEB_OUT}: {(out / FLUENT_WEB_OUT).stat().st_size} bytes, {len(codepoints)} glyphs")
+    return 0
+
+
+def make_android(out, fluent_commit):
+    """Mode "android": both fonts as TrueType, the Fluent map and both licenses."""
     material_commit = read_commit(MATERIAL_FOLDER / "COMMIT")
     if not MATERIAL_FONT.is_file() or not (MATERIAL_FOLDER / "LICENSE").is_file() or material_commit is None:
         return fail(f"no Material Symbols font with its LICENSE and COMMIT in {MATERIAL_FOLDER}; build the "
                     "Android library, or run Tools/material_symbols/fetch-material-symbols-font.sh")
+    codepoints = fluent_codepoints(FLUENT_MAP)
+    material = build_material(material_commit)
+    fluent = build_fluent(codepoints, fluent_commit, line_box_of(material))
+    for folder in (MATERIAL_OUT.parent, FLUENT_MAP_OUT.parent, LICENSES_OUT):
+        (out / folder).mkdir(parents=True, exist_ok=True)
+    save(material, out / MATERIAL_OUT)
+    save(fluent, out / FLUENT_OUT)
+    write_fluent_extras(out, fluent_commit, FLUENT_OUT)
+    (out / LICENSES_OUT / "MaterialSymbols-LICENSE.txt").write_text(license_text(
+        "Material Symbols",
+        "The symbol icons of this library, other than the Fluent System Icons ones, are glyphs of the "
+        "Material Symbols Rounded font by Google\n(https://github.com/google/material-design-icons, commit "
+        f"{material_commit}),\ninstanced at grade 0 and optical size 24 into fonts/MaterialSymbols.ttf, a "
+        "changed version named \"ActionUI Material Symbols\".\nThe Apache License 2.0 below permits such "
+        "derivative works (sections 2 and 4); they are used under it:",
+        MATERIAL_FOLDER / "LICENSE"), encoding="utf-8")
+    print(f"{out / MATERIAL_OUT}: {(out / MATERIAL_OUT).stat().st_size} bytes; {out / FLUENT_OUT}: "
+          f"{(out / FLUENT_OUT).stat().st_size} bytes, {len(codepoints)} glyphs")
+    return 0
+
+
+def main():
+    if len(sys.argv) != 3 or sys.argv[1] not in ("android", "web") or sys.argv[2].startswith("-"):
+        return fail("usage: make_symbol_fonts.py android|web OUTPUT_FOLDER", 64)
+    mode, out = sys.argv[1], Path(sys.argv[2])
     fluent_commit = read_commit(FLUENT_ACCEPTED_COMMIT)
     if fluent_commit is None:
         return fail(f"no commit hash in {FLUENT_ACCEPTED_COMMIT}")
@@ -391,38 +471,10 @@ def main():
         import fontTools  # noqa: F401
     except ImportError:
         return fail("fontTools is needed (pip install fonttools)")
-
     try:
-        codepoints = fluent_codepoints(FLUENT_MAP)
-        material = build_material(material_commit)
-        fluent = build_fluent(codepoints, fluent_commit, material)
-        for folder in (MATERIAL_OUT.parent, FLUENT_MAP_OUT.parent, LICENSES_OUT):
-            (out / folder).mkdir(parents=True, exist_ok=True)
-        save(material, out / MATERIAL_OUT)
-        save(fluent, out / FLUENT_OUT)
-        shutil.copyfile(FLUENT_MAP, out / FLUENT_MAP_OUT)
-        (out / LICENSES_OUT / "MaterialSymbols-LICENSE.txt").write_text(license_text(
-            "Material Symbols",
-            "The symbol icons of this library, other than the Fluent System Icons ones, are glyphs of the "
-            "Material Symbols Rounded font by Google\n(https://github.com/google/material-design-icons, commit "
-            f"{material_commit}),\ninstanced at grade 0 and optical size 24 into fonts/MaterialSymbols.ttf, a "
-            "changed version named \"ActionUI Material Symbols\".\nThe Apache License 2.0 below permits such "
-            "derivative works (sections 2 and 4); they are used under it:",
-            MATERIAL_FOLDER / "LICENSE"), encoding="utf-8")
-        (out / LICENSES_OUT / "FluentSystemIcons-LICENSE.txt").write_text(license_text(
-            "Fluent System Icons",
-            "The symbol icons of this library that Material Symbols has no glyph for are glyphs of the Fluent "
-            "System Icons font by Microsoft\n(https://github.com/microsoft/fluentui-system-icons, commit "
-            f"{fluent_commit}),\nthe regular ones emboldened, in fonts/FluentSymbols.ttf, a changed version "
-            "named \"ActionUI Fluent Symbols\".\nThe MIT License below permits using, modifying and merging "
-            "them; they are used under it:",
-            FLUENT_FOLDER / "LICENSE"), encoding="utf-8")
+        return make_web(out, fluent_commit) if mode == "web" else make_android(out, fluent_commit)
     except (OSError, ValueError) as error:
         return fail(str(error))
-
-    print(f"{out / MATERIAL_OUT}: {(out / MATERIAL_OUT).stat().st_size} bytes; {out / FLUENT_OUT}: "
-          f"{(out / FLUENT_OUT).stat().st_size} bytes, {len(codepoints)} glyphs")
-    return 0
 
 
 if __name__ == "__main__":

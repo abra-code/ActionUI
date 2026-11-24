@@ -19,7 +19,7 @@ export function buildDataImageCell(value, interpretation, logger, owner) {
 
     if (resolved === "systemName") {
         return sfSymbolGlyph(value, {}, logger, (name) =>
-            `${owner} image cell systemName '${name}' has no SF→Material mapping; icon omitted. ` +
+            `${owner} image cell systemName '${name}' has no SF->Material or SF->Fluent mapping; icon omitted. ` +
             `Use 'materialName:web' for an explicit Material glyph.`);
     }
     if (resolved === "path") {

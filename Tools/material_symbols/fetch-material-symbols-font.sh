@@ -19,7 +19,7 @@
 # A glyph Google redraws at the same codepoint passes the check: the check is for the mapping only.
 # Android's Gradle build (fetchSymbolFontSources) follows the same rule, without editing the
 # committed files, downloads into the same folder, and makes the fonts it draws with from it
-# (make_android_symbol_fonts.py).
+# (make_symbol_fonts.py).
 #
 # Usage:
 #   bash fetch-material-symbols-font.sh [--accept] [FOLDER]

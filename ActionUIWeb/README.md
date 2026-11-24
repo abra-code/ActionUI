@@ -63,6 +63,17 @@ sh scripts/sync-symbol-map.sh           # re-copy from the sibling ActionUIAndro
 # or: sh scripts/sync-symbol-map.sh /path/to/sf_to_material.map
 ```
 
+### Fluent fill-ins
+
+For the SF Symbols Material has no glyph for, the renderer draws a Fluent System Icons glyph (MIT) instead: Tools/fluent_symbols/sf_to_fluent.map names one for each, from the font "ActionUI Fluent Symbols", which `theme.css` declares. That font and a copy of the map are made, not committed. Make them once after cloning:
+
+```sh
+cd ActionUIWeb
+bash scripts/make-symbol-fonts.sh       # needs Python 3.10+ and, the first time, GitHub and PyPI
+```
+
+It writes `assets/fonts/FluentSymbols.woff2` (about 40 KB), `assets/symbols/sf_to_fluent.map`, and `assets/licenses/FluentSystemIcons-LICENSE.txt`, the license to ship with the font. It is the same font the Android build makes: the glyphs the map uses, the regular ones emboldened to match Material's strokes, with Material's line box so the two kinds of glyph line up. Without these files the renderer draws the Material glyphs only and logs one warning; serve them with the rest of `ActionUIWeb` (the examples' `package_web_app.sh` copies them).
+
 ## Host configuration and trust
 
 ```js
@@ -150,7 +161,8 @@ ActionUI JSON from the page's own origin is trusted, and so is JSON from a trust
   + `assets/symbols/`): a shared glyph path - `Image`, `Button`, and `Label` all
   render SF Symbols (`systemName`/`systemImage`) via the Android SF->Material map
   and Material Symbols (`materialName`) via the OFL Material Symbols web font
-  (loaded by the host page; see `demo/index.html`).
+  (loaded by the host page; see `demo/index.html`). SF Symbols Material lacks
+  draw from the generated Fluent System Icons font (see Fluent fill-ins).
 - **API** (`src/ActionUI.js`): `Application` / `Window` classes mirroring
   `ActionUINodeJS/index.js` - `Window.fromURL/fromJSON`, `presentWindow`,
   `get/setString|Bool|Int|Double|Value`, `appendElementText(viewID, text)` (append to a

@@ -25,16 +25,27 @@
 // overrides disambiguated by range — `1` ⇒ FILL 1 (SF `.fill` variants),
 // 100..700 ⇒ a `wght` the match needs. The hex codepoint is in the Material
 // private-use area (begins e/f), so it never collides with a decimal axis token.
+//
+// ## Fluent fill-ins
+//
+// For an SF name the Material map has no row for, `sf_to_fluent.map`
+// (`<sf_name> <codepoint_hex>`, a copy of Tools/fluent_symbols/sf_to_fluent.map)
+// names a Fluent System Icons glyph, drawn from the "ActionUI Fluent Symbols"
+// font (assets/fonts/FluentSymbols.woff2, declared in theme.css). Its code
+// points overlap Material's, so each entry names its font. Both files are made
+// by scripts/make-symbol-fonts.sh and are not committed; without them only the
+// Material rows resolve.
 
 export const MATERIAL_WEIGHT_MIN = 100;
 export const MATERIAL_WEIGHT_MAX = 700;
 
-// The map lives next to the renderer so it resolves regardless of the host
+// The maps live next to the renderer so they resolve regardless of the host
 // page's base URL (import.meta.url is this module's absolute URL).
 const SF_MATERIAL_MAP_URL = new URL("../../assets/symbols/sf_to_material.map", import.meta.url);
+const SF_FLUENT_MAP_URL = new URL("../../assets/symbols/sf_to_fluent.map", import.meta.url);
 
-// One resolved SF→Material row: the glyph codepoint plus axis tuning.
-//   { codepoint: number, fill: boolean, weight: number | null }
+// One resolved SF row: the glyph codepoint, axis tuning, and its font.
+//   { codepoint: number, fill: boolean, weight: number | null, font: "material" | "fluent" }
 
 /**
  * Parses `sf_to_material.map` text into a `Map<name, entry>`. Comment (`#`)
@@ -62,7 +73,26 @@ export function parseSFSymbolMap(text) {
             else if (value >= MATERIAL_WEIGHT_MIN && value <= MATERIAL_WEIGHT_MAX) weight = value;
             // Out-of-range / unexpected token: ignore, keep the row usable.
         }
-        map.set(name, { codepoint, fill, weight });
+        map.set(name, { codepoint, fill, weight, font: "material" });
+    }
+    return map;
+}
+
+/**
+ * Adds the rows of `sf_to_fluent.map` text to `map` (in place) for the names
+ * it has no row for: the Material rows win. Fluent glyphs have no axes, so a
+ * Fluent entry carries no fill or weight. Malformed rows are skipped. Pure -
+ * mirror of Kotlin `withFluentRows`. Returns `map`.
+ */
+export function withFluentRows(map, text) {
+    for (const rawLine of text.split("\n")) {
+        const line = rawLine.trim();
+        if (line.length === 0 || line.startsWith("#")) continue;
+        const tokens = line.split(/\s+/);
+        if (tokens.length !== 2 || map.has(tokens[0])) continue;
+        const codepoint = parseInt(tokens[1], 16);
+        if (Number.isNaN(codepoint)) continue;
+        map.set(tokens[0], { codepoint, fill: false, weight: null, font: "fluent" });
     }
     return map;
 }
@@ -70,21 +100,26 @@ export function parseSFSymbolMap(text) {
 let mapCache = null;     // resolved Map once loaded
 let loadPromise = null;  // in-flight load (dedupes concurrent callers)
 
+function fetchText(url) {
+    return fetch(url).then((response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.text();
+    });
+}
+
 /**
- * Loads and parses the SF→Material map once, caching it for the page lifetime.
- * Returns a Promise of the `Map<name, entry>`. On fetch failure logs one
- * warning and resolves to an empty map (honest degrade — systemName images then
- * warn-skip, same as a missing font).
+ * Loads and parses the SF->Material map and the Fluent fill-in map once,
+ * caching the merged map for the page lifetime. Returns a Promise of the
+ * `Map<name, entry>`. Each map that cannot be loaded logs one warning: without
+ * the Material map the result has the Fluent rows only (the other systemName
+ * images then warn-skip, as with a missing font); without the Fluent map it has
+ * the Material rows only.
  */
 export function preloadSymbolMap(logger = null) {
     if (mapCache) return Promise.resolve(mapCache);
     if (loadPromise) return loadPromise;
-    loadPromise = fetch(SF_MATERIAL_MAP_URL)
-        .then((response) => {
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            return response.text();
-        })
-        .then((text) => { mapCache = parseSFSymbolMap(text); return mapCache; })
+    const material = fetchText(SF_MATERIAL_MAP_URL)
+        .then(parseSFSymbolMap)
         .catch((error) => {
             logger?.log(
                 `SF→Material map '${SF_MATERIAL_MAP_URL.pathname}' could not be loaded ` +
@@ -93,9 +128,22 @@ export function preloadSymbolMap(logger = null) {
                 `Use 'materialName' for an explicit Material glyph.`,
                 "warning",
             );
-            mapCache = new Map();
-            return mapCache;
+            return new Map();
         });
+    const fluent = fetchText(SF_FLUENT_MAP_URL).catch((error) => {
+        logger?.log(
+            `SF->Fluent map '${SF_FLUENT_MAP_URL.pathname}' could not be loaded ` +
+            `(${error.message}). The SF Symbols that Material Symbols has no glyph for ` +
+            `will not be drawn; run scripts/make-symbol-fonts.sh to make the Fluent ` +
+            `System Icons font and map.`,
+            "warning",
+        );
+        return "";
+    });
+    loadPromise = Promise.all([material, fluent]).then(([map, fluentText]) => {
+        mapCache = withFluentRows(map, fluentText);
+        return mapCache;
+    });
     return loadPromise;
 }
 

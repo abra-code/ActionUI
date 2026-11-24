@@ -1965,6 +1965,18 @@
 .aui-symbol-small  { font-size: 0.94em; }
 .aui-symbol-medium { font-size: 1.18em; }
 .aui-symbol-large  { font-size: 1.51em; }
+
+/* Fluent System Icons fill-ins (MIT): the SF Symbols Material has no glyph for
+   (Helpers/MaterialSymbolResolver.js). The font is made by
+   scripts/make-symbol-fonts.sh, not committed, and loaded when first needed: a
+   page draws one of its glyphs, or a Canvas draws any SF Symbol. Its line box is Material's, so its glyphs sit and size like
+   Material ones; it has no variable axes. */
+@font-face {
+    font-family: "ActionUI Fluent Symbols";
+    src: url("assets/fonts/FluentSymbols.woff2") format("woff2");
+    font-display: block;
+}
+.aui-symbol-fluent { font-family: "ActionUI Fluent Symbols", sans-serif; }
 /* Debug-mode placeholder for an unmapped SF Symbol (SymbolIcon.markMissingGlyph):
    a tinted, outlined broken-image glyph so the gap is visible, not silent. */
 .aui-symbol-missing { color: var(--aui-color-red); outline: 1px dashed var(--aui-color-red); outline-offset: 1px; }
