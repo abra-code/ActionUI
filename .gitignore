@@ -44,4 +44,5 @@ ActionUIRust/library/
 ActionUIRust/target/
 Tools/material_symbols/font/
 Tools/material_symbols/build/
+Tools/fluent_symbols/font/
 ActionUIAdwaita/CSymbolResource/generated/
