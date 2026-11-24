@@ -14,9 +14,11 @@
  - Image `assetName`: the bundle is on the icon theme's search path, so an image file named after
    the asset (Orb.png) at the bundle's top level is found.
  - `Info.plist` describes the app (AppInfo), as on Apple: its application ID, name and icon
-   (CFBundleIdentifier, CFBundleDisplayName or CFBundleName, CFBundleIconFile), used where the
-   host sets none. It is at the bundle's top level, or in `Contents` when the bundle has the macOS
-   layout (the program in `Contents/Linux`, the resources in `Contents/Resources`).
+   (CFBundleIdentifier, CFBundleDisplayName or CFBundleName, CFBundleIconFile), and the version
+   and copyright line its About dialog shows (CFBundleShortVersionString or CFBundleVersion,
+   NSHumanReadableCopyright), used where the host sets none. It is at the bundle's top level, or
+   in `Contents` when the bundle has the macOS layout (the program in `Contents/Linux`, the
+   resources in `Contents/Resources`).
 */
 
 #if canImport(FoundationEssentials)
@@ -91,7 +93,7 @@ package enum AppBundle {
             info.resources = location.resources
             return info
         } catch {
-            ActionUIModel.shared.logger.log("\(location.plist) is not a property list whose CFBundleIdentifier, CFBundleDisplayName, CFBundleName and CFBundleIconFile are strings (\(error)); it is ignored", .warning)
+            ActionUIModel.shared.logger.log("\(location.plist) is not a property list whose CFBundleIdentifier, CFBundleDisplayName, CFBundleName, CFBundleIconFile, CFBundleShortVersionString, CFBundleVersion and NSHumanReadableCopyright are strings (\(error)); it is ignored", .warning)
             return nil
         }
     }
@@ -136,9 +138,15 @@ package struct AppInfo: Decodable, Equatable {
     package var iconFile: String?
     /// The resources folder the icon is looked up in (set by AppBundle.info, not read).
     package var resources: String?
+    /// The version About shows: CFBundleShortVersionString, else CFBundleVersion, as macOS's About
+    /// panel shows the build number when there is no version.
+    package var version: String?
+    /// The copyright line About shows: NSHumanReadableCopyright.
+    package var copyright: String?
 
     private enum CodingKeys: String, CodingKey {
         case CFBundleIdentifier, CFBundleDisplayName, CFBundleName, CFBundleIconFile
+        case CFBundleShortVersionString, CFBundleVersion, NSHumanReadableCopyright
     }
 
     /// The icon as AdwaitaApplication takes it, the path of a PNG or SVG file in the resources
@@ -165,7 +173,10 @@ extension AppInfo {
         // Both names are read, so a wrong type in either fails alike (as in linux-app-entry.py)
         let displayName = try value(.CFBundleDisplayName)
         let bundleName = try value(.CFBundleName)
+        let shortVersion = try value(.CFBundleShortVersionString)
+        let buildVersion = try value(.CFBundleVersion)
         self.init(applicationID: try value(.CFBundleIdentifier), name: displayName ?? bundleName,
-                  iconFile: try value(.CFBundleIconFile))
+                  iconFile: try value(.CFBundleIconFile), version: shortVersion ?? buildVersion,
+                  copyright: try value(.NSHumanReadableCopyright))
     }
 }

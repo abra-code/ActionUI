@@ -3,7 +3,8 @@
  Tests for resource lookup on Linux (AppBundle): the running program's folder as the bundle,
  whatever its name; a LoadableView name found beside the window's document, beside the file an
  enclosing LoadableView loaded, and in the bundle; Image resourceName and assetName found in the
- bundle; the bundle's Info.plist read (flat, or in the macOS Contents layout), with its icon found in the resources.
+ bundle; the bundle's Info.plist read (flat, or in the macOS Contents layout), with its icon found in the resources,
+ its version and its copyright line.
 */
 
 import XCTest
@@ -127,6 +128,16 @@ final class AppBundleTests: XCTestCase {
         let info = try XCTUnwrap(AppBundle.info(in: bundle))
         XCTAssertEqual(info, AppInfo(applicationID: "org.example.Info", name: "Info App", iconFile: "Info", resources: bundle),
                        "the display name before the name; other keys are ignored")
+    }
+
+    func testTheVersionAndCopyrightAreRead() throws {
+        let bundle = try folder()
+        try write(plist([("CFBundleShortVersionString", "2.1"), ("CFBundleVersion", "214"),
+                         ("NSHumanReadableCopyright", "Copyright 2026 Example")]), "Info.plist", in: bundle)
+        XCTAssertEqual(AppBundle.info(in: bundle),
+                       AppInfo(resources: bundle, version: "2.1", copyright: "Copyright 2026 Example"), "the version before the build number")
+        try write(plist([("CFBundleVersion", "214")]), "Info.plist", in: bundle)
+        XCTAssertEqual(AppBundle.info(in: bundle)?.version, "214", "the build number without a version, as macOS's About panel shows it")
     }
 
     func testTheNameIsCFBundleNameWithoutADisplayName() throws {
