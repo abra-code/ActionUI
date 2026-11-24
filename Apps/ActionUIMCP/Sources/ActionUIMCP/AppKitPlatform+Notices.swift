@@ -58,7 +58,7 @@ extension AppKitPlatform {
             "children": children,
         ]
         let windowID = UUID().uuidString
-        let loaded = try host.load(document: document, windowID: windowID)
+        let loaded = try host.load(ui: document, windowID: windowID)
         let errors = loaded.entries.filter { $0.level == .error }.map(\.message)
         guard errors.isEmpty else {
             host.forgetModel(windowID)

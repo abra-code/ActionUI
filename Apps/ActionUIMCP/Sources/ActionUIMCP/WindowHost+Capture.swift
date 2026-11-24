@@ -44,9 +44,9 @@ extension WindowHost {
     /// `size` nil it takes the document's fitting size. The user keeps focus, so controls draw in
     /// their inactive style; the layout is the same as in a shown window. Returns the capture and
     /// the warnings ActionUI logged.
-    func renderDocument(_ document: JSONValue, size: ContentSize?, delay: Double) async throws -> (Screenshot, [String]) {
+    func renderUI(_ document: JSONValue, size: ContentSize?, delay: Double) async throws -> (Screenshot, [String]) {
         let windowID = UUID().uuidString
-        let loaded = try load(document: document.any as? [String: Any] ?? [:], windowID: windowID)
+        let loaded = try load(ui: document.any as? [String: Any] ?? [:], windowID: windowID)
         defer { forgetModel(windowID) }
         let errors = loaded.entries.filter { $0.level == .error }.map(\.message)
         guard errors.isEmpty else {

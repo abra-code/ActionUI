@@ -4,7 +4,7 @@
 // Licensed under the PolyForm Small Business License 1.0.0
 // https://polyformproject.org/licenses/small-business/1.0.0
 
-// ToolsDocuments.swift - tools for agent-written ActionUI JSON and live windows: show_ui,
+// ToolsUI.swift - tools for agent-written ActionUI JSON and live windows: show_ui,
 // validate_ui, wait, update_window, get_values, plus pick_path.
 
 #if canImport(FoundationEssentials)
@@ -66,7 +66,7 @@ func showUITool(host: WindowHost, label: String?) -> MCPTool {
         annotations: ["readOnlyHint": true, "openWorldHint": true],
         heartbeatInterval: 15
     ) { arguments, context in
-        let document = try AgentDocument(arguments: arguments)
+        let document = try AgentUI(arguments: arguments)
         guard let rawTitle = arguments["title"]?.string, !rawTitle.isEmpty else {
             throw MCPToolError("'title' is required and must be a non-empty string")
         }
@@ -92,7 +92,7 @@ func showUITool(host: WindowHost, label: String?) -> MCPTool {
             }
             let sizing: WindowHost.Sizing = size.map { .fixed($0) } ?? .fitting(resizable: true)
             let opened = try await MainActor.run { [root] in
-                try host.openWindow(document: root.any as? [String: Any] ?? [:], title: title, subtitle: subtitle,
+                try host.openWindow(ui: root.any as? [String: Any] ?? [:], title: title, subtitle: subtitle,
                                     sizing: sizing, activate: false, queuesEvents: true, rejectLoadErrors: true, keep: keep)
             }
             var result: [String: JSONValue] = ["window": .string(opened.id)]
@@ -101,10 +101,10 @@ func showUITool(host: WindowHost, label: String?) -> MCPTool {
             return .structured(.object(result))
         }
 
-        let dialog = try DocumentDialog(arguments: arguments)
+        let dialog = try UIDialog(arguments: arguments)
         try dialog.checkCloseActions(in: document.root)
         let timeout = min(max(arguments["timeout_s"]?.double ?? defaultDialogTimeout, 1), maxDialogTimeout)
-        let opened = try await host.beginDocumentDialog(document: document, dialog: dialog, title: title,
+        let opened = try await host.beginUIDialog(ui: document, dialog: dialog, title: title,
                                                         subtitle: subtitle, size: size, timeout: timeout)
         guard case .object(var result) = await host.result(of: opened.id) else {
             throw MCPToolError("internal error: dialog result is not an object")
@@ -143,16 +143,16 @@ func validateUITool(host: WindowHost) -> MCPTool {
                        "required": ["ok", "errors", "warnings"]],
         annotations: ["readOnlyHint": true, "openWorldHint": true]
     ) { arguments, _ in
-        let document: AgentDocument
+        let document: AgentUI
         do {
-            document = try AgentDocument(arguments: arguments)
+            document = try AgentUI(arguments: arguments)
         } catch let error as MCPToolError {
             // Structural errors are the answer, not a failure of the tool.
             let lines = error.message.split(separator: "\n").map(String.init)
             let errors = lines.first?.hasSuffix("errors:") == true ? Array(lines.dropFirst()) : lines
             return .structured(["ok": false, "errors": .array(errors.map(JSONValue.string)), "warnings": []])
         }
-        let loaded = try await MainActor.run { try host.check(document: document.foundation) }
+        let loaded = try await MainActor.run { try host.check(ui: document.foundation) }
         let warnings = document.warnings + loaded.warnings
         return .structured(["ok": .bool(loaded.errors.isEmpty),
                             "errors": .array(loaded.errors.prefix(50).map(JSONValue.string)),
@@ -356,12 +356,12 @@ func screenshotTool(host: WindowHost) -> MCPTool {
             guard arguments["ui"] != nil || arguments["path"] != nil else {
                 throw MCPToolError("give 'window' (an open window's id), 'ui' (an ActionUI element object), or 'path' (an absolute .json path)")
             }
-            let document = try AgentDocument(arguments: arguments)
+            let document = try AgentUI(arguments: arguments)
             var size: ContentSize?
             if let width = arguments["width"]?.double, let height = arguments["height"]?.double {
                 size = ContentSize(width: min(max(width, 160), 3000), height: min(max(height, 80), 3000))
             }
-            let rendered = try await host.renderDocument(document.root, size: size, delay: delay)
+            let rendered = try await host.renderUI(document.root, size: size, delay: delay)
             shot = rendered.0
             warnings = document.warnings + rendered.1
         }

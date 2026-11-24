@@ -4,7 +4,7 @@
 // Licensed under the PolyForm Small Business License 1.0.0
 // https://polyformproject.org/licenses/small-business/1.0.0
 
-// Documents.swift - the ActionUI documents the canned tools show. The agent passes a few typed
+// CannedUI.swift - the ActionUI documents the canned tools show. The agent passes a few typed
 // parameters; the server assembles the document here, so the agent never writes ActionUI syntax
 // for a simple dialog or viewer.
 
@@ -181,7 +181,7 @@ struct DialogSpec {
         }
     }
 
-    func document(footer: String) -> [String: Any] {
+    func ui(footer: String) -> [String: Any] {
         // The title is the window title; the message is the heading of the content.
         var children: [[String: Any]] = []
         if let message, !message.isEmpty {
@@ -512,9 +512,9 @@ struct ViewerSpec {
             }
             // The description is the agent's, so the window's ActionUI JSON gets the checks of show_ui,
             // the verifier among them, and its warnings go back with the result.
-            let document: AgentDocument
+            let document: AgentUI
             do {
-                document = try AgentDocument(arguments: ["ui": [
+                document = try AgentUI(arguments: ["ui": [
                     "type": "Chart", "id": .int(Self.chartViewID),
                     "properties": ["chart": chart, "padding": 16, "frame": ["maxWidth": "infinity", "maxHeight": "infinity"]],
                 ]])

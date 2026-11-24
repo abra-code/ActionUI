@@ -4,7 +4,7 @@
 // Licensed under the PolyForm Small Business License 1.0.0
 // https://polyformproject.org/licenses/small-business/1.0.0
 
-// AgentDocuments.swift - ActionUI JSON written by the agent (show_ui,
+// AgentUI.swift - ActionUI JSON written by the agent (show_ui,
 // validate_ui). A document arrives as a JSON object nested in the tool arguments, or as an
 // absolute path to a .json file, never as a string. Before anything loads it gets structural
 // checks for the mistakes ActionUI's loader would silently ignore, and the safety rules of the
@@ -21,7 +21,7 @@ import Foundation
 import ActionUI
 import MCPStdio
 
-struct AgentDocument {
+struct AgentUI {
     /// The checked document (always an element object). Sendable, so it can cross to the main
     /// actor; `foundation` converts it for loading there.
     let root: JSONValue
@@ -356,7 +356,7 @@ struct AgentDocument {
 }
 
 /// Standard dialog chrome around an agent document: the document, the footer, and a button row.
-struct DocumentDialog {
+struct UIDialog {
     let buttons: [DialogButton]
     /// actionIDs in the document that end the dialog, for agents that draw their own buttons.
     let closeActions: Set<String>

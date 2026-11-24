@@ -37,7 +37,7 @@ final class KeptWindowKeeper: NSObject, NSWindowDelegate {
         MCPTrustPolicy.install(windowFolder: spool)
         ActionUISwift.setDefaultActionHandler { _, _, _, _, _ in }  // no agent is listening any more
         for record in manifest.windows {
-            show(record, file: spool.appendingPathComponent(record.document))
+            show(record, file: spool.appendingPathComponent(record.json))
         }
         guard !windows.isEmpty else {
             KeptWindowSupport.report("error: the new process could not load any kept window", to: readyFD)

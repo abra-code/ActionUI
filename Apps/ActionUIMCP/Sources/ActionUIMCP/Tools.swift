@@ -6,7 +6,7 @@
 
 // Tools.swift - the canned tools: ask_user (blocking), notify, show and close_window. Definitions
 // and handlers side by side (the tools for agent-written ActionUI JSON, live windows and panels are
-// in ToolsDocuments.swift); handlers parse arguments off the main actor and hop to it for anything
+// in ToolsUI.swift); handlers parse arguments off the main actor and hop to it for anything
 // that touches a window.
 
 #if canImport(FoundationEssentials)
