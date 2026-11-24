@@ -75,6 +75,8 @@ Package(
         .package(path: "../../Add-ons/ActionUIDiff"),
         .package(path: "../../Add-ons/ActionUICachedImage"),
         .package(path: "../../Add-ons/ActionUIRichText"),
+        // The diff behind the Diff element, for saving a diff (ShowSaving.swift).
+        .package(url: "https://github.com/abra-code/DiffView", from: "0.2.0"),
     ],
     targets: [
         .target(
@@ -92,6 +94,7 @@ Package(
                 .product(name: "ActionUIDiff", package: "ActionUIDiff"),
                 .product(name: "ActionUICachedImage", package: "ActionUICachedImage"),
                 .product(name: "ActionUIRichText", package: "ActionUIRichText"),
+                .product(name: "DiffView", package: "DiffView"),
                 // Resource-only documentation bundles, served as MCP resources (DocsResources.swift).
                 // Linked only so they are built next to the executable; never imported.
                 .product(name: "ActionUIDocumentation", package: "ActionUI"),
@@ -137,6 +140,8 @@ Package(
         .package(path: "../../Add-ons/ActionUICachedImage"),
         .package(path: "../../Add-ons/ActionUIDiff"),
         .package(path: "../../Add-ons/ActionUIRichText"),
+        // The diff behind the Diff element, for saving a diff (ShowSaving.swift).
+        .package(url: "https://github.com/abra-code/DiffView", from: "0.2.0"),
     ],
     targets: [
         .target(
@@ -154,6 +159,7 @@ Package(
                 .product(name: "ActionUICachedImage", package: "ActionUICachedImage"),
                 .product(name: "ActionUIDiff", package: "ActionUIDiff"),
                 .product(name: "ActionUIRichText", package: "ActionUIRichText"),
+                .product(name: "DiffView", package: "DiffView"),
             ],
             path: "Sources/ActionUIMCP",
             // No resource bundles on Linux (they need full Foundation).

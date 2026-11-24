@@ -5,24 +5,35 @@
 // https://polyformproject.org/licenses/small-business/1.0.0
 
 // AppKitPlatform+ShowFooter.swift - the bottom bar of a `show` window: where the content came from
-// (a file, with a button that shows it in the Finder, or a web address) and when the window was
-// shown. It is AppKit, outside the ActionUI JSON, so the agent can neither change it nor press its
-// button; it keeps working in a kept window after the session ends.
+// (a file, with a button that shows it in the Finder, or a web address), when the window was shown,
+// and a Save button (Copy URL for content from the network). It is AppKit, outside the ActionUI
+// JSON, so the agent can neither change it nor press its buttons; it keeps working in a kept window
+// after the session ends.
 
 #if canImport(AppKit)
 import AppKit
+import ActionUISwiftAdapter
+import MCPStdio
 
 final class ShowFooterView: NSView {
     static let height: CGFloat = 26
 
     private let path: String?
+    private let url: String?
+    private let save: ShowSave?
+    private let windowID: String
+    /// The view showing the ActionUI content, drawn for a chart's PNG.
+    private weak var content: NSView?
 
-    init(footer: ShowFooter) {
+    init(footer: ShowFooter, windowID: String, content: NSView) {
         path = footer.path
+        url = footer.url
+        save = footer.save
+        self.windowID = windowID
+        self.content = content
         super.init(frame: .zero)
-
-        let separator = NSBox()
-        separator.boxType = .separator
+        // The yellow is the same in dark mode, so the text and buttons on it are drawn light.
+        appearance = NSAppearance(named: .aqua)
 
         var items: [NSView] = []
         if let source = footer.path ?? footer.url {
@@ -48,6 +59,7 @@ final class ShowFooterView: NSView {
             let reveal = NSButton(image: NSImage(systemSymbolName: "folder", accessibilityDescription: "Show in Finder") ?? NSImage(),
                                   target: self, action: #selector(revealInFinder))
             reveal.isBordered = false
+            reveal.contentTintColor = NSColor(white: 0.15, alpha: 1)
             reveal.imageScaling = .scaleProportionallyDown
             reveal.toolTip = "Show in Finder"
             reveal.setAccessibilityLabel("Show in Finder")
@@ -60,38 +72,54 @@ final class ShowFooterView: NSView {
         shown.toolTip = "When the window was shown"
         shown.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
         items.append(shown)
+        if let save {
+            items.append(Self.button("Save\u{2026}", help: "Save a copy of what the window shows", target: self, action: #selector(saveCopy)))
+            #if DEBUG
+            scheduleTestSave(save)
+            #endif
+        } else if url != nil {
+            items.append(Self.button("Copy URL", help: "Copy the web address", target: self, action: #selector(copyURL)))
+        }
 
         let row = NSStackView(views: items)
         row.orientation = .horizontal
         row.spacing = 6
         row.edgeInsets = NSEdgeInsets(top: 0, left: 10, bottom: 0, right: 10)
-        for view in [separator, row] {
-            view.translatesAutoresizingMaskIntoConstraints = false
-            addSubview(view)
-        }
+        row.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(row)
         NSLayoutConstraint.activate([
-            separator.topAnchor.constraint(equalTo: topAnchor),
-            separator.leadingAnchor.constraint(equalTo: leadingAnchor),
-            separator.trailingAnchor.constraint(equalTo: trailingAnchor),
             row.leadingAnchor.constraint(equalTo: leadingAnchor),
             row.trailingAnchor.constraint(equalTo: trailingAnchor),
-            row.centerYAnchor.constraint(equalTo: centerYAnchor, constant: 0.5),
+            row.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("not used") }
 
-    // Views do not clip to their bounds, and the rectangle asked for can be the whole window.
+    override var isFlipped: Bool { true }
+
+    /// The strip's yellow, bright at the top and darker at the bottom, with no notches.
     override func draw(_ dirtyRect: NSRect) {
-        NSColor.windowBackgroundColor.setFill()
-        bounds.intersection(dirtyRect).fill()
+        // Views do not clip to their bounds, and the rectangle asked for can be the whole window.
+        bounds.clip()
+        // The view is flipped, so angle 90 runs from the top (starting color) to the bottom.
+        NSGradient(starting: HazardStripView.bright, ending: HazardStripView.dark)?.draw(in: bounds, angle: 90)
+    }
+
+    private static func button(_ title: String, help: String, target: AnyObject, action: Selector) -> NSButton {
+        let button = NSButton(title: title, target: target, action: action)
+        button.controlSize = .small
+        button.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+        button.toolTip = help
+        button.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
+        return button
     }
 
     private static func label(_ text: String) -> NSTextField {
         let label = NSTextField(labelWithString: text)
         label.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
-        label.textColor = .secondaryLabelColor
+        label.textColor = NSColor(white: 0.15, alpha: 1)
         return label
     }
 
@@ -102,6 +130,104 @@ final class ShowFooterView: NSView {
             return
         }
         NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
+    }
+
+    @objc private func copyURL() {
+        guard let url else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(url, forType: .string)
+    }
+
+    /// Asks where with a save panel on the window, then writes there; the panel confirms replacing
+    /// a file. Nothing is written anywhere else.
+    @objc private func saveCopy() {
+        guard let save, let window else { return }
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = save.suggestedName
+        panel.canCreateDirectories = true
+        panel.isExtensionHidden = false
+        panel.beginSheetModal(for: window) { [weak self] response in
+            guard response == .OK, let destination = panel.url, let self else { return }
+            do {
+                try self.write(save.content, to: destination)
+            } catch {
+                let alert = NSAlert()
+                alert.messageText = "The copy could not be saved."
+                alert.informativeText = error.localizedDescription
+                alert.beginSheetModal(for: window)
+            }
+        }
+    }
+
+    private func write(_ content: ShowSave.Content, to destination: URL) throws {
+        switch content {
+        case .file(let path):
+            let source = URL(fileURLWithPath: path)
+            // Saving a file onto itself: it is already there, and removing it first would lose it.
+            if source.resolvingSymlinksInPath().standardizedFileURL == destination.resolvingSymlinksInPath().standardizedFileURL { return }
+            let staged = destination.deletingLastPathComponent()
+                .appendingPathComponent(".\(destination.lastPathComponent).\(UUID().uuidString)")
+            do {
+                try FileManager.default.copyItem(at: source, to: staged)
+                // replaceItemAt fails on a symbolic link ("doesn't exist"); replace the link itself,
+                // as the atomic writes below do.
+                let isLink = (try? destination.resourceValues(forKeys: [.isSymbolicLinkKey]))?.isSymbolicLink == true
+                if isLink {
+                    guard rename(staged.path, destination.path) == 0 else {
+                        throw NSError(domain: NSPOSIXErrorDomain, code: Int(errno))
+                    }
+                } else {
+                    _ = try FileManager.default.replaceItemAt(destination, withItemAt: staged)
+                }
+            } catch {
+                try? FileManager.default.removeItem(at: staged)
+                throw error
+            }
+        case .text(let text):
+            try Data(text.utf8).write(to: destination, options: .atomic)
+        case .table(let columns):
+            let rows = ActionUISwift.getElementRows(windowUUID: windowID, viewID: ViewerSpec.tableViewID) ?? []
+            try Data(ShowSave.csv(columns: columns, rows: rows).utf8).write(to: destination, options: .atomic)
+        case .chart:
+            try chartPNG().write(to: destination, options: .atomic)
+        case .diff(let old, let new):
+            let oldText = try Self.text(of: old), newText = try Self.text(of: new)
+            let diff = try ShowSave.unifiedDiff(oldText: oldText, newText: newText,
+                                                oldName: old.path ?? "old", newName: new.path ?? "new")
+            try Data(diff.utf8).write(to: destination, options: .atomic)
+        }
+    }
+
+    #if DEBUG
+    /// ACTIONUI_MCP_TEST_SAVE_DIR=<folder>: for the live test, 1.5 seconds after the window opens,
+    /// save as the Save button does, into that folder under the offered name, with no panel.
+    private func scheduleTestSave(_ save: ShowSave) {
+        guard let folder = ProcessInfo.processInfo.environment["ACTIONUI_MCP_TEST_SAVE_DIR"] else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+            let destination = URL(fileURLWithPath: folder).appendingPathComponent(save.suggestedName)
+            do {
+                try self?.write(save.content, to: destination)
+            } catch {
+                HostSupport.logLine("[actionui-mcp] test save failed: \(error)")
+            }
+        }
+    }
+    #endif
+
+    private static func text(of side: DiffSideSource) throws -> String {
+        if let text = side.text { return text }
+        guard let path = side.path else { return "" }
+        return try String(contentsOfFile: path, encoding: .utf8)
+    }
+
+    /// The content view drawn into a bitmap at the screen's scale, as a PNG.
+    private func chartPNG() throws -> Data {
+        guard let content, let rep = content.bitmapImageRepForCachingDisplay(in: content.bounds) else {
+            throw MCPToolError("the chart could not be drawn")
+        }
+        content.cacheDisplay(in: content.bounds, to: rep)
+        guard let png = rep.representation(using: .png, properties: [:]) else { throw MCPToolError("the chart could not be encoded") }
+        return png
     }
 }
 #endif

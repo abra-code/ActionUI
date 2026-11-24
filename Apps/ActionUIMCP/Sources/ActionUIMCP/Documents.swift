@@ -348,6 +348,8 @@ struct ShowFooter: Codable, Sendable {
     let path: String?
     /// The http(s) address shown, for content from the network.
     let url: String?
+    /// What the Save button writes; nil when there is none (content from the network).
+    let save: ShowSave?
 }
 
 struct ViewerSpec {
@@ -366,6 +368,7 @@ struct ViewerSpec {
     /// Where the content came from, for the bottom bar: a local file, or an http(s) address.
     let sourcePath: String?
     let sourceURL: String?
+    let save: ShowSave?
 
     static let tableViewID = 1
     static let chartViewID = 1
@@ -530,11 +533,12 @@ struct ViewerSpec {
         shownAs = fileView
         sourcePath = shownPath.map { URL(fileURLWithPath: $0).resolvingSymlinksInPath().path }
         sourceURL = shownURL
+        save = ShowSave.forViewer(kind: kind, title: self.title, arguments: arguments, sourcePath: sourcePath)
     }
 
     /// The bottom bar of a window showing this, opened now.
     func footer() -> ShowFooter {
-        ShowFooter(shownAt: Date(), path: sourcePath, url: sourceURL)
+        ShowFooter(shownAt: Date(), path: sourcePath, url: sourceURL, save: save)
     }
 
     /// The folder that relative paths in `text` resolve against: `base`, an existing folder, or the

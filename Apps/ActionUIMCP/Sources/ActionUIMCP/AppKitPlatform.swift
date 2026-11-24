@@ -158,7 +158,7 @@ final class AppKitPlatform: NSObject, NSWindowDelegate, WindowPlatform {
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 200),
                               styleMask: style, backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
-        window.contentView = Self.markedContainer(around: content.controller.view, mark: mark, footer: footer)
+        window.contentView = Self.markedContainer(around: content.controller.view, mark: mark, footer: footer, windowID: windowID)
         // After the content view: installing the SwiftUI hosting view resets the window's title
         // and subtitle, and the subtitle carries the provenance line.
         window.title = title

@@ -24,8 +24,9 @@ final class HazardStripView: NSView {
     private static let notchDepth = stripHeight * 0.4
     private static let notchWidth = stripHeight * 0.8
     private static let notchSpacing = stripHeight * 2.1
-    private static let bright = NSColor(srgbRed: 252 / 255, green: 240 / 255, blue: 97 / 255, alpha: 1)
-    private static let dark = NSColor(srgbRed: 216 / 255, green: 185 / 255, blue: 74 / 255, alpha: 1)
+    // The yellow, shared with the bottom bar of `show` windows.
+    static let bright = NSColor(srgbRed: 252 / 255, green: 240 / 255, blue: 97 / 255, alpha: 1)
+    static let dark = NSColor(srgbRed: 216 / 255, green: 185 / 255, blue: 74 / 255, alpha: 1)
     private static let notchColor = NSColor(srgbRed: 0.03, green: 0.03, blue: 0.035, alpha: 1)
 
     static func height(of mark: WindowMark) -> CGFloat {
@@ -78,12 +79,12 @@ final class HazardStripView: NSView {
 extension AppKitPlatform {
     /// The window's content view: the mark on top, `content` below it, and for a `show` window its
     /// bottom bar under that.
-    static func markedContainer(around content: NSView, mark: WindowMark, footer: ShowFooter?) -> NSView {
+    static func markedContainer(around content: NSView, mark: WindowMark, footer: ShowFooter?, windowID: String) -> NSView {
         // A hosting view that is not the window's content view does not pass its toolbar items and
         // navigation title on to the window unless asked: without this, an ActionUI toolbar is lost.
         (content as? NSHostingView<AnyView>)?.sceneBridgingOptions = [.toolbars, .title]
         let strip = HazardStripView(mark: mark)
-        let bar = footer.map(ShowFooterView.init(footer:))
+        let bar = footer.map { ShowFooterView(footer: $0, windowID: windowID, content: content) }
         let container = NSView()
         for view in [strip, content] + (bar.map { [$0] } ?? []) {
             view.translatesAutoresizingMaskIntoConstraints = false

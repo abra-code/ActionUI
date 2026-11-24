@@ -712,6 +712,48 @@ if not LINUX:
                   and len(name) <= 60 for name in menu), menu)
     s.close()
 
+# Save on a show window (macOS): the test hook saves each window as the Save button does, into a
+# folder, under the offered name: the text, a table as CSV with the rows as they are, a diff as a
+# unified diff, a copy of a file, a chart as PNG. Content from the network has no Save.
+if not LINUX:
+    import tempfile as _tempfile
+    save_dir = _tempfile.mkdtemp(prefix="actionui-mcp-save-")
+    # Elsewhere: saving a file onto itself writes nothing.
+    source = os.path.join(_tempfile.mkdtemp(prefix="actionui-mcp-save-source-"), "source.bin")
+    with open(source, "wb") as handle:
+        handle.write(bytes(range(256)))
+    s = Session(binary, extra_env={"ACTIONUI_MCP_TEST_SAVE_DIR": save_dir})
+    shows = [
+        {"title": "Notes", "kind": "markdown", "text": "# Notes\n\nSaved as written."},
+        {"title": "People", "kind": "table", "columns": ["Name", "Note"], "rows": [["Ann", "a,b"], ["Bo", "plain"]]},
+        {"title": "Change", "kind": "diff", "old_text": "a\nb\nc\n", "new_text": "a\nB\nc\n"},
+        {"title": "Copy", "kind": "file", "path": source},
+        {"title": "Plot", "kind": "chart", "chart": dict(description, data=[["Mon", 3], ["Tue", 5]])},
+        {"title": "Away", "kind": "web", "url": "https://example.com/"},
+    ]
+    for request_id, arguments in enumerate(shows, start=1):
+        s.call(request_id, "show", dict(arguments, width=400, height=240))
+    for request_id in range(1, len(shows) + 1):
+        s.response(request_id)
+    time.sleep(3)
+
+    def saved(name, mode="r"):
+        path = os.path.join(save_dir, name)
+        if not os.path.exists(path):
+            return None
+        with open(path, mode, **({} if "b" in mode else {"newline": ""})) as handle:
+            return handle.read()
+
+    check("Save writes markdown text", saved("Notes.md") == "# Notes\n\nSaved as written.", saved("Notes.md"))
+    check("Save writes a table as CSV", saved("People.csv") == "Name,Note\r\nAnn,\"a,b\"\r\nBo,plain\r\n", saved("People.csv"))
+    check("Save writes a unified diff", saved("Change.diff") == "--- old\n+++ new\n@@ -1,3 +1,3 @@\n a\n-b\n+B\n c\n", saved("Change.diff"))
+    check("Save copies the file", saved("source.bin", "rb") == bytes(range(256)))
+    png = saved("Plot.png", "rb") or b""
+    check("Save draws a chart as PNG", png[:8] == b"\x89PNG\r\n\x1a\n" and len(png) > 1000, len(png))
+    names = sorted(os.listdir(save_dir))
+    check("content from the network has no Save", names == ["Change.diff", "Notes.md", "People.csv", "Plot.png", "source.bin"], names)
+    s.close()
+
 # Kept windows: at the end of input the server hands them to a keeper process, which shows them
 # with the same frame and values, then (test hook) closes them a second later and exits.
 import glob
