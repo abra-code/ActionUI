@@ -19,7 +19,7 @@ import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Helpers.ImageSource
 import com.abracode.actionui.Helpers.MaterialNameIcon
-import com.abracode.actionui.Helpers.SystemSymbolIcon
+import com.abracode.actionui.Helpers.SFSymbolIcon
 import com.abracode.actionui.Helpers.loadImagePainter
 import com.abracode.actionui.Helpers.resolveContentScale
 import com.abracode.actionui.Helpers.resolveResizableGlyphFrameDp
@@ -176,10 +176,10 @@ object Image : ActionUIViewConstruction {
                 }
             }
 
-            is ImageSource.SystemSymbol -> {
+            is ImageSource.SFSymbol -> {
                 // systemName -> SF->Material map -> glyph via the shared SymbolIcon
                 // helper. Explicit :android knobs override the map's per-row tuning.
-                val rendered = SystemSymbolIcon(
+                val rendered = SFSymbolIcon(
                     name = source.name,
                     explicitWeight = source.explicitWeight,
                     explicitFill = source.explicitFill,

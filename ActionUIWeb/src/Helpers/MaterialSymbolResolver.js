@@ -1,5 +1,5 @@
 // MaterialSymbolResolver.js — SF Symbol name → Material glyph resolution.
-// Web analog of ActionUI/.../Helpers/SystemSymbolResolver.kt (Android).
+// Web analog of ActionUI/.../Helpers/SFSymbolResolver.kt (Android).
 //
 // SF Symbols are Apple-licensed and unavailable off Apple platforms. Android
 // maps an SF name (Image(systemName:), e.g. "heart.fill") to the closest
@@ -40,9 +40,9 @@ const SF_MATERIAL_MAP_URL = new URL("../../assets/symbols/sf_to_material.map", i
  * Parses `sf_to_material.map` text into a `Map<name, entry>`. Comment (`#`)
  * lines, blank lines, and rows without a valid `name hex` pair are skipped.
  * Trailing integers are read by range (1 ⇒ fill; 100..700 ⇒ weight); anything
- * else is ignored. Pure — mirror of Kotlin `parseSystemSymbolMap`.
+ * else is ignored. Pure - mirror of Kotlin `parseSFSymbolMap`.
  */
-export function parseSystemSymbolMap(text) {
+export function parseSFSymbolMap(text) {
     const map = new Map();
     for (const rawLine of text.split("\n")) {
         const line = rawLine.trim();
@@ -84,7 +84,7 @@ export function preloadSymbolMap(logger = null) {
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             return response.text();
         })
-        .then((text) => { mapCache = parseSystemSymbolMap(text); return mapCache; })
+        .then((text) => { mapCache = parseSFSymbolMap(text); return mapCache; })
         .catch((error) => {
             logger?.log(
                 `SF→Material map '${SF_MATERIAL_MAP_URL.pathname}' could not be loaded ` +
@@ -104,6 +104,6 @@ export function preloadSymbolMap(logger = null) {
  * `undefined` if the name is absent OR the map has not finished loading yet.
  * Callers that need to wait should use `preloadSymbolMap()` and retry.
  */
-export function resolveSystemSymbol(name) {
+export function resolveSFSymbol(name) {
     return mapCache?.get(name);
 }

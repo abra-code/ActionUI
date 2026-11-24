@@ -36,7 +36,7 @@ import java.io.IOException
  * | `filePath`          | filesystem path        | [File] -> decode -> [BitmapPainter]      | **done** |
  * | `resourceName`      | bundle file (name+ext) | `assets/<name>` via [Context.getAssets]  | **done** |
  * | `materialName`      | Material Symbol name   | variable-font glyph ([MaterialSymbolGlyph]) | **done** |
- * | `systemName`        | SF Symbol              | SF->Material map -> glyph ([systemSymbol]) | **done** |
+ * | `systemName`        | SF Symbol              | SF->Material map -> glyph ([sfSymbol]) | **done** |
  * | `assetName`         | asset-catalog image    | `res/drawable/` via the host registry    | **done** |
  *
  * `materialName` is Android-only; authors write it as `materialName:android` and
@@ -44,7 +44,7 @@ import java.io.IOException
  * `systemName` render a Material glyph: a cross-platform JSON can carry `systemName`
  * (Apple) alongside `materialName:android` (Android), and the explicit Android
  * source wins on Android (see priority below). `systemName` resolves through the
- * bundled SF->Material map ([systemSymbol]); when a row carries fill/weight tuning
+ * bundled SF->Material map ([sfSymbol]); when a row carries fill/weight tuning
  * the author gets the right look for free, still overridable by an explicit
  * `:android` axis knob.
  *
@@ -110,14 +110,14 @@ internal sealed interface ImageSource {
 
     /**
      * An SF Symbol, resolved on Android to a Material glyph via the bundled
-     * SF->Material map ([systemSymbol]) - the Android analog of `Image(systemName:)`.
+     * SF->Material map ([sfSymbol]) - the Android analog of `Image(systemName:)`.
      * The codepoint and any per-symbol fill/weight tuning come from the map at
      * render time (it needs the [android.content.res.AssetManager]); the values
      * here are the optional explicit `:android` axis *overrides* (each `null` when
      * absent), which win over the map's per-row tuning. [explicitSizeSp] is the
      * `materialSize` override in sp, else automatic sizing (see [resolveSymbolSizeSp]).
      */
-    data class SystemSymbol(
+    data class SFSymbol(
         val name: String,
         val explicitWeight: Int?,
         val explicitFill: Float?,
@@ -132,7 +132,7 @@ internal sealed interface ImageSource {
  * warning on the missing / mistyped / unresolvable cases. Pure (no Android
  * framework / no asset access - the optional [registry] is an injected lookup)
  * so it is unit-testable; the codepoint + per-row tuning for a `systemName`
- * come from [systemSymbol] in the `Image` builder, and raster decoding from
+ * come from [sfSymbol] in the `Image` builder, and raster decoding from
  * [loadImagePainter].
  *
  * @return the chosen [ImageSource], or `null` when nothing renderable is
@@ -171,7 +171,7 @@ internal fun selectImageSource(
         )
         assetName != null    ->
             resolveAssetDrawable(assetName, registry, "Image", "assetName", logger)
-        systemName != null   -> ImageSource.SystemSymbol(
+        systemName != null   -> ImageSource.SFSymbol(
             // Codepoint + per-row fill/weight are resolved from the SF->Material map
             // at render time; these are the optional explicit overrides (or null).
             name = systemName,
@@ -224,7 +224,7 @@ internal fun selectLabelIcon(
                 .coerceIn(MATERIAL_GRADE_MIN, MATERIAL_GRADE_MAX),
             explicitSizeSp = properties.numberProperty("materialSize")?.toFloat(),
         )
-        systemImage != null -> ImageSource.SystemSymbol(
+        systemImage != null -> ImageSource.SFSymbol(
             name = systemImage,
             explicitWeight = properties.intProperty("materialWeight"),
             explicitFill = properties.materialFillValue(),
@@ -417,7 +417,7 @@ internal fun loadImagePainter(
     // rendered with the composable painterResource (density/night/vector aware),
     // so it never routes here either.
     is ImageSource.MaterialSymbol   -> null
-    is ImageSource.SystemSymbol     -> null
+    is ImageSource.SFSymbol     -> null
     is ImageSource.DrawableResource -> null
 }
 

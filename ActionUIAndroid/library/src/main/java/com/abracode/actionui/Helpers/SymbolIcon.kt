@@ -26,7 +26,7 @@ import com.abracode.actionui.Common.LoggerLevel
  *   * [SymbolGlyph] - the low-level draw, given an already-resolved codepoint and
  *     axes. Sizes the glyph relative to the ambient font (scaled by `imageScale`)
  *     or an explicit sp size, and tints it with the inherited [LocalContentColor].
- *   * [SystemSymbolIcon] / [MaterialNameIcon] - resolve a name (SF or Material) to
+ *   * [SFSymbolIcon] / [MaterialNameIcon] - resolve a name (SF or Material) to
  *     a codepoint + axes and draw via [SymbolGlyph], returning `false` (drawing
  *     nothing) when the name has no mapping so the caller can warn/skip.
  *
@@ -78,13 +78,13 @@ internal fun SymbolGlyph(
 
 /**
  * Resolves an SF Symbol [name] to a Material glyph via the bundled SF->Material
- * map ([systemSymbol]) and draws it, applying the precedence **explicit override
+ * map ([sfSymbol]) and draws it, applying the precedence **explicit override
  * > per-row map tuning > default** for each axis. Returns `false` (drawing
  * nothing) when [name] has no mapping or the map asset is absent, so the caller
  * can warn/skip. The codepoint lookup is `remember`ed per name.
  */
 @Composable
-internal fun SystemSymbolIcon(
+internal fun SFSymbolIcon(
     name: String,
     explicitWeight: Int?,
     explicitFill: Float?,
@@ -97,7 +97,7 @@ internal fun SystemSymbolIcon(
     logger: com.abracode.actionui.Common.ActionUILogger? = null,
 ): Boolean {
     val assets = LocalContext.current.assets
-    val entry = remember(name, assets) { systemSymbol(name, assets, logger) } ?: return false
+    val entry = remember(name, assets) { sfSymbol(name, assets, logger) } ?: return false
     SymbolGlyph(
         codepoint = entry.codepoint,
         weight = resolveSymbolWeight(explicitWeight, entry.weight),
@@ -239,8 +239,8 @@ internal fun LabelIcon(
             return rendered
         }
 
-        is ImageSource.SystemSymbol -> {
-            val rendered = SystemSymbolIcon(
+        is ImageSource.SFSymbol -> {
+            val rendered = SFSymbolIcon(
                 name = source.name,
                 explicitWeight = source.explicitWeight,
                 explicitFill = source.explicitFill,

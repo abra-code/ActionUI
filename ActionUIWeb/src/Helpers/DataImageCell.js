@@ -7,7 +7,7 @@
 // contract yet), as in Image.js / SymbolIcon.js. "mixed" sniffs a path-looking
 // string, falling back to a symbol name.
 
-import { systemSymbolGlyph } from "./SymbolIcon.js";
+import { sfSymbolGlyph } from "./SymbolIcon.js";
 
 // Builds the image node for `value` under `interpretation`
 // ("path"|"systemName"|"assetName"|"resourceName"|"mixed"). `owner` ("Table" /
@@ -18,7 +18,7 @@ export function buildDataImageCell(value, interpretation, logger, owner) {
         : interpretation;
 
     if (resolved === "systemName") {
-        return systemSymbolGlyph(value, {}, logger, (name) =>
+        return sfSymbolGlyph(value, {}, logger, (name) =>
             `${owner} image cell systemName '${name}' has no SF→Material mapping; icon omitted. ` +
             `Use 'materialName:web' for an explicit Material glyph.`);
     }

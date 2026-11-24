@@ -6,7 +6,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { makeElement, makeLogger } from "./dom-stub.mjs";
 import { resolveLoadableSource, classifyLoadableSource } from "../src/Helpers/LoadableSource.js";
-import { parseSystemSymbolMap, MATERIAL_WEIGHT_MIN, MATERIAL_WEIGHT_MAX } from "../src/Helpers/MaterialSymbolResolver.js";
+import { parseSFSymbolMap, MATERIAL_WEIGHT_MIN, MATERIAL_WEIGHT_MAX } from "../src/Helpers/MaterialSymbolResolver.js";
 import { symbolFill, symbolWeight } from "../src/Helpers/SymbolIcon.js";
 import { substituteString, substituteElement } from "../src/Helpers/TemplateHelper.js";
 import {
@@ -37,7 +37,7 @@ test("classifyLoadableSource: remote / filePath / bundle, with format", () => {
 
 // ---------------- MaterialSymbolResolver ----------------
 
-test("parseSystemSymbolMap: codepoints, fill, weight; skips comments/blanks", () => {
+test("parseSFSymbolMap: codepoints, fill, weight; skips comments/blanks", () => {
     const text = [
         "# comment", "",
         "search e8b6",
@@ -45,7 +45,7 @@ test("parseSystemSymbolMap: codepoints, fill, weight; skips comments/blanks", ()
         "weird e000 9999",     // out-of-range weight ignored
         "bad notHex 1",        // non-hex codepoint skipped
     ].join("\n");
-    const map = parseSystemSymbolMap(text);
+    const map = parseSFSymbolMap(text);
     assert.equal(map.get("search").codepoint, 0xe8b6);
     assert.equal(map.get("search").fill, false);
     assert.equal(map.get("filled").fill, true);

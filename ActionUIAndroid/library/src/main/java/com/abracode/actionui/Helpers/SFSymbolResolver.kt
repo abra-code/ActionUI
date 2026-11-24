@@ -36,8 +36,8 @@ import java.io.IOException
  * `:android` knob (`materialFill` / `materialWeight` / ...) still overrides them
  * (see [selectImageSource] / the `Image` builder).
  *
- * The parse ([parseSystemSymbolMap]) is pure and unit-tested; the asset load
- * ([systemSymbol]) caches the parsed map once for the process. Without the map
+ * The parse ([parseSFSymbolMap]) is pure and unit-tested; the asset load
+ * ([sfSymbol]) caches the parsed map once for the process. Without the map
  * asset `systemName` warn-skips (the same honest degrade as a missing font).
  *
  * ## Fluent fill-ins
@@ -57,7 +57,7 @@ internal const val SF_FLUENT_MAP_ASSET = "symbols/sf_to_fluent.map"
  * One resolved SF row: the glyph [codepoint] of the bundled [font], plus the axis
  * tuning the match needs (Material rows only; the Fluent font has no axes).
  */
-internal data class SystemSymbolEntry(
+internal data class SFSymbolEntry(
     val codepoint: Int,
     val fill: Boolean,
     val weight: Int?,
@@ -65,13 +65,13 @@ internal data class SystemSymbolEntry(
 )
 
 /**
- * Parses the `sf_to_material.map` text into an `sf_name -> [SystemSymbolEntry]`
+ * Parses the `sf_to_material.map` text into an `sf_name -> [SFSymbolEntry]`
  * map. Comment (`#`) lines, blank lines, and rows without a valid `name hex` pair
  * are skipped. Trailing integers are read by range (`1` => fill; [MATERIAL_WEIGHT_MIN]
  * ..[MATERIAL_WEIGHT_MAX] => weight); anything else on the line is ignored. Pure.
  */
-internal fun parseSystemSymbolMap(text: String): Map<String, SystemSymbolEntry> {
-    val map = HashMap<String, SystemSymbolEntry>(8192)
+internal fun parseSFSymbolMap(text: String): Map<String, SFSymbolEntry> {
+    val map = HashMap<String, SFSymbolEntry>(8192)
     for (rawLine in text.lineSequence()) {
         val line = rawLine.trim()
         if (line.isEmpty() || line.startsWith("#")) continue
@@ -90,7 +90,7 @@ internal fun parseSystemSymbolMap(text: String): Map<String, SystemSymbolEntry> 
                 // Out-of-range / unexpected token: ignore, keep the row usable.
             }
         }
-        map[name] = SystemSymbolEntry(codepoint, fill, weight)
+        map[name] = SFSymbolEntry(codepoint, fill, weight)
     }
     return map
 }
@@ -98,23 +98,23 @@ internal fun parseSystemSymbolMap(text: String): Map<String, SystemSymbolEntry> 
 private val sfMapLock = Any()
 
 @Volatile
-private var sfMapCache: Map<String, SystemSymbolEntry>? = null
+private var sfMapCache: Map<String, SFSymbolEntry>? = null
 
 /**
- * Returns the [SystemSymbolEntry] for the SF Symbol [name], or `null` if the name
+ * Returns the [SFSymbolEntry] for the SF Symbol [name], or `null` if the name
  * is not in the bundled map (no match was embedded, or the map asset is absent).
  * The map is loaded and parsed once and cached for the process lifetime.
  *
  * @param assets the app [AssetManager], for reading the bundled map.
  * @param logger receives a one-line warning if the map asset itself is missing.
  */
-internal fun systemSymbol(
+internal fun sfSymbol(
     name: String,
     assets: AssetManager,
     logger: ActionUILogger? = null,
-): SystemSymbolEntry? {
+): SFSymbolEntry? {
     val map = sfMapCache ?: synchronized(sfMapLock) {
-        sfMapCache ?: loadSystemSymbolMap(assets, logger).also { sfMapCache = it }
+        sfMapCache ?: loadSFSymbolMap(assets, logger).also { sfMapCache = it }
     }
     return map[name]
 }
@@ -124,17 +124,17 @@ internal fun systemSymbol(
  * (an `sf_to_fluent.map`) that [material] lacks. Pure.
  */
 internal fun withFluentRows(
-    material: Map<String, SystemSymbolEntry>,
+    material: Map<String, SFSymbolEntry>,
     fluentText: String,
-): Map<String, SystemSymbolEntry> {
+): Map<String, SFSymbolEntry> {
     val merged = HashMap(material)
-    for ((name, entry) in parseSystemSymbolMap(fluentText)) {
+    for ((name, entry) in parseSFSymbolMap(fluentText)) {
         merged.putIfAbsent(name, entry.copy(font = SymbolFont.FLUENT))
     }
     return merged
 }
 
-private fun loadSystemSymbolMap(assets: AssetManager, logger: ActionUILogger?): Map<String, SystemSymbolEntry> =
+private fun loadSFSymbolMap(assets: AssetManager, logger: ActionUILogger?): Map<String, SFSymbolEntry> =
     try {
         val text = assets.open(SF_MATERIAL_MAP_ASSET)
             .use { it.readBytes().decodeToString() }
@@ -148,7 +148,7 @@ private fun loadSystemSymbolMap(assets: AssetManager, logger: ActionUILogger?): 
             )
             ""
         }
-        withFluentRows(parseSystemSymbolMap(text), fluentText)
+        withFluentRows(parseSFSymbolMap(text), fluentText)
     } catch (e: IOException) {
         logger?.log(
             "SF->Material map '$SF_MATERIAL_MAP_ASSET' not found in assets/. " +

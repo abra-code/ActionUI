@@ -7,7 +7,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 /**
  * Host-supplied resolution of Apple asset-catalog image names to Android
  * drawable resources - the `res/drawable` half of the image contract
- * (the symbol half is the SF->Material map, `SystemSymbolResolver.kt`).
+ * (the symbol half is the SF->Material map, `SFSymbolResolver.kt`).
  *
  * Shared JSON names a catalog image with `assetName` (`Image`), `assetImage`
  * (`Button` / `Tab`), or `imageName` (`Label`). On Apple, `UIImage(named:)`

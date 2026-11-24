@@ -148,7 +148,7 @@ internal sealed interface CanvasGradientSpec {
 
 /** An image operation's source (the validated one-of-four contract). */
 internal sealed interface CanvasImageSpec {
-    /** SF Symbol name, drawn as the mapped Material glyph (`SystemSymbolResolver`). */
+    /** SF Symbol name, drawn as the mapped Material glyph (`SFSymbolResolver`). */
     data class SystemName(val name: String) : CanvasImageSpec
     /**
      * Explicit Material Symbol, the Android-only `materialName:android` axis
@@ -943,11 +943,11 @@ private fun DrawScope.drawCanvasImage(
             // the SF->Material map (with its per-row fill/weight), an explicit
             // Material name through the codepoints table at the defaults.
             // An SF name the Material map lacks resolves to a glyph of the Fluent font.
-            val resolved: SystemSymbolEntry? = when (source) {
-                is CanvasImageSpec.SystemName -> systemSymbol(source.name, env.assets, env.logger)
+            val resolved: SFSymbolEntry? = when (source) {
+                is CanvasImageSpec.SystemName -> sfSymbol(source.name, env.assets, env.logger)
                 is CanvasImageSpec.MaterialName ->
                     materialCodepoint(source.name, env.assets, env.logger)?.let {
-                        SystemSymbolEntry(it, fill = false, weight = null)
+                        SFSymbolEntry(it, fill = false, weight = null)
                     }
                 else -> null
             }

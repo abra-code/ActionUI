@@ -248,11 +248,11 @@ class ImageResolverTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `systemName resolves to a SystemSymbol with no explicit overrides`() {
+    fun `systemName resolves to an SFSymbol with no explicit overrides`() {
         // Codepoint + per-row tuning are resolved at render time, not here.
         val log = CapturingLogger()
         val source = selectImageSource(props("""{ "systemName": "heart.fill" }"""), log)
-        assertEquals(ImageSource.SystemSymbol("heart.fill", null, null, null, null), source)
+        assertEquals(ImageSource.SFSymbol("heart.fill", null, null, null, null), source)
         assertTrue(log.warnings.isEmpty())
     }
 
@@ -264,7 +264,7 @@ class ImageResolverTest {
                     "materialFill": 0.5, "materialGrade": 100, "materialSize": 32 }"""
             )
         )
-        assertEquals(ImageSource.SystemSymbol("star", 500, 0.5f, 100, 32f), source)
+        assertEquals(ImageSource.SFSymbol("star", 500, 0.5f, 100, 32f), source)
     }
 
     // assetName vs systemName priority lives in the registry section above

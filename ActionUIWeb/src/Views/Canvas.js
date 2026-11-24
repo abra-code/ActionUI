@@ -23,7 +23,7 @@
 import { HOST_ORIGIN } from "../Common/TrustPolicy.js";
 import { register } from "../Common/ActionUIRegistry.js";
 import { drawCanvasOperations, parseCanvasOperations } from "../Helpers/CanvasRenderer.js";
-import { resolveSystemSymbol, preloadSymbolMap } from "../Helpers/MaterialSymbolResolver.js";
+import { resolveSFSymbol, preloadSymbolMap } from "../Helpers/MaterialSymbolResolver.js";
 
 const VALID_COORDINATE_MODES = ["normalized", "points"];
 const MATERIAL_FONT_SPEC = '24px "Material Symbols Rounded"';
@@ -98,7 +98,7 @@ register("Canvas", {
         const env = {
             logger: ctx.logger,
             get glyphColor() { return getComputedStyle(canvas).color || "#000000"; },
-            resolveSymbol: resolveSystemSymbol,
+            resolveSymbol: resolveSFSymbol,
             image,
             get fontReady() { return fontReady; },
             warned,

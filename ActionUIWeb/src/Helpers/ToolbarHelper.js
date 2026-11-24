@@ -27,7 +27,7 @@
 //     action bar; automatic/inline keep it compact inline (titleDisplayMode).
 
 import { allows } from "../Common/TrustPolicy.js";
-import { selectLabelIcon, labelIcon, systemSymbolGlyph } from "./SymbolIcon.js";
+import { selectLabelIcon, labelIcon, sfSymbolGlyph } from "./SymbolIcon.js";
 import { makeFloatingPanel } from "./PopoverPlacement.js";
 
 // The navigation containers own their own per-pane chrome (NavigationStack
@@ -256,7 +256,7 @@ function buildOverflowMenu(items, ctx) {
     trigger.setAttribute("aria-label", "More");
     trigger.setAttribute("aria-haspopup", "menu");
     // The ellipsis glyph through the shared SF->Material seam (iOS's overflow icon).
-    trigger.appendChild(systemSymbolGlyph("ellipsis", {}, ctx.logger, (name) =>
+    trigger.appendChild(sfSymbolGlyph("ellipsis", {}, ctx.logger, (name) =>
         `Toolbar overflow systemImage '${name}' has no SF->Material mapping; icon omitted.`));
 
     const panel = document.createElement("div");
