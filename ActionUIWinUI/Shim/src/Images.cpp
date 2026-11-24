@@ -3,6 +3,7 @@
 
 #include "ShimInternal.h"
 
+#include <cstring>
 #include <cwctype>
 #include <memory>
 #include <string>
@@ -379,6 +380,37 @@ bool actionUIWinUIImageSetData(ActionUIWinUIObject *image, const uint8_t *bytes,
         source.CreateOptions(imaging::BitmapCreateOptions::IgnoreImageCache);
         typed.Source(source);
         source.SetSource(stream);
+        return true;
+    });
+}
+
+bool actionUIWinUIImageSetPixels(ActionUIWinUIObject *image, const uint8_t *pixels, size_t length, uint32_t width,
+                                 uint32_t height, size_t stride) {
+    return guarded("image set pixels", [&]() {
+        muxc::Image typed = objectAs<muxc::Image>(image, L"Image");
+        size_t rowBytes = static_cast<size_t>(width) * 4;
+        // A WriteableBitmap's sides are int32_t; 1 GB is past any image the cache makes (16 K x 16 K).
+        constexpr size_t maximumBytes = size_t{1} << 30;
+        if (pixels == nullptr || width == 0 || height == 0 || width > INT32_MAX || height > INT32_MAX || stride < rowBytes
+            || rowBytes > maximumBytes / height) {
+            return fail("image set pixels", "no pixels, a side of 0, a stride under width x 4, or more than 1 GB");
+        }
+        // The last row ends at (height - 1) x stride + rowBytes, tested without overflow.
+        if (length < rowBytes || (height > 1 && (length - rowBytes) / (height - 1) < stride)) {
+            return fail("image set pixels", "the length is too short for the rows");
+        }
+        imaging::WriteableBitmap bitmap(static_cast<int32_t>(width), static_cast<int32_t>(height));
+        winrt::Windows::Storage::Streams::IBuffer buffer = bitmap.PixelBuffer();
+        uint8_t *destination = buffer.data();
+        if (destination == nullptr || buffer.Capacity() < rowBytes * height) {
+            return fail("image set pixels", "the bitmap has no room for the pixels");
+        }
+        // Both premultiplied BGRA, top row first.
+        for (uint32_t row = 0; row < height; ++row) {
+            std::memcpy(destination + row * rowBytes, pixels + static_cast<size_t>(row) * stride, rowBytes);
+        }
+        bitmap.Invalidate();
+        typed.Source(bitmap);
         return true;
     });
 }

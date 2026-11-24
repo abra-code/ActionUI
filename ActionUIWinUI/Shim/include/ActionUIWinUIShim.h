@@ -1117,6 +1117,13 @@ ACTIONUI_WINUI_API bool actionUIWinUIImageDataGetSize(const uint8_t *bytes, size
 // with other images. Its header is read at once (false when it is no image Windows reads); the image
 // loads after, and ImageOpened or ImageFailed tells the outcome.
 ACTIONUI_WINUI_API bool actionUIWinUIImageSetData(ActionUIWinUIObject *image, const uint8_t *bytes, size_t length);
+// Shows `width` x `height` decoded pixels in `image` (a copy is kept): premultiplied BGRA, 4 bytes a
+// pixel, top row first, each row `stride` bytes apart (at least width x 4), in the `length` bytes at
+// `pixels` (at least (height - 1) x stride + width x 4). For pixels an image library has already decoded
+// and scaled. Shown at once, at the image's stretch; no ImageOpened. False for no pixels, a side of 0, a
+// stride under width x 4, a length too short for the rows, or more than 1 GB.
+ACTIONUI_WINUI_API bool actionUIWinUIImageSetPixels(ActionUIWinUIObject *image, const uint8_t *pixels, size_t length,
+                                                    uint32_t width, uint32_t height, size_t stride);
 
 // MARK: - Drawing (a Canvas)
 

@@ -553,8 +553,48 @@ def check_core(results):
     summary["passed"] = (test["status"] == 0 and tests is not None and tests["executed"] > 0
                          and testing is not None and testing["passed"] and testing["executed"] > 0)
     summary["passed"] = check_verifier_tool(results, summary) and summary["passed"]
+    summary["passed"] = check_overlay_packages(results, summary) and summary["passed"]
     write_summary(results, summary)
     return 0 if summary["passed"] else 1
+
+
+# Packages ActionUI depends on, as their working trees, for a Windows check before their release: a CI-only commit
+# puts each in OVERLAY_DIR/<package name> (a released ActionUI has none).
+OVERLAY_DIR = REPO_DIR / ".ci-overlay"
+
+
+def overlay_packages():
+    """The packages in OVERLAY_DIR (folders with a Package.swift), by name."""
+    if not OVERLAY_DIR.is_dir():
+        return []
+    return sorted(folder for folder in OVERLAY_DIR.iterdir() if (folder / "Package.swift").is_file())
+
+
+def check_overlay_packages(results, summary):
+    """Builds each overlay package and runs its tests. True when each built and passed its tests (with at least
+    one test run), or when there are none."""
+    passed = True
+    for folder in overlay_packages():
+        name = folder.name
+        arguments = ["--package-path", str(folder), "--scratch-path", str(REPO_DIR / ".build" / f"ci-overlay-{name}")]
+        build = run_step(f"overlay-{name}-build", ["swift", "build", "--build-tests"] + arguments, results,
+                         dict(os.environ))
+        summary["steps"].append(build)
+        if build["status"] != 0:
+            summary.setdefault("errors", []).extend(first_errors(results / build["log"]))
+            summary["findings"].append(f"{name} (working tree): FAILED to build")
+            passed = False
+            continue
+        test = run_step(f"overlay-{name}-test", ["swift", "test", "--skip-build"] + arguments, results, dict(os.environ))
+        summary["steps"].append(test)
+        if test["status"] != 0:
+            summary.setdefault("errors", []).extend(first_errors(results / test["log"]))
+        counts = xctest_counts(results / test["log"])
+        ran = counts is not None and counts["executed"] > 0
+        summary["findings"].append(f"{name} (working tree): {counts['executed'] if counts else 0} XCTest tests, "
+                                   f"{'passed' if test['status'] == 0 and ran else 'FAILED'}")
+        passed = passed and test["status"] == 0 and ran
+    return passed
 
 
 # MARK: - The WinUI shim
