@@ -61,6 +61,36 @@ let package = Package(
         ),
     ]
 )
+#elseif os(Windows)
+let package = Package(
+    name: "ActionUIHostSurface",
+    products: [
+        .library(name: "ActionUIHostSurface", targets: ["ActionUIHostSurface"]),
+    ],
+    dependencies: [
+        .package(path: "../.."),   // the ActionUI package at the repo root
+    ],
+    targets: [
+        .target(
+            name: "CActionUIHostSurface",
+            path: "Sources/CActionUIHostSurface"
+        ),
+        .target(
+            name: "ActionUIHostSurface",
+            dependencies: [
+                "CActionUIHostSurface",
+                .product(name: "ActionUIStatic", package: "ActionUI"),
+                .product(name: "CWinUI", package: "ActionUI"),
+            ],
+            path: "Sources/ActionUIHostSurface",
+            // The SwiftUI element with its AppKit and UIKit view, and the GTK one.
+            exclude: ["HostSurface.swift", "HostSurfaceView.swift", "HostSurfaceView+Input.swift", "HostSurfaceKeyCodes.swift",
+                      "HostSurfaceSinks+Apple.swift", "HostSurface+Adwaita.swift", "HostSurfaceView+Adwaita.swift",
+                      "HostSurfaceView+AdwaitaInput.swift", "HostSurfaceInputMapping+Adwaita.swift",
+                      "HostSurfaceSinks+Adwaita.swift"]
+        ),
+    ]
+)
 #else
 let package = Package(
     name: "ActionUIHostSurface",

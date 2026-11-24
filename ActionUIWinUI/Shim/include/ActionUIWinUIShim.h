@@ -1163,6 +1163,24 @@ ACTIONUI_WINUI_API bool actionUIWinUIImageSetData(ActionUIWinUIObject *image, co
 // NULL clears the image. False for an object that is no ImageSource.
 ACTIONUI_WINUI_API bool actionUIWinUIImageSetSource(ActionUIWinUIObject *image, void *imageSource);
 
+// MARK: - Frames drawn elsewhere (Frames.cpp)
+
+// Shows `pixels` in `image`: `width` x `height`, premultiplied BGRA, rows `width * 4` bytes apart, top row
+// first. The pixels are copied before it returns. The image's bitmap is written over when it is one of this
+// size (a stream of frames), else a new one is made. Shown at the image's stretch. Main thread.
+ACTIONUI_WINUI_API bool actionUIWinUIImageShowPixels(ActionUIWinUIObject *image, uint32_t width, uint32_t height,
+                                                     const uint8_t *pixels);
+// CompositionTarget.Rendering: handler(context, seconds) runs on the UI thread before each frame WinUI draws,
+// `seconds` the frame's rendering time (from an arbitrary start). WinUI draws frames while any handler is
+// added, so add one only while frames are wanted. Returns a token for actionUIWinUIRenderingRemove, 0 on
+// failure (destroyContext has then run). Main thread.
+typedef void (*ActionUIWinUIRenderingCallback)(void *context, double seconds);
+ACTIONUI_WINUI_API uint64_t actionUIWinUIRenderingAdd(ActionUIWinUIRenderingCallback handler, void *context,
+                                                      ActionUIWinUICallback destroyContext);
+// Removes a handler actionUIWinUIRenderingAdd added (it may be running: it may remove itself). destroyContext
+// runs once no call of it is running. An unknown token does nothing. Main thread.
+ACTIONUI_WINUI_API void actionUIWinUIRenderingRemove(uint64_t token);
+
 // MARK: - Drawing (a Canvas)
 
 // One drawing: Direct2D into a bitmap of `width` x `height` points at `scale` pixels a point

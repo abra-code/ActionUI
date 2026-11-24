@@ -1180,7 +1180,7 @@ def make_library_package(bin_path, results, summary, msvc, webview2_license):
                      component, which the shim loads from beside itself when a WebView is made
           lib/       ActionUI.lib, ActionUI.dll's import library
           include/   ActionUICAdapter/ActionUIC.h, ActionUIAppKitApplication/ActionUIApp.h,
-                     ActionUIHostSurface/ActionUIHostSurface.h (its constants; no HostSurface on Windows yet)
+                     ActionUIHostSurface/ActionUIHostSurface.h
           LICENSE.txt, LICENSE-MaterialSymbols.txt, LICENSE-FluentSystemIcons.txt (the symbol outlines in
           the shim), LICENSE-WebView2.txt (Microsoft.Web.WebView2.Core.dll)
           SHA256SUMS.txt: every other file's SHA-256
@@ -1252,7 +1252,7 @@ def make_library_package(bin_path, results, summary, msvc, webview2_license):
 def check_python(package, results, summary, msvc):
     """Builds the Python extension (ActionUIPython) against the library package with the Microsoft
     compiler, in a virtual environment, and runs its tests that need no person and nothing Windows does
-    not have yet (the menu bar and HostSurface are left out, and the file panels' test, which waits for a person). True when every one passed;
+    not have yet (the menu bar is left out, and the file panels' test, which waits for a person). True when every one passed;
     an interpreter of another architecture than the runner's is reported and not run."""
     work = REPO_DIR / ".build" / "ci-windows-python"
     shutil.rmtree(work, ignore_errors=True)
@@ -1491,13 +1491,14 @@ NODE_TESTS = ["test_native", "test_native_api_surface", "test_insert_api", "test
 NODE_TESTS_REPORTING_PASSED = {"test_configuration", "test_app_lifecycle", "test_trust_policy", "test_uv_run_integration"}
 
 
-# The Python tests CI runs on Windows: not test_file_panels (it waits for a person), test_menu_bar and
-# test_host_surface (not on Windows yet); test_app_api skips its remote server part there.
+# The Python tests CI runs on Windows: not test_file_panels (it waits for a person) and test_menu_bar (not on
+# Windows yet); test_app_api skips its remote server part there.
 PYTHON_TESTS = ["test_native", "test_native_api_surface", "test_insert_api", "test_scalar_context",
                 "test_modal_api", "test_app_api", "test_configuration", "test_app_lifecycle", "test_trust_policy",
-                "test_worker_thread_calls"]
+                "test_worker_thread_calls", "test_host_surface"]
 # The tests that print a "PASSED" line when every check of theirs passed.
-PYTHON_TESTS_REPORTING_PASSED = {"test_configuration", "test_app_lifecycle", "test_trust_policy", "test_worker_thread_calls"}
+PYTHON_TESTS_REPORTING_PASSED = {"test_configuration", "test_app_lifecycle", "test_trust_policy", "test_worker_thread_calls",
+                                 "test_host_surface"}
 
 
 def check_c_adapter(bin_path, results, summary, msvc, env):
@@ -1587,7 +1588,9 @@ def check_host_app(bin_path, results, summary, msvc, env, host_build):
 
 # The headers that declare ActionUI.dll's C functions.
 LIBRARY_HEADERS = [REPO_DIR / "ActionUICAdapter" / "include" / "ActionUIC.h",
-                   REPO_DIR / "ActionUIAppKitApplication" / "include" / "ActionUIApp.h"]
+                   REPO_DIR / "ActionUIAppKitApplication" / "include" / "ActionUIApp.h",
+                   REPO_DIR / "Add-ons" / "ActionUIHostSurface" / "Sources" / "CActionUIHostSurface" / "include" /
+                   "ActionUIHostSurface.h"]
 
 
 # ActionUI.dll's export list (ActionUIWinUI/Library/Package.swift links with it).
@@ -1597,7 +1600,7 @@ LIBRARY_DEFINITION = REPO_DIR / "ActionUIWinUI" / "Library" / "ActionUI.def"
 def check_library_exports(summary, msvc):
     """Whether LIBRARY_DEFINITION names exactly the functions LIBRARY_HEADERS declare for Windows, as MSVC's
     preprocessor reads them (they declare some functions only for Apple or Linux; every one is named
-    actionUI...). A function declared and not listed would be missing from ActionUI.dll; one listed and not
+    actionUI..., or ActionUI<AddOn>_register). A function declared and not listed would be missing from ActionUI.dll; one listed and not
     declared would be exported for no header. Findings name the differences."""
     declared = []
     for header in LIBRARY_HEADERS:
@@ -1611,7 +1614,7 @@ def check_library_exports(summary, msvc):
             summary["findings"].append(f"library exports: could not preprocess {header.name}: "
                                        f"{completed.stdout.strip()[-500:]} {completed.stderr.strip()[-500:]}")
             return False
-        for name in re.findall(r"\b(actionUI[A-Za-z0-9_]*)\s*\(", completed.stdout):
+        for name in re.findall(r"\b(actionUI[A-Za-z0-9_]*|ActionUI[A-Za-z0-9]*_register)\s*\(", completed.stdout):
             if name not in declared:
                 declared.append(name)
     listed = []

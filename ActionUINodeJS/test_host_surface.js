@@ -157,14 +157,16 @@ function report() {
 }
 
 console.log('ActionUI HostSurface Integration Test (Node.js)');
-const app = new actionui.Application({ name: 'HostSurfaceTest' });
-actionui.setSurfaceDelegate('js.canvas', first);
-if (IS_LINUX) app.setSurfaceDelegate('js.gl', glClient);
-else app.setSurfaceDelegate('js.metal', metalClient);
-
+// The UI description is the app's own (its folder is the resource folder): the trust policy shows no host surface to
+// less-trusted content, such as a file outside the app's resources.
 const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'actionui-hostsurface-test-'));
 const documentPath = path.join(folder, 'HostSurface.json');
 fs.writeFileSync(documentPath, JSON.stringify(DOCUMENT));
+
+const app = new actionui.Application({ name: 'HostSurfaceTest', resourceFolder: folder });
+actionui.setSurfaceDelegate('js.canvas', first);
+if (IS_LINUX) app.setSurfaceDelegate('js.gl', glClient);
+else app.setSurfaceDelegate('js.metal', metalClient);
 
 app.onDidFinishLaunching(() => {
     const window = app.loadAndPresentWindow(documentPath, null, 'HostSurface Test');

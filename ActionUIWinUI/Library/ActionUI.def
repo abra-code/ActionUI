@@ -1,6 +1,7 @@
 ; ActionUIWinUI/Library/ActionUI.def
-; The C functions ActionUI.dll exports: every function ActionUICAdapter/include/ActionUIC.h and
-; ActionUIAppKitApplication/include/ActionUIApp.h declare for Windows, in the headers' order. SwiftPM exports
+; The C functions ActionUI.dll exports: every function ActionUICAdapter/include/ActionUIC.h,
+; ActionUIAppKitApplication/include/ActionUIApp.h and the HostSurface add-on's ActionUIHostSurface.h declare for
+; Windows, in the headers' order. SwiftPM exports
 ; from a Windows DLL only the modules its product lists, and these functions are in ActionUI's package, so the
 ; linker takes their names from here (Package.swift). Scripts/ci-windows.py checks this list against the headers.
 ; A new C function is a line here.
@@ -96,3 +97,11 @@ EXPORTS
     actionUIAppRemoteUnexportToken
     actionUIAppRemoteMintToken
     actionUIAppRemoteRevokeTokensWithLabel
+    ActionUIHostSurface_register
+    actionUIHostSurfaceSetDelegate
+    actionUIHostSurfaceRequestFrame
+    actionUIHostSurfaceSetContinuous
+    actionUIHostSurfaceSetCursor
+    actionUIHostSurfacePresentPixels
+    actionUIHostSurfacePresentDmabuf
+    actionUIHostSurfaceCopyDmabufFormats

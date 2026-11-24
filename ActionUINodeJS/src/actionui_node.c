@@ -1999,8 +1999,9 @@ static napi_value node_app_run_alert(napi_env env, napi_callback_info info) {
 // MARK: - HostSurface (ActionUIHostSurface.h)
 
 #if defined(_WIN32)
-/* Not on Windows yet: ActionUI.dll has no HostSurface element. Registering does nothing (no document can hold
- * one); the rest throw. The header's constants are exported as elsewhere, for index.js's names. */
+/* Not in this binding on Windows yet (ActionUI.dll has the element; Python's binding has it there). Registering
+ * does nothing (ActionUI.dll registers the element itself); the rest throw. The header's constants are exported as
+ * elsewhere, for index.js's names. */
 static napi_value host_surface_not_yet(napi_env env) {
     napi_throw_error(env, NULL, "HostSurface is not available on Windows yet");
     return NULL;

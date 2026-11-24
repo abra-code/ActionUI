@@ -141,7 +141,8 @@ public struct HostSurfaceInput: Sendable {
     /// The text a key produced, or nil.
     public let text: String?
 
-    public var kind: AUIHostInputKind { AUIHostInputKind(rawValue: UInt32(bitPattern: event.kind)) }
+    // The enum's raw type is UInt32 on Apple and Linux and Int32 on Windows (MSVC's C enums are int).
+    public var kind: AUIHostInputKind { AUIHostInputKind(rawValue: .init(truncatingIfNeeded: event.kind)) }
 }
 
 extension AUIHostInputEvent: @retroactive @unchecked Sendable {}

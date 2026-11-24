@@ -3,14 +3,14 @@
 Integration test of the HostSurface API (actionui.SurfaceDelegate, set_surface_delegate, present_pixels).
 
 Starts a real application run loop with a window that holds HostSurface elements, and checks:
-- a bound delegate of a "kind": "sink" element gets "created" as a frame sink, on macOS and Linux alike;
+- a bound delegate of a "kind": "sink" element gets "created" as a frame sink, on macOS, Linux and Windows alike;
 - a delegate bound inside a callback takes over after it: the old one gets "destroyed" first, the new one
   "created" with a new surface ID;
 - present_pixels from another thread, and the argument checks;
-- on Linux, a "gl" element's render callback;
+- on Linux, a "gl" element's render callback; on Windows, an element with no kind is a frame sink too;
 - window close sends "destroyed".
 
-Requirements: a graphical session (macOS window server, or a Wayland/X11 display on Linux), and the _actionui
+Requirements: a graphical session (macOS window server, a Wayland/X11 display on Linux, a desktop on Windows), and the _actionui
 extension built. Usage: python3 test_host_surface.py
 
 The report runs from will_terminate (the run loop ends the process with exit()).
@@ -27,6 +27,7 @@ import actionui
 
 SAFETY_TIMEOUT_SEC = 20.0
 IS_LINUX = sys.platform.startswith("linux")
+IS_WINDOWS = sys.platform == "win32"
 
 DOCUMENT = {
     "type": "VStack", "properties": {"frame": {"width": 300}}, "children": [
@@ -36,7 +37,8 @@ DOCUMENT = {
         {"type": "HostSurface", "id": 6,
          "properties": {"surfaceName": "py.gl", "kind": "gl", "frame": {"width": 80, "height": 60}}},
     ] if IS_LINUX else [
-        # No kind: on macOS the surface stays a Metal layer, which takes no presented frames.
+        # No kind: on macOS the surface stays a Metal layer, which takes no presented frames; on Windows it is a
+        # frame sink.
         {"type": "HostSurface", "id": 7, "properties": {"surfaceName": "py.metal", "frame": {"width": 80, "height": 60}}},
     ]),
 }
@@ -153,12 +155,19 @@ def _report():
           state["present_on_thread"] is True)
     check(f"present_pixels refuses a short buffer, a zero width, and a missing size ({state['present_errors']})",
           state["present_errors"] == ["ValueError"] * 3)
-    check(f"set_cursor on a live surface returned True ({state['cursor_set']})", state["cursor_set"] is True)
+    # No client cursor on Windows yet: set_cursor says so.
+    check(f"set_cursor on a live surface returned {not IS_WINDOWS} ({state['cursor_set']})",
+          state["cursor_set"] is (not IS_WINDOWS))
     if "suspended" not in second_kinds:
         check(f"a requested frame came ({state['frames']})", state["frames"] >= 1)
     else:
         print("  (the window was not visible, so no frame was expected)", flush=True)
-    if not IS_LINUX:
+    if IS_WINDOWS:
+        metal = state["metal"]
+        check(f"an element with no kind is a frame sink with no handle, and takes frames ({metal})",
+              metal is not None and metal[0] == actionui.SurfaceKind.FRAME_SINK and metal[1] is None
+              and metal[2] is True)
+    elif not IS_LINUX:
         metal = state["metal"]
         check(f"an element with no kind is a Metal layer with a handle, and takes no frames ({metal})",
               metal is not None and metal[0] == actionui.SurfaceKind.METAL_LAYER and isinstance(metal[1], int)
@@ -176,17 +185,19 @@ def _report():
 
 
 print("ActionUI HostSurface Integration Test", flush=True)
-app = actionui.Application()
+# The UI description is the app's own (its folder is the resource folder): the trust policy shows no host surface
+# to less-trusted content, such as a file outside the app's resources.
+folder = tempfile.mkdtemp(prefix="actionui-hostsurface-test-")
+document_path = os.path.join(folder, "HostSurface.json")
+with open(document_path, "w") as file:
+    json.dump(DOCUMENT, file)
+
+app = actionui.Application(resource_folder=folder)
 actionui.set_surface_delegate("py.canvas", First())
 if IS_LINUX:
     app.set_surface_delegate("py.gl", GLClient())
 else:
     app.set_surface_delegate("py.metal", MetalClient())
-
-folder = tempfile.mkdtemp(prefix="actionui-hostsurface-test-")
-document_path = os.path.join(folder, "HostSurface.json")
-with open(document_path, "w") as file:
-    json.dump(DOCUMENT, file)
 
 
 @app.did_finish_launching
