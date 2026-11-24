@@ -104,6 +104,10 @@ final class HostSurfaceView {
     var clickCounter = HostSurfaceClickCounter()
     /// The pointers (the shim's IDs) whose press the client got: their drags, releases and cancels go to it.
     var pressedPointers: Set<UInt32> = []
+    /// The client was told it has keyboard focus (FocusIn without a FocusOut since).
+    var focusDelivered = false
+    /// What actionUIWinUIElementSetFocusable last set.
+    var appliedFocusable = false
     /// The cursor over the surface (AUIHostCursor), set by the client.
     private(set) var cursor = Int32(AUIHostCursorArrow.rawValue)
     private var warnedTick = false
@@ -377,6 +381,7 @@ final class HostSurfaceView {
             send(suspendedSent ? .suspended : .resumed, lastGeometry ?? current)
         }
         updateFrames()
+        updateFocusability()
     }
 
     /// Sends "destroyed" to the client that was told about the surface, and forgets the surfaceID and its frame.
@@ -385,6 +390,8 @@ final class HostSurfaceView {
         guard surfaceID != 0 else {
             return
         }
+        // FocusOut before "destroyed": a surface with no client must not keep taking the keys.
+        endFocusDelivery()
         // Presents from the client's threads fail from here on; a frame waiting for the main thread is dropped.
         HostSurfaceSinks.close(surfaceID)
         send(.destroyed, lastGeometry ?? geometry)
@@ -396,6 +403,10 @@ final class HostSurfaceView {
         framePending = false
         continuousOverride = nil
         pressedPointers = []
+        if appliedFocusable {
+            appliedFocusable = false
+            _ = actionUIWinUIElementSetFocusable(panel.pointer, false)
+        }
         // The client's cursor lasts until "destroyed" (the header): a hidden one must not outlive it.
         if cursor != Int32(AUIHostCursorArrow.rawValue) {
             setCursor(Int32(AUIHostCursorArrow.rawValue))
@@ -464,7 +475,7 @@ final class HostSurfaceView {
         }
     }
 
-    /// The window's size, scale or visibility changed.
+    /// The window's size, scale, visibility or activation changed.
     fileprivate func windowRootChanged() {
         guard !isTornDown else {
             return

@@ -1,14 +1,22 @@
 // Add-ons/ActionUIHostSurface/Sources/ActionUIHostSurface/HostSurfaceView+WinUIInput.swift
 //
-// Pointer input on Windows, as AUIHostInputEvent (the C header): the shim reports the panel's pointer events
-// (actionUIWinUIElementOnPointerEvents: every button, the mouse, touch and the pen, the wheel), and this turns
-// them into the header's events by the rules of the Apple and Linux views:
+// Input on Windows, as AUIHostInputEvent (the C header): the shim reports the panel's pointer events
+// (actionUIWinUIElementOnPointerEvents: every button, the mouse, touch and the pen, the wheel), its keys
+// (actionUIWinUIElementOnKeyEvents) and its keyboard focus, and this turns them into the header's events by the
+// rules of the Apple and Linux views:
 // - input only while a client is bound, the surface is on screen and the element is enabled; otherwise events
 //   pass on, so an enclosing scroll view still scrolls;
 // - the surface takes the wheel, so an enclosing scroll view does not scroll as well;
 // - a press captures its pointer, so the drag and the release come to the surface wherever the pointer goes;
 // - drags, releases and cancels only for a pointer whose press the client got: a press that began on another
-//   element (WinUI moves no capture between elements) does not reach the client as a drag and a release.
+//   element (WinUI moves no capture between elements) does not reach the client as a drag and a release;
+// - it never takes focus unasked: a press focuses it when "focusable" is true; Tab and Shift-Tab move focus in
+//   and out (not delivered; Control-Tab is the client's);
+// - FocusIn and FocusOut follow the panel's keyboard focus and its window's activation, and FocusOut comes before
+//   "destroyed".
+// Keys with Control, Alt or Windows held are delivered and passed on as well, so the window's and the
+// application's shortcuts still work. A key's text is what it types in the keyboard's layout (AltGr's too);
+// dead keys and input methods are not composed, as on Linux.
 // The wheel's notches are steps (a touchpad's come as parts of one); Windows tells no touchpad from a wheel there.
 
 #if os(Windows)
@@ -24,6 +32,80 @@ extension HostSurfaceView {
         if !actionUIWinUIElementOnPointerEvents(panel.pointer, hostSurfacePointerEvent, box, releaseWeakHostSurfaceView) {
             logger.log("HostSurface \(viewID): observing its pointer input failed: \(lastHostShimError())", .warning)
         }
+        let keyBox = Unmanaged.passRetained(WeakHostSurfaceView(self)).toOpaque()
+        if !actionUIWinUIElementOnKeyEvents(panel.pointer, hostSurfaceKeyEvent, keyBox, releaseWeakHostSurfaceView) {
+            logger.log("HostSurface \(viewID): observing its keys failed: \(lastHostShimError())", .warning)
+        }
+        let focusBox = Unmanaged.passRetained(WeakHostSurfaceView(self)).toOpaque()
+        if !actionUIWinUIElementOnFocusChanged(panel.pointer, hostSurfaceFocusChanged, focusBox, releaseWeakHostSurfaceView) {
+            logger.log("HostSurface \(viewID): observing its keyboard focus failed: \(lastHostShimError())", .warning)
+        }
+    }
+
+    /// The panel may take keyboard focus: "focusable", a client, not hidden, enabled (a WinUI panel has no IsEnabled
+    /// to keep the focus off, as GTK's sensitivity and the Apple view's inputAllowed do).
+    var canTakeFocus: Bool {
+        properties.focusable && surfaceID != 0 && !properties.hidden && !isDisabled
+    }
+
+    /// Applies canTakeFocus to the panel, gives focus up when it is lost, and delivers the focus change.
+    func updateFocusability() {
+        let focusable = canTakeFocus
+        if appliedFocusable != focusable {
+            appliedFocusable = focusable
+            _ = actionUIWinUIElementSetFocusable(panel.pointer, focusable)
+        }
+        if !focusable {
+            // Best effort: with no other element to take it, the focus stays, and inputAllowed refuses the keys.
+            _ = actionUIWinUIElementGiveUpFocus(panel.pointer)
+        }
+        updateFocusDelivery()
+    }
+
+    /// FocusIn or FocusOut when the surface's keyboard focus changed: focused in the active window, with a client.
+    func updateFocusDelivery() {
+        let focused = surfaceID != 0 && actionUIWinUIElementHasFocus(panel.pointer)
+            && actionUIWinUIElementIsWindowActive(panel.pointer)
+        guard focused != focusDelivered else {
+            return
+        }
+        focusDelivered = focused
+        var event = AUIHostInputEvent()
+        event.kind = Int32(focused ? AUIHostInputFocusIn.rawValue : AUIHostInputFocusOut.rawValue)
+        deliverInput(event)
+    }
+
+    /// FocusOut now when the client was told it has focus (before "destroyed"): its keys stop here.
+    func endFocusDelivery() {
+        _ = actionUIWinUIElementGiveUpFocus(panel.pointer)
+        guard focusDelivered else {
+            return
+        }
+        focusDelivered = false
+        var event = AUIHostInputEvent()
+        event.kind = Int32(AUIHostInputFocusOut.rawValue)
+        deliverInput(event)
+    }
+
+    /// Turns one of the shim's key events into the header's, and delivers it; whether the surface took it.
+    fileprivate func handleKey(_ key: ActionUIWinUIKeyEvent) -> Bool {
+        let isTab = key.virtualKey == 0x09  // VK_TAB
+        let control = key.modifiers & UInt32(ActionUIWinUIModifierControl) != 0
+        // Tab moves focus on, as for any control; with Control held it is the client's.
+        guard inputAllowed, actionUIWinUIElementHasFocus(panel.pointer), !(isTab && !control) else {
+            return false
+        }
+        var input = AUIHostInputEvent()
+        input.kind = Int32(key.type == ActionUIWinUIKeyDown ? AUIHostInputKeyDown.rawValue : AUIHostInputKeyUp.rawValue)
+        input.modifiers = Self.modifiers(key.modifiers)
+        input.keyCode = key.scanCode
+        input.timestampSeconds = Double(key.timeMilliseconds) / 1000
+        let text = key.text.map { String(cString: $0) }
+        deliverInput(input, code: HostSurfaceWinUIKeys.code(scanCode: key.scanCode, virtualKey: key.virtualKey), text: text)
+        // A possible shortcut goes on to the window and the application too. Not Control-Tab, the client's, and not
+        // a key that typed text: AltGr, which Windows reports as Control with Alt.
+        let shortcut = key.modifiers & UInt32(ActionUIWinUIModifierControl | ActionUIWinUIModifierAlt | ActionUIWinUIModifierWindows) != 0
+        return isTab || !shortcut || text != nil
     }
 
     /// Input reaches the client: one is bound, the surface is on screen, and the element is enabled.
@@ -60,6 +142,12 @@ extension HostSurfaceView {
             deliverInput(input)
             return false
         case ActionUIWinUIPointerEventPressed:
+            // A press focuses the surface, as a click does on the other platforms: FocusIn before the press.
+            if canTakeFocus, !actionUIWinUIElementHasFocus(panel.pointer) {
+                _ = actionUIWinUIElementFocus(panel.pointer)
+            }
+            // Also for a surface that kept the focus in an inactive window, should the activation come late.
+            updateFocusDelivery()
             pressedPointers.insert(pointer.pointerID)
             input.kind = Int32(AUIHostInputPointerDown.rawValue)
             input.button = Self.button(pointer.button)
@@ -175,6 +263,32 @@ private let hostSurfacePointerEvent: @convention(c) (UnsafeMutableRawPointer?, U
             return false
         }
         return view.handle(target.1)
+    }
+}
+
+/// The shim's key events, to the view through its weak reference.
+private let hostSurfaceKeyEvent: @convention(c) (UnsafeMutableRawPointer?, UnsafePointer<ActionUIWinUIKeyEvent>?) -> Bool = { context, event in
+    guard let context, let event else {
+        return false
+    }
+    // The text pointer is valid during this call only: handleKey copies it before returning.
+    nonisolated(unsafe) let target = (context, event.pointee)
+    return MainActor.assumeIsolated {
+        guard let view = Unmanaged<WeakHostSurfaceView>.fromOpaque(target.0).takeUnretainedValue().view else {
+            return false
+        }
+        return view.handleKey(target.1)
+    }
+}
+
+/// The panel's keyboard focus changed.
+private let hostSurfaceFocusChanged: ActionUIWinUICallback = { context in
+    guard let context else {
+        return
+    }
+    nonisolated(unsafe) let box = context
+    MainActor.assumeIsolated {
+        Unmanaged<WeakHostSurfaceView>.fromOpaque(box).takeUnretainedValue().view?.updateFocusDelivery()
     }
 }
 

@@ -156,9 +156,9 @@ typedef enum {
 /// - Keys come while the surface has keyboard focus. It never takes focus unasked: a click or tap
 ///   focuses it when the element's "focusable" is true (the default), and Tab and Shift-Tab move
 ///   focus in and out like any control (they are not delivered).
-/// - FocusIn and FocusOut tell the client when keys start and stop coming. On macOS a focused surface
-///   gets FocusOut when its window stops being key and FocusIn when it is key again; a client lets go of
-///   keys held down at FocusOut, since their key up will not come.
+/// - FocusIn and FocusOut tell the client when keys start and stop coming. On macOS, Linux and Windows a
+///   focused surface gets FocusOut when its window stops being active (key) and FocusIn when it is again;
+///   a client lets go of keys held down at FocusOut, since their key up will not come.
 typedef struct {
     uint32_t structSize;       // sizeof(AUIHostInputEvent) of the sender; fields may be added at the end
     int32_t kind;              // AUIHostInputKind
@@ -174,7 +174,8 @@ typedef struct {
     int32_t scrollPhase;       // AUIHostScrollPhase
     double pressure;           // 0...1; 1 when down and the device has no pressure
     double tiltX, tiltY;       // pen tilt, -1...1
-    uint32_t keyCode;          // platform key code (macOS virtual key code, iOS HID usage)
+    uint32_t keyCode;          // platform key code (macOS virtual key code, iOS HID usage, Linux XKB key
+                               // code, Windows scan code with 0xE000 added for an extended key)
     const char *code;          // portable key name: the W3C UI Events "code" value, such as
                                // "KeyA" or "ArrowLeft"; "" when unknown; valid during the callback
     const char *text;          // UTF-8 text the key produced (KeyDown), or NULL, also for keys that

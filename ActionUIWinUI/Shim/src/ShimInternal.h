@@ -134,6 +134,12 @@ bool registerHandler(const char *where, ActionUIWinUICallback handler, void *con
     return registered;
 }
 
+// The activation of the windows actionUIWinUIWindowCreate made, by their AppWindow's ID (Window.cpp keeps it from
+// each window's Activated event): whether one is the active window, true for a window it does not know (a host's
+// own); and the XamlRoot watches of a window whose activation changed (Frames.cpp runs them). UI thread.
+bool windowActive(uint64_t windowID);
+void windowActivationChanged(uint64_t windowID);
+
 // UTF-8 (NULL reads as empty) to a WinRT string.
 winrt::hstring toHString(const char *utf8);
 

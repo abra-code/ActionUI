@@ -757,6 +757,57 @@ ACTIONUI_WINUI_API bool actionUIWinUIElementOnPointerEvents(ActionUIWinUIObject 
 // they may be, across and down.
 ACTIONUI_WINUI_API void actionUIWinUIDoubleClickLimits(uint32_t *milliseconds, double *widthPixels, double *heightPixels);
 
+// MARK: - Keyboard focus and keys of any element
+
+// Whether `element` takes keyboard focus (IsTabStop): Tab and Shift-Tab stop at it, and actionUIWinUIElementFocus
+// focuses it.
+ACTIONUI_WINUI_API bool actionUIWinUIElementSetFocusable(ActionUIWinUIObject *element, bool focusable);
+// Gives `element` keyboard focus as a pointer press does (no focus rectangle). False when it cannot take it.
+ACTIONUI_WINUI_API bool actionUIWinUIElementFocus(ActionUIWinUIObject *element);
+// Whether `element` itself has keyboard focus. False on failure.
+ACTIONUI_WINUI_API bool actionUIWinUIElementHasFocus(ActionUIWinUIObject *element);
+// Moves keyboard focus on from `element` when it has it (to the next element that takes it, as Tab would),
+// so it takes no more keys; nothing when it does not have it.
+ACTIONUI_WINUI_API bool actionUIWinUIElementGiveUpFocus(ActionUIWinUIObject *element);
+// GotFocus and LostFocus of `element`: handler(context) after its keyboard focus changed, until the element is
+// gone (destroyContext then, on the UI thread; at once when this fails).
+ACTIONUI_WINUI_API bool actionUIWinUIElementOnFocusChanged(ActionUIWinUIObject *element, ActionUIWinUICallback handler,
+                                                           void *context, ActionUIWinUICallback destroyContext);
+
+typedef enum ActionUIWinUIKeyEventType {
+    ActionUIWinUIKeyDown = 0,
+    ActionUIWinUIKeyUp = 1,
+} ActionUIWinUIKeyEventType;
+
+typedef struct ActionUIWinUIKeyEvent {
+    ActionUIWinUIKeyEventType type;
+    // The Windows virtual-key code (VK_*): the key's meaning in the keyboard's layout.
+    int32_t virtualKey;
+    // The key's position: its scan code, with 0xE000 added for an extended key (the arrows, Insert, Delete, Home,
+    // End, Page Up and Down, the right Control and Alt, the numeric keypad's Enter and slash), as Windows'
+    // MapVirtualKey writes them.
+    uint32_t scanCode;
+    // Down only: the key is held and repeats.
+    bool repeat;
+    // The keys held (ActionUIWinUIModifier bits).
+    uint32_t modifiers;
+    // Down only: the UTF-8 text the key types in the keyboard's layout, NULL for none: a key that types nothing
+    // (an arrow, a function key, Escape, Return, Backspace, a dead key), and while Control, Alt or Windows is held
+    // (a shortcut, not text; Control with Alt is AltGr, whose text comes). Valid during the call.
+    const char *text;
+    // When the key went down or up: GetMessageTime, milliseconds since Windows started (wraps after 49 days).
+    uint32_t timeMilliseconds;
+} ActionUIWinUIKeyEvent;
+
+// Called on the UI thread; returns whether the element takes the key: a key it takes goes no further (no focus
+// move with Tab, no keyboard accelerator), one it leaves goes on as if it were not there.
+typedef bool (*ActionUIWinUIKeyEventCallback)(void *context, const ActionUIWinUIKeyEvent *event);
+
+// Reports the keys pressed and released while `element` (or something in it) has keyboard focus, until the
+// element is gone (destroyContext then, on the UI thread; at once when this fails).
+ACTIONUI_WINUI_API bool actionUIWinUIElementOnKeyEvents(ActionUIWinUIObject *element, ActionUIWinUIKeyEventCallback handler,
+                                                        void *context, ActionUIWinUICallback destroyContext);
+
 // MARK: - Styling
 
 // A color: red, green, blue and alpha, each from 0 to 1 (sRGB).
@@ -1302,9 +1353,10 @@ ACTIONUI_WINUI_API uint64_t actionUIWinUIRenderingAdd(ActionUIWinUIRenderingCall
 ACTIONUI_WINUI_API void actionUIWinUIRenderingRemove(uint64_t token);
 // XamlRoot.Changed of the window `element` is in now: handler(context) runs on the UI thread when that window's
 // size, scale (RasterizationScale: another display, or a new scale setting) or visibility (IsHostVisible:
-// minimized or restored) changes. It watches the window the element is in when called: an element put in
-// another window needs a new watch. Returns a token for actionUIWinUIXamlRootChangedRemove, 0 when the element
-// is in no window or on failure (destroyContext has then run). Main thread.
+// minimized or restored) changes, and when it becomes or stops being the active window (its input activation).
+// It watches the window the element is in when called: an element put in another window needs a new watch.
+// Returns a token for actionUIWinUIXamlRootChangedRemove, 0 when the element is in no window or on failure
+// (destroyContext has then run). Main thread.
 ACTIONUI_WINUI_API uint64_t actionUIWinUIXamlRootChangedAdd(ActionUIWinUIObject *element, ActionUIWinUICallback handler,
                                                             void *context, ActionUIWinUICallback destroyContext);
 // Removes a watch actionUIWinUIXamlRootChangedAdd added (it may be running: it may remove itself).
@@ -1313,6 +1365,10 @@ ACTIONUI_WINUI_API void actionUIWinUIXamlRootChangedRemove(uint64_t token);
 // Whether the window `element` is in is shown (its XamlRoot's IsHostVisible): false while it is minimized, and
 // when the element is in no window.
 ACTIONUI_WINUI_API bool actionUIWinUIElementIsHostVisible(ActionUIWinUIObject *element);
+// Whether the window `element` is in is the active window (it takes the keyboard's input), from the Activated events
+// of the windows actionUIWinUIWindowCreate made; true for a window it did not make (a host's own), false when the
+// element is in no window.
+ACTIONUI_WINUI_API bool actionUIWinUIElementIsWindowActive(ActionUIWinUIObject *element);
 
 // MARK: - Drawing (a Canvas)
 

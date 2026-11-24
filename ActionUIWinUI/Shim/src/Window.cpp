@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdio>
 #include <functional>
+#include <map>
 #include <vector>
 
 #include <microsoft.ui.xaml.window.h>  // IWindowNative: the window's HWND
@@ -344,7 +345,18 @@ bool sendInputBatches(const char *where, std::vector<std::vector<INPUT>> &batche
     return true;
 }
 
+// Whether each window actionUIWinUIWindowCreate made is active, by its AppWindow's ID. UI thread.
+std::map<uint64_t, bool> &windowActivation() {
+    static std::map<uint64_t, bool> states;
+    return states;
+}
+
 } // namespace
+
+bool windowActive(uint64_t windowID) {
+    auto found = windowActivation().find(windowID);
+    return found == windowActivation().end() || found->second;
+}
 
 } // namespace actionui_winui
 
@@ -355,6 +367,24 @@ extern "C" {
 ActionUIWinUIObject *actionUIWinUIWindowCreate(void) {
     return guardedObject("window create", []() {
         mux::Window window;
+        // Its activation, for the elements in it that follow it (a HostSurface's keyboard focus).
+        uint64_t windowID = window.AppWindow().Id().Value;
+        windowActivation()[windowID] = false;
+        window.Activated([windowID](auto &&, mux::WindowActivatedEventArgs const &arguments) {
+            guarded("window activated", [&]() {
+                // Not after Closed: an entry made again would outlive the window, and its ID may be reused.
+                auto found = windowActivation().find(windowID);
+                if (found == windowActivation().end()) {
+                    return true;
+                }
+                found->second = arguments.WindowActivationState() != mux::WindowActivationState::Deactivated;
+                windowActivationChanged(windowID);
+                return true;
+            });
+        });
+        window.Closed([windowID](auto &&, auto &&) {
+            windowActivation().erase(windowID);
+        });
         return toObject(window);
     });
 }

@@ -9,7 +9,9 @@
 #include <cstring>
 #include <map>
 #include <memory>
+#include <vector>
 
+#include <winrt/Microsoft.UI.Content.h>  // ContentIslandEnvironment
 #include <winrt/Microsoft.UI.Xaml.Media.h>
 #include <winrt/Microsoft.UI.Xaml.Media.Imaging.h>
 #include <winrt/Windows.Storage.Streams.h>
@@ -65,11 +67,21 @@ struct RootWatch {
     ActionUIWinUICallback destroyContext;
 };
 
-// A watch's window, held weakly (a watch must not keep a closed window's content alive), and its event.
+// A watch's window, held weakly (a watch must not keep a closed window's content alive), its event, the ID of
+// its AppWindow (0 when it has none), and the watch itself, held weakly (its event holds it), for the window's
+// activation changes (windowActivationChanged).
 struct RootWatchEntry {
     winrt::weak_ref<mux::XamlRoot> root;
     winrt::event_token event;
+    uint64_t windowID;
+    std::weak_ptr<RootWatch> watch;
 };
+
+// The ID of the AppWindow `root` is in, 0 when it has none.
+uint64_t windowIDOf(mux::XamlRoot const &root) {
+    winrt::Microsoft::UI::Content::ContentIslandEnvironment environment = root.ContentIslandEnvironment();
+    return environment != nullptr ? environment.AppWindowId().Value : 0;
+}
 
 // The watches added, by token. UI thread only.
 std::map<uint64_t, RootWatchEntry> &rootWatches() {
@@ -80,6 +92,28 @@ std::map<uint64_t, RootWatchEntry> &rootWatches() {
 uint64_t nextRootWatch = 1;
 
 } // namespace
+
+void actionui_winui::windowActivationChanged(uint64_t windowID) {
+    if (windowID == 0) {
+        return;
+    }
+    // The watches first, then their calls: a handler may add or remove watches.
+    std::vector<std::pair<uint64_t, std::shared_ptr<RootWatch>>> due;
+    for (auto const &[token, entry] : rootWatches()) {
+        if (entry.windowID == windowID) {
+            if (std::shared_ptr<RootWatch> watch = entry.watch.lock()) {
+                due.emplace_back(token, watch);
+            }
+        }
+    }
+    for (auto const &[token, watch] : due) {
+        // Not a watch an earlier handler removed (its holder lives on in `due` until the end).
+        if (rootWatches().count(token) == 0) {
+            continue;
+        }
+        watch->handler(watch->context);
+    }
+}
 
 extern "C" {
 
@@ -172,7 +206,7 @@ uint64_t actionUIWinUIXamlRootChangedAdd(ActionUIWinUIObject *element, ActionUIW
         // handler, and the holder's end runs destroyContext).
         auto &watches = rootWatches();
         uint64_t next = nextRootWatch;
-        auto slot = watches.emplace(next, RootWatchEntry{winrt::make_weak(root), {}}).first;
+        auto slot = watches.emplace(next, RootWatchEntry{winrt::make_weak(root), {}, windowIDOf(root), holder}).first;
         try {
             slot->second.event = root.Changed([holder](auto &&, auto &&) {
                 // Held while it runs: a handler that removes itself must not free its context under it.
@@ -219,6 +253,17 @@ bool actionUIWinUIElementIsHostVisible(ActionUIWinUIObject *element) {
         return true;
     });
     return visible;
+}
+
+bool actionUIWinUIElementIsWindowActive(ActionUIWinUIObject *element) {
+    bool active = false;
+    guarded("element is window active", [&]() {
+        if (mux::XamlRoot root = objectAs<mux::UIElement>(element, L"UIElement").XamlRoot()) {
+            active = windowActive(windowIDOf(root));
+        }
+        return true;
+    });
+    return active;
 }
 
 } // extern "C"
