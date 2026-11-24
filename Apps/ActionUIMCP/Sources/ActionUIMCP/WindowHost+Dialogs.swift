@@ -172,7 +172,8 @@ extension WindowHost {
         let isChart = spec.kind == .chart
         let opened = try openWindow(document: spec.root, title: spec.title, subtitle: subtitle,
                                     sizing: .fixed(ContentSize(width: spec.width, height: spec.height)),
-                                    activate: false, queuesEvents: false, rejectLoadErrors: isChart, keep: keep, mark: .strip)
+                                    activate: false, queuesEvents: false, rejectLoadErrors: isChart, keep: keep, mark: .strip,
+                                    footer: spec.footer())
         if let rows = spec.tableRows, !rows.isEmpty {
             ActionUISwift.setElementRows(windowUUID: opened.id, viewID: ViewerSpec.tableViewID, rows: rows)
         }

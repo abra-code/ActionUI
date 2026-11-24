@@ -54,6 +54,8 @@ final class HazardStripView: NSView {
     }
 
     override func draw(_ dirtyRect: NSRect) {
+        // Views do not clip to their bounds, and the notches at either end reach past them.
+        bounds.clip()
         // The view is flipped, so angle 90 runs from the top (starting color) to the bottom.
         NSGradient(starting: Self.bright, ending: Self.dark)?.draw(in: bounds, angle: 90)
 
@@ -74,18 +76,20 @@ final class HazardStripView: NSView {
 }
 
 extension AppKitPlatform {
-    /// The window's content view: the mark on top, `content` below it, filling the rest.
-    static func markedContainer(around content: NSView, mark: WindowMark) -> NSView {
+    /// The window's content view: the mark on top, `content` below it, and for a `show` window its
+    /// bottom bar under that.
+    static func markedContainer(around content: NSView, mark: WindowMark, footer: ShowFooter?) -> NSView {
         // A hosting view that is not the window's content view does not pass its toolbar items and
         // navigation title on to the window unless asked: without this, an ActionUI toolbar is lost.
         (content as? NSHostingView<AnyView>)?.sceneBridgingOptions = [.toolbars, .title]
         let strip = HazardStripView(mark: mark)
+        let bar = footer.map(ShowFooterView.init(footer:))
         let container = NSView()
-        for view in [strip, content] {
+        for view in [strip, content] + (bar.map { [$0] } ?? []) {
             view.translatesAutoresizingMaskIntoConstraints = false
             container.addSubview(view)
         }
-        NSLayoutConstraint.activate([
+        var constraints = [
             strip.topAnchor.constraint(equalTo: container.topAnchor),
             strip.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             strip.trailingAnchor.constraint(equalTo: container.trailingAnchor),
@@ -93,14 +97,26 @@ extension AppKitPlatform {
             content.topAnchor.constraint(equalTo: strip.bottomAnchor),
             content.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             content.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            content.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-        ])
+        ]
+        if let bar {
+            constraints += [
+                content.bottomAnchor.constraint(equalTo: bar.topAnchor),
+                bar.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+                bar.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+                bar.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+                bar.heightAnchor.constraint(equalToConstant: ShowFooterView.height),
+            ]
+        } else {
+            constraints.append(content.bottomAnchor.constraint(equalTo: container.bottomAnchor))
+        }
+        NSLayoutConstraint.activate(constraints)
         return container
     }
 
-    /// A content size for the ActionUI content, grown by the mark.
-    static func withMark(_ size: NSSize, _ mark: WindowMark) -> NSSize {
-        NSSize(width: size.width, height: size.height + HazardStripView.height(of: mark))
+    /// A content size for the ActionUI content, grown by the mark and the bottom bar.
+    static func withChrome(_ size: NSSize, _ mark: WindowMark, _ footer: ShowFooter?) -> NSSize {
+        let bar = footer == nil ? 0 : ShowFooterView.height
+        return NSSize(width: size.width, height: size.height + HazardStripView.height(of: mark) + bar)
     }
 }
 #endif

@@ -340,6 +340,16 @@ enum ContentKind: String, CaseIterable {
     }
 }
 
+/// What the bottom bar of a `show` window says: when the window was shown, and where its content
+/// came from.
+struct ShowFooter: Codable, Sendable {
+    let shownAt: Date
+    /// The local file shown, its links resolved; nil for inline content and for a diff.
+    let path: String?
+    /// The http(s) address shown, for content from the network.
+    let url: String?
+}
+
 struct ViewerSpec {
     let title: String
     let kind: ContentKind
@@ -353,6 +363,9 @@ struct ViewerSpec {
     let warnings: [String]
     /// For `file`: the view the file is shown with, returned with the result.
     let shownAs: FileView?
+    /// Where the content came from, for the bottom bar: a local file, or an http(s) address.
+    let sourcePath: String?
+    let sourceURL: String?
 
     static let tableViewID = 1
     static let chartViewID = 1
@@ -390,6 +403,8 @@ struct ViewerSpec {
         var parsedRows: [[String]]?
         var checkWarnings: [String] = []
         var fileView: FileView?
+        var shownPath: String?
+        var shownURL: String?
         switch kind {
         case .markdown:
             guard let text else { throw MCPToolError("kind 'markdown' needs 'text'") }
@@ -405,14 +420,17 @@ struct ViewerSpec {
             if let path {
                 root = ["type": "Image", "properties": ["filePath": try Self.existingFile(path), "resizable": true,
                                                         "contentMode": "fit", "padding": 12, "frame": fill]]
+                shownPath = path
             } else if let url {
                 root = ["type": "AsyncImage", "properties": ["url": url, "frame": fill]]
+                shownURL = url
             } else {
                 throw MCPToolError("kind 'image' needs 'path' or 'url'")
             }
         case .pdf:
             guard let path else { throw MCPToolError("kind 'pdf' needs 'path'") }
             root = ["type": "QuickLook", "properties": ["filePath": try Self.existingFile(path), "frame": fill]]
+            shownPath = path
         case .file:
             guard let path else { throw MCPToolError("kind 'file' needs 'path'") }
             let viewing = try FileViewing.view(forPath: try Self.existingFile(path), tableViewID: Self.tableViewID,
@@ -420,12 +438,15 @@ struct ViewerSpec {
             root = viewing.root
             parsedRows = viewing.rows
             fileView = viewing.view
+            shownPath = path
         case .video:
             let location: String
             if let path {
                 location = URL(fileURLWithPath: try Self.existingFile(path)).absoluteString
+                shownPath = path
             } else if let url {
                 location = url
+                shownURL = url
             } else {
                 throw MCPToolError("kind 'video' needs 'path' or 'url'")
             }
@@ -433,6 +454,7 @@ struct ViewerSpec {
         case .web:
             if let url {
                 root = ["type": "WebView", "properties": ["url": url, "frame": fill]]
+                shownURL = url
             } else if let text {
                 root = ["type": "WebView", "properties": ["html": text, "frame": fill]]
             } else {
@@ -506,6 +528,13 @@ struct ViewerSpec {
         tableRows = parsedRows
         warnings = checkWarnings
         shownAs = fileView
+        sourcePath = shownPath.map { URL(fileURLWithPath: $0).resolvingSymlinksInPath().path }
+        sourceURL = shownURL
+    }
+
+    /// The bottom bar of a window showing this, opened now.
+    func footer() -> ShowFooter {
+        ShowFooter(shownAt: Date(), path: sourcePath, url: sourceURL)
     }
 
     /// The folder that relative paths in `text` resolve against: `base`, an existing folder, or the

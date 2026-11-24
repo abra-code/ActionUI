@@ -148,7 +148,7 @@ final class AppKitPlatform: NSObject, NSWindowDelegate, WindowPlatform {
     /// Without `activate` the window is only ordered front, so it does not take keyboard focus from
     /// the user.
     func present(_ content: Content, windowID: String, title: String, subtitle: String, sizing: WindowHost.Sizing,
-                 activate: Bool, mark: WindowMark) {
+                 activate: Bool, mark: WindowMark, footer: ShowFooter?) {
         var style: NSWindow.StyleMask = [.titled, .closable]
         switch sizing {
         case .fitting(let resizable) where resizable: style.formUnion([.miniaturizable, .resizable])
@@ -158,7 +158,7 @@ final class AppKitPlatform: NSObject, NSWindowDelegate, WindowPlatform {
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 200),
                               styleMask: style, backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
-        window.contentView = Self.markedContainer(around: content.controller.view, mark: mark)
+        window.contentView = Self.markedContainer(around: content.controller.view, mark: mark, footer: footer)
         // After the content view: installing the SwiftUI hosting view resets the window's title
         // and subtitle, and the subtitle carries the provenance line.
         window.title = title
@@ -166,10 +166,10 @@ final class AppKitPlatform: NSObject, NSWindowDelegate, WindowPlatform {
         titleGuards[windowID] = WindowTitleGuard(window: window, title: title, subtitle: subtitle)
         switch sizing {
         case .fixed(let size):
-            window.setContentSize(Self.withMark(NSSize(width: size.width, height: size.height), mark))
+            window.setContentSize(Self.withChrome(NSSize(width: size.width, height: size.height), mark, footer))
         case .fitting:
-            // The mark after the clamp, which reads a zero height as "no fitting size".
-            window.setContentSize(Self.withMark(Self.clampedToScreen(content.fitting), mark))
+            // The mark and the bar after the clamp, which reads a zero height as "no fitting size".
+            window.setContentSize(Self.withChrome(Self.clampedToScreen(content.fitting), mark, footer))
         }
         window.delegate = self
         Self.place(window)

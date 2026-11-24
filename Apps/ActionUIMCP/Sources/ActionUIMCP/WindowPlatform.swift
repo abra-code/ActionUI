@@ -98,7 +98,7 @@ protocol WindowPlatform: AnyObject {
     /// Opens a window showing `content`. `activate` takes the keyboard focus (a dialog needs an
     /// answer); otherwise the window leaves it with the user where the system allows that.
     func present(_ content: Content, windowID: String, title: String, subtitle: String, sizing: WindowHost.Sizing,
-                 activate: Bool, mark: WindowMark)
+                 activate: Bool, mark: WindowMark, footer: ShowFooter?)
 
     /// Closes the window, and calls `host.windowClosed` once it is going. A window not ready to
     /// close yet still closes: the host has told the agent it did.

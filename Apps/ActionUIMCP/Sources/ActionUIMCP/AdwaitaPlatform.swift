@@ -98,7 +98,7 @@ final class AdwaitaPlatform: WindowPlatform {
     }
 
     func present(_ content: Content, windowID: String, title: String, subtitle: String, sizing: WindowHost.Sizing,
-                 activate: Bool, mark: WindowMark) {
+                 activate: Bool, mark: WindowMark, footer: ShowFooter?) {
         var options = AdwaitaApplication.WindowOptions(subtitle: subtitle)
         switch sizing {
         case .fitting(let resizable):
