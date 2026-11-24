@@ -325,13 +325,13 @@ final class TextEditorTests: XCTestCase {
     #endif
 
     func testALessTrustedEditorShowsRefusedLinksAsPlainText() throws {
-        let document = Data(#"{"id": 7, "type": "TextEditor", "properties": {"markdown": "x"}}"#.utf8)
+        let json = Data(#"{"id": 7, "type": "TextEditor", "properties": {"markdown": "x"}}"#.utf8)
         let remote = UUID().uuidString
         ActionUIModel.shared.logger = ConsoleLogger(maxLevel: .error)
         defer { ActionUIModel.shared.logger = logger }
-        _ = try ActionUIContentLoader.load(data: document, format: "json", windowUUID: remote, isContentView: true, parentID: 0,
+        _ = try ActionUIContentLoader.load(data: json, format: "json", windowUUID: remote, isContentView: true, parentID: 0,
                                             source: .remote(URL(string: "https://example.com/editor.json")!))
-        _ = try ActionUIContentLoader.load(data: document, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
+        _ = try ActionUIContentLoader.load(data: json, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
         let text = try AttributedString(markdown: "[file](file:///etc/hosts) and [web](https://example.com)")
         func links(_ text: AttributedString) -> [String] { text.runs.compactMap { $0.link?.absoluteString } }
         let lessTrustedModel = try XCTUnwrap(ActionUIModel.shared.windowModels[remote]?.viewModels[7])

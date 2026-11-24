@@ -609,7 +609,7 @@ final class LoadableViewTests: XCTestCase {
             XCTAssertEqual("\(error)", "loading it took longer than 0.3 seconds")
         }
         XCTAssertLessThan(Date().timeIntervalSince(start), 5)
-        XCTAssertEqual(WindowModel.maximumJSONSize, 16 * 1024 * 1024, "RemoteLoadableView fetches up to the document cap")
+        XCTAssertEqual(WindowModel.maximumJSONSize, 16 * 1024 * 1024, "RemoteLoadableView fetches up to the JSON size cap")
     }
 
     func testRemoteJSONWithAnErrorStatusIsRefused() async throws {

@@ -25,7 +25,7 @@ package final class AdwaitaWindow {
     /// The window's content: the root node's box.
     package var contentWidget: WidgetPointer? { root?.outerWidget }
 
-    /// The tree for the document loaded under `windowUUID`, nil when none is loaded: for the
+    /// The tree for the JSON loaded under `windowUUID`, nil when none is loaded: for the
     /// application module, which cannot see the model's internal window models.
     package static func forWindow(_ windowUUID: String) -> AdwaitaWindow? {
         ActionUIModel.shared.windowModels[windowUUID].map { AdwaitaWindow(windowModel: $0) }
@@ -49,10 +49,10 @@ package final class AdwaitaWindow {
     }
 
     /// Element types whose renderer shows header bars of its own, so the window shows none when the
-    /// document is one of them.
+    /// JSON's root is one of them.
     static let headerBarTypes: Set<String> = ["NavigationStack", "NavigationSplitView"]
 
-    /// Whether the document brings its own header bars (its root is a navigation container).
+    /// Whether the JSON brings its own header bars (its root is a navigation container).
     package var showsOwnHeaderBars: Bool {
         root.map { Self.headerBarTypes.contains($0.element.type) } ?? false
     }
@@ -80,7 +80,7 @@ package final class AdwaitaWindow {
 
 @MainActor
 extension ActionUIModel {
-    /// Loads a window's document into the model under `windowUUID` (loadDescription), for the
+    /// Loads a window's JSON into the model under `windowUUID` (loadDescription), for the
     /// application module: Core is also built for Apple, where it takes no package access. `url`:
     /// the file or http address it was read from, which decides its origin (JSONContentOrigin), as
     /// a FileLoadableView or RemoteLoadableView window root's does on Apple; nil for JSON the host
@@ -93,7 +93,7 @@ extension ActionUIModel {
         _ = try loadDescription(from: data, format: format, windowUUID: windowUUID, origin: origin)
     }
 
-    /// The largest document any load takes, in bytes (WindowModel.maximumJSONSize), for the
-    /// application module, which reads a WindowGroup document before loading its content.
+    /// The largest JSON any load takes, in bytes (WindowModel.maximumJSONSize), for the
+    /// application module, which reads a WindowGroup's JSON before loading its content.
     package static var maximumJSONSize: Int { WindowModel.maximumJSONSize }
 }

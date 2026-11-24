@@ -112,7 +112,7 @@ extension EnvironmentValues {
 }
 
 /// Shows a LoadableView's content unless its source is already being shown by a LoadableView
-/// around it (a document that loads itself, directly or through others, would load without end)
+/// around it (JSON that loads itself, directly or through others, would load without end)
 /// or the LoadableViews are nested too deep (the rule is Core's `ActionUIContentLoader.nestingRefusal`).
 /// The content view is made only when it may show, so a refused file is never read.
 @MainActor

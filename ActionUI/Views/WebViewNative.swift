@@ -80,7 +80,7 @@ enum WebViewSupport {
         if let filePath = script.filePath {
             guard readsFile(filePath) else { return nil }
             do {
-                // Only a regular file: a device or a pipe named by the document would block.
+                // Only a regular file: a device or a pipe named by the JSON would block.
                 let data = try ActionUIContentLoader.readRegularFile(URL(fileURLWithPath: filePath))
                 guard let text = String(data: data, encoding: .utf8) else {
                     logger.log("WebView userScript: the file at '\(filePath)' is not UTF-8 text", .warning)
@@ -321,7 +321,7 @@ extension WKWebViewRepresentable {
         /// here. Without a navigation delegate WebKit hands an address it cannot load to another
         /// app, which would let the page open any app's own scheme. Trusted content keeps WebKit's
         /// default handling, so it has no delegate. Asked again on each update: a LoadableView that
-        /// loads another document can keep this WKWebView for an element of the same id whose
+        /// loads other JSON can keep this WKWebView for an element of the same id whose
         /// origin differs.
         func updateNavigationDelegate() {
             guard let webView else { return }

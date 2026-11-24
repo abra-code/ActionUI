@@ -90,7 +90,7 @@ package enum WindowAssembly {
         return (min(width, monitor.width), Int32(windowHeight), barsHeight)
     }
 
-    /// A window's content when its document could not be loaded: the error, selectable.
+    /// A window's content when its ActionUI JSON could not be loaded: the error, selectable.
     package static func errorContent(_ message: String) -> WidgetPointer {
         let label = gtk_label_new(message)!
         gtk_label_set_wrap(opaque(label), 1)

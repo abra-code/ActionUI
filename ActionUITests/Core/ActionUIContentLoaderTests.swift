@@ -3,7 +3,7 @@
  Tests for ActionUIContentLoader: where a LoadableView's text points (with a stub bundle), the
  format of a file or URL, loading a description as content or as a sub-view (from data, and from a
  stub fetch), viewDidLoad once per source, and the origin each loaded element is given (trusted
- for the host and the app's resources, less trusted for remote documents, files elsewhere and all
+ for the host and the app's resources, less trusted for remote JSON, files elsewhere and all
  they load).
 */
 
@@ -262,7 +262,7 @@ final class ActionUIContentLoaderTests: XCTestCase {
         guard case .file = outside.source else { return XCTFail("\(outside)") }
         XCTAssertEqual(origin(.file(resources.appendingPathComponent("link.json"))).trust, .lessTrusted, "a link out of the resources")
         XCTAssertEqual(origin(.file(resources.appendingPathComponent("inside.json")), inside: remote).trust, .lessTrusted,
-                       "a bundled file a remote document names stays less trusted")
+                       "a bundled file that remote JSON names stays less trusted")
         XCTAssertEqual(origin(.file(resources.appendingPathComponent("inside.json")), inside: .host).trust, .trusted)
         XCTAssertEqual(ActionUIContentLoader.origin(for: .file(resources.appendingPathComponent("inside.json")), inside: nil,
                                                      parentID: 7, resourceFolders: []).trust,
@@ -287,7 +287,7 @@ final class ActionUIContentLoaderTests: XCTestCase {
         XCTAssertNil(rootOrigin.parentID)
         XCTAssertTrue(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 100) === rootOrigin, "one object for the whole load")
 
-        // A remote document in the LoadableView 100, with a LoadableView 300 of its own.
+        // Remote JSON in the LoadableView 100, with a LoadableView 300 of its own.
         let remote = Data(#"{ "id": 200, "type": "VStack", "children": [ { "id": 300, "type": "LoadableView", "properties": {} } ] }"#.utf8)
         let remoteURL = URL(string: "https://example.com/panel.json")!
         _ = try ActionUIContentLoader.load(data: remote, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 100,
@@ -297,7 +297,7 @@ final class ActionUIContentLoaderTests: XCTestCase {
         XCTAssertEqual(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 300)?.trust, .lessTrusted)
         XCTAssertTrue(recording.errors.isEmpty, "\(recording.errors)")
 
-        // A less-trusted document that reuses a trusted element's id (1, the root's) is refused
+        // Less-trusted JSON that reuses a trusted element's id (1, the root's) is refused
         // whole: its element would be drawn with the root's view model and read as trusted.
         let colliding = Data(#"{ "id": 350, "type": "VStack", "children": [ { "id": 1, "type": "LoadableView", "properties": {} } ] }"#.utf8)
         XCTAssertThrowsError(try ActionUIContentLoader.load(data: colliding, format: "json", windowUUID: windowUUID, isContentView: false,
@@ -308,7 +308,7 @@ final class ActionUIContentLoaderTests: XCTestCase {
         XCTAssertNil(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 350), "nothing of it is loaded")
         XCTAssertEqual(recording.errors, ["Not loading a less-trusted sub-view for parent 300: id 1 is already in the window"])
 
-        // A bundled file the remote document names: less trusted, as the content around it.
+        // A bundled file the remote JSON names: less trusted, as the content around it.
         let inner = Data(#"{ "id": 400, "type": "Text", "properties": { "text": "Inner" } }"#.utf8)
         _ = try ActionUIContentLoader.load(data: inner, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 300,
                                             source: .file(resources.appendingPathComponent("inside.json")))
@@ -317,8 +317,8 @@ final class ActionUIContentLoaderTests: XCTestCase {
         XCTAssertEqual(nested.parentID, 300)
         guard case .resource = nested.source else { return XCTFail("\(nested)") }
 
-        // Data the host holds, loaded in place of the remote document: the host's, and the remote
-        // document's elements (and what they loaded) are gone with their origins.
+        // Data the host holds, loaded in place of the remote JSON: the host's, and the remote
+        // JSON's elements (and what they loaded) are gone with their origins.
         let hostPanel = Data(#"{ "id": 500, "type": "Text", "properties": {} }"#.utf8)
         _ = try ActionUIContentLoader.load(data: hostPanel, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 100, source: nil)
         XCTAssertTrue(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 500) === JSONContentOrigin.host)
@@ -327,7 +327,7 @@ final class ActionUIContentLoaderTests: XCTestCase {
         XCTAssertTrue(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 1) === rootOrigin)
         XCTAssertNil(ActionUIModel.shared.origin(windowUUID: "no-such-window", viewID: 1))
 
-        // A trusted document's conflict is skipped, as before: the rest loads, the id keeps its own.
+        // A conflict in trusted JSON is skipped, as before: the rest loads, the id keeps its own.
         let trustedColliding = Data(#"{ "id": 600, "type": "VStack", "children": [ { "id": 1, "type": "Text", "properties": {} } ] }"#.utf8)
         _ = try ActionUIContentLoader.load(data: trustedColliding, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 100,
                                             source: .file(resources.appendingPathComponent("inside.json")))
@@ -648,8 +648,8 @@ final class ActionUIContentLoaderTests: XCTestCase {
     }
 
     func testALessTrustedWebViewShowsOnlyWebAddressesAndItsOwnOriginAsABase() throws {
-        let document = try XCTUnwrap(URL(string: "https://example.com/app/view.json"))
-        let remote = JSONContentOrigin(source: .remote(document), trust: .lessTrusted, parentID: 1)
+        let address = try XCTUnwrap(URL(string: "https://example.com/app/view.json"))
+        let remote = JSONContentOrigin(source: .remote(address), trust: .lessTrusted, parentID: 1)
         let file = JSONContentOrigin(source: .file("/tmp/view.json"), trust: .lessTrusted, parentID: 1)
         let policy = DefaultTrustPolicy()
         func url(_ text: String) -> URL { URL(string: text)! }
@@ -659,7 +659,7 @@ final class ActionUIContentLoaderTests: XCTestCase {
         XCTAssertFalse(policy.allows(.webView(url("someapp://run")), for: remote))
         XCTAssertTrue(policy.allows(.webView(nil), for: remote), "inline html")
         XCTAssertTrue(policy.allows(.webView(url("file:///etc/hosts")), for: .host), "the host's content shows anything")
-        // A base of the document's own origin only.
+        // A base of the JSON's own origin only.
         XCTAssertTrue(policy.allows(.webViewBaseURL(url("https://example.com/assets/")), for: remote))
         XCTAssertTrue(policy.allows(.webViewBaseURL(url("HTTPS://Example.com:443/")), for: remote), "the default port, any case")
         XCTAssertFalse(policy.allows(.webViewBaseURL(url("https://example.com:8443/")), for: remote), "another port")

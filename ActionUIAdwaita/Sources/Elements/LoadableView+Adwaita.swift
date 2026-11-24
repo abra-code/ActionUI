@@ -14,15 +14,15 @@
    color for a file or URL that did not load or parse.
  - A new source loads again, replacing the sub-view and its view models (WindowModel drops the old
    ones); the same source is not loaded again.
- - name is a file of that name in the folder of the document holding the LoadableView (the file an
-   enclosing LoadableView loaded, else the window's document), then in the app's bundle (AppBundle);
+ - name is a file of that name in the folder of the JSON holding the LoadableView (the file an
+   enclosing LoadableView loaded, else the window's JSON), then in the app's bundle (AppBundle);
    found nowhere, it shows Core's "not found" message.
- - A source that a LoadableView around this one already shows (a document that loads itself,
+ - A source that a LoadableView around this one already shows (JSON that loads itself,
    directly or through others), or one nested more than 16 deep, is refused with "Failed to load
    view: ..." in the error color, by Core's nesting rule (ActionUIContentLoader.nestingRefusal), as
    SwiftUI's LoadableNestingGuard refuses it. Siblings showing the same source stay allowed.
  - A file is read only when it is a regular file (ActionUIContentLoader.readRegularFile), so a
-   document cannot name a device or a named pipe and hang the window.
+   JSON cannot name a device or a named pipe and hang the window.
 */
 
 #if canImport(FoundationEssentials)
@@ -208,8 +208,8 @@ extension LoadableView: ActionUIAdwaitaRenderer {
 }
 
 extension LoadableView {
-    /// The folder of the document holding `node`: the file the nearest enclosing LoadableView
-    /// loaded, else the window's document's folder.
+    /// The folder of the JSON holding `node`: the file the nearest enclosing LoadableView
+    /// loaded, else the folder of the window's JSON.
     fileprivate static func documentFolder(of node: RenderNode) -> String? {
         var ancestor = node.parent
         while let current = ancestor {

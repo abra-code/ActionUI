@@ -10,7 +10,7 @@ extension VideoPlayer: ActionUISwiftUIRenderer {
         // Use viewModel.value if set, otherwise use initialValue
         let urlString = Self.initialValue(model) as? String ?? ""
         if let url = URL(string: urlString) {
-            // A document names the address: a file: one must be a regular file, not a device or a
+            // The JSON names the address: a file: one must be a regular file, not a device or a
             // named pipe, which AVFoundation would read without end or wait on for good, as on Linux
             // and Android. A missing file goes on to AVFoundation, which reports it.
             if url.isFileURL, FileManager.default.fileExists(atPath: url.path),

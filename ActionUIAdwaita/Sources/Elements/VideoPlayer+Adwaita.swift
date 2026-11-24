@@ -18,7 +18,7 @@
  - A video that cannot be played shows GTK's error icon, the reason in its tooltip, and the reason
    is logged (a missing GStreamer plug-in or media module, a file not found, a network error).
  - A file: address that names something other than a regular file (a device, a named pipe) is not
-   opened, and that is logged as an error: the document names the address.
+   opened, and that is logged as an error: the JSON names the address.
 */
 
 #if canImport(FoundationEssentials)
@@ -122,7 +122,7 @@ extension VideoPlayer: ActionUIAdwaitaRenderer {
         if let previous = gtk_video_get_media_stream(opaque(video)) {
             gtk_media_stream_pause(previous)
         }
-        // A document names the address: a file: one must be a regular file, not a device or a named
+        // The JSON names the address: a file: one must be a regular file, not a device or a named
         // pipe, which GStreamer would read without end or wait on for good. A missing file goes on
         // to GStreamer, which reports it.
         if url.isFileURL, FileManager.default.fileExists(atPath: url.path),

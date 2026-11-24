@@ -1,17 +1,17 @@
 // Sources/Runtime/HostWindow.swift
 /*
- A document in a window the host made, for a host that runs its own GtkApplication (the C calls
+ ActionUI JSON in a window the host made, for a host that runs its own GtkApplication (the C calls
  actionUILoadIntoHostWindowFromURL and actionUILoadIntoHostWindowFromJSON, ActionUIC.h), the
  counterpart of the hosting controller an AppKit host puts in its own NSWindow on macOS.
 
  The window is an AdwApplicationWindow or an AdwWindow, not yet presented. ActionUI fills it as it
  fills its own windows (WindowAssembly) and registers it (WindowRegistry: menu commands, content
- size limits, presentations), and sets its default size from the document. The rest is the host's:
+ size limits, presentations), and sets its default size from the JSON. The rest is the host's:
  presenting, the title, closing, focus, modal runs. The window's model is the host's too: closing
  or destroying the window does not remove it, so the host's code can still read the values; the
  host removes it with actionUIRemoveWindow. The window leaves the registry when it is destroyed.
 
- Not here, unlike ActionUI's own windows: WindowGroup documents (a window's content is the document;
+ Not here, unlike ActionUI's own windows: WindowGroup JSON (a window's content is the JSON;
  a host makes its windows and loads its menu itself), http and https URLs (a file path or file URL
  only), and the check before showing (prepareWindow).
 */
@@ -25,7 +25,7 @@ import CAdwaita
 
 @MainActor
 package enum HostWindow {
-    /// Loads the document at `urlString` (a path or a file URL) into the model under `windowUUID`
+    /// Loads the JSON at `urlString` (a path or a file URL) into the model under `windowUUID`
     /// and fills `window`; false when it cannot be read or loaded (the window then shows why) or
     /// `window` is not an AdwApplicationWindow or AdwWindow (nothing is done then).
     package static func load(url urlString: String, into window: UnsafeMutableRawPointer, windowUUID: String,
@@ -50,7 +50,7 @@ package enum HostWindow {
         }
     }
 
-    /// As load(url:...), with the document's JSON.
+    /// As load(url:...), with the JSON passed in.
     package static func load(json: String, into window: UnsafeMutableRawPointer, windowUUID: String,
                              subtitle: String?) -> Bool {
         fill(window, windowUUID: windowUUID, subtitle: subtitle, documentFolder: nil, loadError: nil) {
@@ -83,14 +83,14 @@ package enum HostWindow {
             do {
                 try load()
             } catch let thrown {
-                error = "The document could not be loaded: \(thrown)"
+                error = "The ActionUI JSON could not be loaded: \(thrown)"
             }
         }
         if let error {
             logger.log("Window \(windowUUID): \(error)", .error)
         }
         let renderTree = error == nil ? AdwaitaWindow.forWindow(windowUUID) : nil
-        let content = renderTree?.contentWidget ?? WindowAssembly.errorContent(error ?? "The document has no content")
+        let content = renderTree?.contentWidget ?? WindowAssembly.errorContent(error ?? "The ActionUI JSON has no content")
 
         let toolbar = adw_toolbar_view_new()!
         let instance = rawWindow.assumingMemoryBound(to: GTypeInstance.self)
@@ -109,7 +109,7 @@ package enum HostWindow {
                 AppBundle.setDocumentFolder(nil, window: windowUUID)
             }
         }
-        // True only when the document's content is what the window shows
+        // True only when the JSON's content is what the window shows
         return error == nil && renderTree?.contentWidget != nil
     }
 }

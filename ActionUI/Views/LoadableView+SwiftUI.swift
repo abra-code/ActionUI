@@ -39,7 +39,7 @@ extension LoadableView: ActionUISwiftUIRenderer {
         switch source {
         case .failure(let error):
             return SwiftUI.Text(error.message)
-        // Each kind behind LoadableNestingGuard (Common/FileLoadableView.swift): a document that
+        // Each kind behind LoadableNestingGuard (Common/FileLoadableView.swift): JSON that
         // loads itself is refused at the repeat, and nesting stops at a fixed depth.
         case .success(.remote(let url)):
             return LoadableNestingGuard(source: ActionUIContentLoader.nestingKey(for: .remote(url)), logger: logger) {

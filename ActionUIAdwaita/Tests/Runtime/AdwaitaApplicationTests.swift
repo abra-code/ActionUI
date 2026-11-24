@@ -811,7 +811,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         }
         app.run()
         XCTAssertEqual(title, "actionui-app-test-\(ProcessInfo.processInfo.processIdentifier)")
-        XCTAssertTrue(errorText?.hasPrefix("The document could not be loaded") == true, "got \(errorText ?? "nil")")
+        XCTAssertTrue(errorText?.hasPrefix("The ActionUI JSON could not be loaded") == true, "got \(errorText ?? "nil")")
         XCTAssertEqual(documentFolder, URL(fileURLWithPath: path).deletingLastPathComponent().path, "the file's folder, where its LoadableViews find their names")
         XCTAssertNil(folderAfterClose, "dropped when the window closes")
     }

@@ -641,13 +641,13 @@ final class WebViewTests: XCTestCase {
         let tmp = NSTemporaryDirectory() + "actionui-webview-trust-\(UUID().uuidString).js"
         try "var fromFile = 1;".write(toFile: tmp, atomically: true, encoding: .utf8)
         defer { try? FileManager.default.removeItem(atPath: tmp) }
-        let document = Data(#"{"id": 7, "type": "WebView", "properties": {}}"#.utf8)
+        let json = Data(#"{"id": 7, "type": "WebView", "properties": {}}"#.utf8)
         let remote = UUID().uuidString
         ActionUIModel.shared.logger = consoleLogger
         defer { ActionUIModel.shared.logger = logger }
-        _ = try ActionUIContentLoader.load(data: document, format: "json", windowUUID: remote, isContentView: true, parentID: 0,
+        _ = try ActionUIContentLoader.load(data: json, format: "json", windowUUID: remote, isContentView: true, parentID: 0,
                                             source: .remote(URL(string: "https://example.com/v.json")!))
-        _ = try ActionUIContentLoader.load(data: document, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
+        _ = try ActionUIContentLoader.load(data: json, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
         let script = WebView.Props.UserScript(["filePath": tmp])
         XCTAssertNil(WebViewSupport.resolveJSSource(from: script, logger: consoleLogger) {
             ActionUIModel.shared.readsScriptFile($0, windowUUID: remote, viewID: 7)
