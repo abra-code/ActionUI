@@ -116,7 +116,7 @@ private func foundation(_ data: Data) -> JSONValue? {
     }
 }
 
-/// Every JSON document in the repository, as the verifier will meet them.
+/// Every JSON file in the repository, as the verifier will meet them.
 @Test func parserMatchesFoundationOnDocuments() throws {
     let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     var checked = 0

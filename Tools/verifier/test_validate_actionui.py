@@ -85,7 +85,7 @@ class PlatformHelperTests(unittest.TestCase):
 
 
 class CrossPlatformModeTests(unittest.TestCase):
-    """Default mode: no --platform. The document is authored for all platforms."""
+    """Default mode: no --platform. The JSON is authored for all platforms."""
 
     def test_valid_document_is_clean(self):
         doc = {
@@ -465,7 +465,7 @@ class CliTests(unittest.TestCase):
 
 
 class MenuBarCliTests(unittest.TestCase):
-    """A top-level JSON array is validated as a MainMenu.json menu-bar document."""
+    """A top-level JSON array is validated as MainMenu.json menu-bar JSON."""
 
     def _run(self, *args):
         return subprocess.run(

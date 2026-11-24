@@ -1,6 +1,6 @@
 // swift-tools-version: 6.0
 //
-// ActionUIVerifier - the command-line document verifier (actionui-verify).
+// ActionUIVerifier - the command-line ActionUI JSON verifier (actionui-verify).
 //
 // A thin front end over the ActionUIVerifier library of the root package (the Swift twin of the
 // Python verifier in Tools/verifier), with the Python verifier's options, output and exit codes.

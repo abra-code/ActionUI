@@ -4,7 +4,7 @@
 // Licensed under the PolyForm Small Business License 1.0.0
 // https://polyformproject.org/licenses/small-business/1.0.0
 
-// actionui-verify - checks ActionUI JSON documents against the element schemas. Same options,
+// actionui-verify - checks ActionUI JSON files against the element schemas. Same options,
 // output and exit codes as Tools/verifier/validate_actionui.py: errors go to stderr, warnings,
 // notes and [OK] lines to stdout, then a summary line.
 
@@ -32,14 +32,14 @@ Usage:
     actionui-verify --schema-dir <dir> ... add an add-on schema directory (repeatable)
     actionui-verify --schemas <dir> ...    use this core schemas directory
 
-Without --platform, files are validated as cross-platform authoring documents:
+Without --platform, files are validated as cross-platform ActionUI JSON:
 platform-specific keys must carry a `:<platform>` suffix. With --platform, the
-document is validated as if deployed to that one platform (other-platform
+JSON is validated as if deployed to that one platform (other-platform
 variants are dropped, just as they are at runtime).
 
 --schema-dir extends the built-in element set with schemas shipped by optional
-add-on libraries (e.g. Add-ons/ActionUIQuickLook/Schemas), so documents using an
-add-on's element type validate. The built-in schemas take precedence on a name
+add-on libraries (e.g. Add-ons/ActionUIQuickLook/Schemas), so JSON using an
+add-on's element type validates. The built-in schemas take precedence on a name
 collision. The option is repeatable.
 
 Add-on schemas are also found without --schema-dir in:

@@ -21,12 +21,12 @@ private func makeValidator(platform: String?) throws -> ActionUIJSONValidator {
     return ActionUIJSONValidator(schemas: schemas, targetPlatform: platform)
 }
 
-private func issues(_ document: JSONValue, platform: String? = "macos") throws -> [String] {
-    try makeValidator(platform: platform).validate(document: document, rootPath: "doc").map(\.description)
+private func issues(_ json: JSONValue, platform: String? = "macos") throws -> [String] {
+    try makeValidator(platform: platform).validate(json: json, rootPath: "doc").map(\.description)
 }
 
-private func errors(_ document: JSONValue, platform: String? = "macos") throws -> [String] {
-    try issues(document, platform: platform).filter { $0.hasPrefix("[ERROR]") }
+private func errors(_ json: JSONValue, platform: String? = "macos") throws -> [String] {
+    try issues(json, platform: platform).filter { $0.hasPrefix("[ERROR]") }
 }
 
 @Test func bundledSchemasLoad() throws {
@@ -36,27 +36,27 @@ private func errors(_ document: JSONValue, platform: String? = "macos") throws -
 }
 
 @Test func cleanDocumentHasNoIssues() throws {
-    let document: JSONValue = ["type": "VStack", "properties": ["spacing": 8, "padding": 16], "children": [
+    let json: JSONValue = ["type": "VStack", "properties": ["spacing": 8, "padding": 16], "children": [
         ["type": "TextField", "id": 1, "properties": ["title": "Name", "prompt": "Ada"]],
         ["type": "QuickLook", "id": 2, "properties": ["filePath": "/tmp/x.pdf"]],
     ]]
-    #expect(try issues(document) == [])
+    #expect(try issues(json) == [])
 }
 
 @Test func typoAndWrongTypeAreReported() throws {
-    let document: JSONValue = ["type": "Text", "properties": ["txt": "hi", "font": ["size": "big"]]]
-    let found = try issues(document)
+    let json: JSONValue = ["type": "Text", "properties": ["txt": "hi", "font": ["size": "big"]]]
+    let found = try issues(json)
     #expect(found.contains("[WARNING] doc: properties.txt: 'txt' is not a known property for Text or View base; possible typo"))
     #expect(found.contains { $0.hasPrefix("[ERROR] doc: properties.font") })
 }
 
 @Test func platformRulesDependOnTheTarget() throws {
-    let document: JSONValue = ["type": "Text", "properties": ["text": "a", "weight": 1, "text:android": 5]]
+    let json: JSONValue = ["type": "Text", "properties": ["text": "a", "weight": 1, "text:android": 5]]
     // Deployed to macOS: the android variant is dropped, the android-only property is flagged.
-    let mac = try issues(document)
+    let mac = try issues(json)
     #expect(mac == ["[WARNING] doc: properties.weight: 'weight': property 'weight' is not available on target platform 'macos' (available on: ['android'])"])
     // Cross-platform authoring: the android variant is checked and has the wrong type.
-    let any = try issues(document, platform: nil)
+    let any = try issues(json, platform: nil)
     #expect(any.contains("[ERROR] doc: properties.text:android: expected string, got integer"))
 }
 
@@ -105,9 +105,9 @@ private func errors(_ document: JSONValue, platform: String? = "macos") throws -
 }
 
 @Test func menuBarDocumentsHaveAnArrayRoot() throws {
-    let document: JSONValue = [["type": "CommandMenu", "properties": ["name": "Tools"], "children": []], ["type": "VStack"]]
-    let found = try issues(document)
-    #expect(found == ["[ERROR] doc[1]: 'VStack' is not valid at the top level of a menu-bar document; expected one of: CommandMenu, CommandGroup"])
+    let json: JSONValue = [["type": "CommandMenu", "properties": ["name": "Tools"], "children": []], ["type": "VStack"]]
+    let found = try issues(json)
+    #expect(found == ["[ERROR] doc[1]: 'VStack' is not valid at the top level of menu-bar JSON; expected one of: CommandMenu, CommandGroup"])
 }
 
 @Test func dataIsParsedAsTheLoaderParsesIt() throws {
@@ -123,16 +123,16 @@ private func errors(_ document: JSONValue, platform: String? = "macos") throws -
 // MARK: Platform variants of type
 
 @Test func deployedTypeIsTheTargetsVariant() throws {
-    let document: JSONValue = ["type:macos": "Button", "type:ios": "Text", "properties": ["title": "Go"]]
-    #expect(try issues(document, platform: "macos") == [])
-    #expect(try issues(document, platform: "ios") == ["[WARNING] doc: properties.title: 'title' is not a known property for Text or View base; possible typo"])
+    let json: JSONValue = ["type:macos": "Button", "type:ios": "Text", "properties": ["title": "Go"]]
+    #expect(try issues(json, platform: "macos") == [])
+    #expect(try issues(json, platform: "ios") == ["[WARNING] doc: properties.title: 'title' is not a known property for Text or View base; possible typo"])
 }
 
 @Test func exactSuffixBeatsUmbrellaBeatsPlain() throws {
-    let document: JSONValue = ["type": "Text", "type:apple": "Image", "type:macos": "Button", "properties": ["title": "Go"]]
-    #expect(try issues(document, platform: "macos") == [])
-    #expect(try issues(document, platform: "ios").first?.contains("for Image or View base") == true)
-    #expect(try issues(document, platform: "android").first?.contains("for Text or View base") == true)
+    let json: JSONValue = ["type": "Text", "type:apple": "Image", "type:macos": "Button", "properties": ["title": "Go"]]
+    #expect(try issues(json, platform: "macos") == [])
+    #expect(try issues(json, platform: "ios").first?.contains("for Image or View base") == true)
+    #expect(try issues(json, platform: "android").first?.contains("for Text or View base") == true)
 }
 
 @Test func noTypeForTheTargetIsAnError() throws {
@@ -142,13 +142,13 @@ private func errors(_ document: JSONValue, platform: String? = "macos") throws -
 /// The runtime leaves out a child typed only for other platforms, so deployed elsewhere it is not
 /// checked: not even its properties or its id, which may repeat a shown element's.
 @Test func childTypedOnlyForOtherPlatformsIsSkipped() throws {
-    let document: JSONValue = ["type": "VStack", "children": [
+    let json: JSONValue = ["type": "VStack", "children": [
         ["type": "Text", "id": 7, "properties": ["text": "x"]],
         ["type:apple": "Button", "id": 7, "properties": ["titel": "Go"]],
     ]]
-    #expect(try issues(document, platform: "linux") == [])
-    #expect(try issues(document, platform: "android") == [])
-    let found = try issues(document, platform: "macos")
+    #expect(try issues(json, platform: "linux") == [])
+    #expect(try issues(json, platform: "android") == [])
+    let found = try issues(json, platform: "macos")
     #expect(found.contains { $0.contains("titel") })
     #expect(found.contains { $0.hasPrefix("[ERROR]") && $0.contains("7") })
 }
@@ -170,22 +170,22 @@ private func errors(_ document: JSONValue, platform: String? = "macos") throws -
 // MARK: Ids across platform variants of children
 
 @Test func sameIDInPlatformVariantsOfChildrenIsClean() throws {
-    let document: JSONValue = ["type": "VStack", "children": [["type": "Text", "id": 6]], "children:ios": [["type": "Text", "id": 6]]]
-    #expect(try errors(document, platform: nil) == [])
-    #expect(try errors(document, platform: "ios") == [])
+    let json: JSONValue = ["type": "VStack", "children": [["type": "Text", "id": 6]], "children:ios": [["type": "Text", "id": 6]]]
+    #expect(try errors(json, platform: nil) == [])
+    #expect(try errors(json, platform: "ios") == [])
 }
 
 @Test func idInAChildrenVariantDuplicatingTheRestOfTheTreeIsAnError() throws {
-    let document: JSONValue = ["type": "VStack", "overlay": ["type": "Text", "id": 6],
+    let json: JSONValue = ["type": "VStack", "overlay": ["type": "Text", "id": 6],
                                "children": [["type": "Text", "id": 7]], "children:ios": [["type": "Text", "id": 6]]]
     // Subview keys are visited in sorted order: children before overlay.
-    #expect(try errors(document, platform: nil) == ["[ERROR] doc: overlay: duplicate 'id' 6 — IDs must be unique across the entire view tree"])
+    #expect(try errors(json, platform: nil) == ["[ERROR] doc: overlay: duplicate 'id' 6 — IDs must be unique across the entire view tree"])
 }
 
 @Test func duplicateIDInsideOneChildrenVariantIsAnError() throws {
-    let document: JSONValue = ["type": "VStack", "children": [["type": "Text", "id": 6]],
+    let json: JSONValue = ["type": "VStack", "children": [["type": "Text", "id": 6]],
                                "children:ios": [["type": "Text", "id": 6], ["type": "Text", "id": 6]]]
-    #expect(try errors(document, platform: nil) == ["[ERROR] doc: children:ios[1]: duplicate 'id' 6 — IDs must be unique across the entire view tree"])
+    #expect(try errors(json, platform: nil) == ["[ERROR] doc: children:ios[1]: duplicate 'id' 6 — IDs must be unique across the entire view tree"])
 }
 
 // MARK: Python-style rendering
