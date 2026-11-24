@@ -12,7 +12,7 @@
       "type": "LoadableView",
       "id": 7,
       "properties": {
-        "url": "https://raw.githubusercontent.com/abra-code/ActionUI/WinUI-CI/ActionUIWinUI/Apps/Preview/Documents/Loadable/RemoteLinks.json"
+        "url": "https://raw.githubusercontent.com/abra-code/ActionUI/WinUI-CI/ActionUIWinUI/Apps/Preview/TestFiles/Loadable/RemoteLinks.json"
       }
     },
     { "type": "Divider", "id": 8 },

@@ -3,7 +3,8 @@
 // ActionUI.dll and its import library ActionUI.lib, the library for programs in other languages: Python, Node.js,
 // Rust and C load it and call its C functions. It holds ActionUI, the C adapter, the application functions and the
 // add-ons (Sources/ActionUILinkedAddOns/LinkedAddOns.swift). Scripts/ci-windows.py builds it and puts it in the
-// Windows library package, and renders the previews of add-on elements (Documents) with ActionUIWinUIAddOnPreview.
+// Windows library package, and renders the previews of add-on elements (the test files in ../Apps/Preview/TestFiles/AddOns) with
+// ActionUIWinUIAddOnPreview.
 //
 // It is a package of its own because the add-ons depend on ActionUI, so ActionUI cannot depend on them (as
 // ActionUIAdwaita/Library on Linux). Its product must be named ActionUI, which names the DLL, so ActionUI's package
@@ -24,7 +25,7 @@ let package = Package(
     products: [
         .library(name: "ActionUI", type: .dynamic, targets: ["ActionUILibrary"]),
         // The preview tool (ActionUI's ActionUIWinUIPreviewSupport) with the add-ons ActionUI.dll links, for
-        // previews of add-on elements (Documents, rendered by Scripts/ci-windows.py).
+        // previews of add-on elements (../Apps/Preview/TestFiles/AddOns, rendered by Scripts/ci-windows.py).
         .executable(name: "ActionUIWinUIAddOnPreview", targets: ["ActionUIWinUIAddOnPreview"]),
     ],
     dependencies: [

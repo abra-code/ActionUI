@@ -19,7 +19,7 @@
       "type": "LoadableView",
       "id": 8,
       "properties": {
-        "url": "https://raw.githubusercontent.com/abra-code/ActionUI/WinUI-CI/ActionUIWinUI/Apps/Preview/Documents/Loadable/RemoteFiles.json"
+        "url": "https://raw.githubusercontent.com/abra-code/ActionUI/WinUI-CI/ActionUIWinUI/Apps/Preview/TestFiles/Loadable/RemoteFiles.json"
       }
     }
   ]

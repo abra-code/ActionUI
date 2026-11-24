@@ -705,12 +705,12 @@ Package(
             dependencies: ["ActionUI", "CWinUI"],
             path: "ActionUIWinUI/Apps/PreviewSupport"
         ),
-        // The preview tool with the add-on probe. Documents holds what Scripts/ci-windows.py renders.
+        // The preview tool with the add-on probe. TestFiles holds what Scripts/ci-windows.py renders.
         .executableTarget(
             name: "ActionUIWinUIPreview",
             dependencies: ["ActionUI", "CWinUI", "ActionUIWinUIPreviewSupport"],
             path: "ActionUIWinUI/Apps/Preview",
-            exclude: ["Documents"]
+            exclude: ["TestFiles"]
         ),
         // The same sources as on Apple, without the schemas as a resource (SchemaSet.swift says why).
         .target(

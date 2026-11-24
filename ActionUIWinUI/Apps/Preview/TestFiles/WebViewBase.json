@@ -9,7 +9,7 @@
       "id": 3,
       "properties": {
         "html": "<p>Relative image:</p><img src=\"Images/sample_image.png\" width=\"120\" onload=\"document.title = 'loaded at ' + location.origin\" onerror=\"document.title = 'failed at ' + location.origin\">",
-        "baseURL": "https://raw.githubusercontent.com/abra-code/ActionUI/WinUI-CI/ActionUIWinUI/Apps/Preview/Documents/",
+        "baseURL": "https://raw.githubusercontent.com/abra-code/ActionUI/WinUI-CI/ActionUIWinUI/Apps/Preview/TestFiles/",
         "frame": { "height": 150 }
       }
     }

@@ -8,7 +8,7 @@
       "type": "LoadableView",
       "id": 3,
       "properties": {
-        "url": "https://github.com/abra-code/ActionUI/raw/WinUI-CI/ActionUIWinUI/Apps/Preview/Documents/Loadable/Remote.json",
+        "url": "https://github.com/abra-code/ActionUI/raw/WinUI-CI/ActionUIWinUI/Apps/Preview/TestFiles/Loadable/Remote.json",
         "viewDidLoadActionID": "redirected.loaded"
       }
     }

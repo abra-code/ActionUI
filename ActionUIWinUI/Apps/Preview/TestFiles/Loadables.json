@@ -33,7 +33,7 @@
    "type": "LoadableView",
    "id": 5,
    "properties": {
-    "url": "https://raw.githubusercontent.com/abra-code/ActionUI/WinUI-CI/ActionUIWinUI/Apps/Preview/Documents/Loadable/Remote.json",
+    "url": "https://raw.githubusercontent.com/abra-code/ActionUI/WinUI-CI/ActionUIWinUI/Apps/Preview/TestFiles/Loadable/Remote.json",
     "viewDidLoadActionID": "remote.loaded"
    }
   },
@@ -41,7 +41,7 @@
    "type": "LoadableView",
    "id": 6,
    "properties": {
-    "url": "https://raw.githubusercontent.com/abra-code/ActionUI/WinUI-CI/ActionUIWinUI/Apps/Preview/Documents/Loadable/NoSuchFile.json"
+    "url": "https://raw.githubusercontent.com/abra-code/ActionUI/WinUI-CI/ActionUIWinUI/Apps/Preview/TestFiles/Loadable/NoSuchFile.json"
    }
   },
   {

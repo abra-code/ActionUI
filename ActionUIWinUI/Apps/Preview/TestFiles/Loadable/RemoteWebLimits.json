@@ -3,7 +3,7 @@
   "id": 801,
   "properties": {
     "html": "<p>Asks for a dialog, printing and the location</p><script>var parts = ['secure:' + window.isSecureContext, 'confirm:' + confirm('Allowed?')]; var printing = Object.getOwnPropertyDescriptor(window, 'print'); parts.push('print:' + (printing && printing.writable === false ? 'off' : 'on')); document.title = parts.join(' '); navigator.geolocation.getCurrentPosition(function () { document.title = parts.concat(['geo:granted']).join(' '); }, function (error) { document.title = parts.concat(['geo:' + error.code]).join(' '); }, { timeout: 8000 });</script>",
-    "baseURL": "https://raw.githubusercontent.com/abra-code/ActionUI/WinUI-CI/ActionUIWinUI/Apps/Preview/Documents/Loadable/WebLimits.html",
+    "baseURL": "https://raw.githubusercontent.com/abra-code/ActionUI/WinUI-CI/ActionUIWinUI/Apps/Preview/TestFiles/Loadable/WebLimits.html",
     "frame": {
       "width": 360,
       "height": 120

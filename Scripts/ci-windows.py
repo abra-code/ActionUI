@@ -18,11 +18,11 @@ Usage:
   python Scripts/ci-windows.py winui [--results DIR] [--install-runtime]
       What shim does, then builds the Swift package for Windows (windowsPackage in Package.swift)
       with the shim's import library on the linker path, in .build/ci-windows-winui, runs its
-      smoke test ActionUIWinUISmoke, which renders DIR/swift-smoke.png, and renders each document
-      in ActionUIWinUI/Apps/Preview/Documents with ActionUIWinUIPreview into
+      smoke test ActionUIWinUISmoke, which renders DIR/swift-smoke.png, and renders each test file
+      in ActionUIWinUI/Apps/Preview/TestFiles with ActionUIWinUIPreview into
       DIR/preview-<name>.png, printing where each element was placed. It also builds ActionUI.dll's
       package (ActionUIWinUI/Library) in .build/ci-windows-library, runs the C, C++ and language
-      binding checks against the DLL, and renders each document in ActionUIWinUI/Library/Documents
+      binding checks against the DLL, and renders each test file in ActionUIWinUI/Apps/Preview/TestFiles/AddOns
       with ActionUIWinUIAddOnPreview (the add-ons the DLL links) into DIR/add-on-preview-<name>.png.
 
 Exit status: 0 passed, 1 a step failed or a tool is missing, 2 bad arguments.
@@ -85,11 +85,11 @@ WINUI_RUNTIME_MSIX = [
     "Microsoft.WindowsAppRuntime.DDLM.2.msix",
 ]
 SMOKE_TIMEOUT_SECONDS = 180
-# Options for ActionUIWinUIPreview by document name (ActionUIWinUI/Apps/Preview/Documents), beside
-# the document and the PNG: a window size, and elements to operate with the actions they must fire.
-# "{documents_url}" in an option is the documents folder's file URL (an AsyncImage's file URLs);
+# Options for ActionUIWinUIPreview by test file name (ActionUIWinUI/Apps/Preview/TestFiles), beside
+# the test file and the PNG: a window size, and elements to operate with the actions they must fire.
+# "{test_files_url}" in an option is the test files folder's file URL (an AsyncImage's file URLs);
 # "{program_folder}" the folder the preview runs from (the app's resources, where ActionUIWinUI/Apps/Preview/Bundled
-# is copied), and "{program_folder_upper}" the same in upper case; "{documents_folder_json}" the documents
+# is copied), and "{program_folder_upper}" the same in upper case; "{test_files_folder_json}" the test files
 # folder's path as a JSON string's contents (backslashes doubled).
 PREVIEW_OPTIONS = {
     # An element registered the way an add-on registers one (the preview's AddOnProbe) shows its text, and so does
@@ -99,7 +99,7 @@ PREVIEW_OPTIONS = {
                "--expect-automation", "3", "name", "add-on: registered",
                "--expect-automation", "5", "name", "add-on: linked",
                "--expect-log", "NoSuchAddOn is not available on Windows yet; showing a placeholder"],
-    # The two chart documents at sizes that show their charts whole (the second has two columns).
+    # The two chart test files at sizes that show their charts whole (the second has two columns).
     # Chart 16 is named by its marks' accessibilityLabel and accessibilityValue, read through UI Automation.
     "Charts": ["560", "720", "--expect-automation", "16", "name",
                "Swift, 42 projects; Kotlin, 31 projects; JavaScript, 27 projects; Rust, 12 projects"],
@@ -206,9 +206,9 @@ PREVIEW_OPTIONS = {
     "CanvasEffects": ["420", "210"],
     "ScrollReaders": ["420", "230", "--set-property", "4", "scrollTo", "230", "--wait"],
     "GeometryReaders": ["420", "190"],
-    # The documents folder as the app's resources, so the files it loads are the app's own and load the files
+    # The test files folder as the app's resources, so the files it loads are the app's own and load the files
     # beside them (content from a file elsewhere loads no local files).
-    "Loadables": ["420", "330", "--configuration", '{"resourceFolder": "{documents_folder_json}"}', "--delay", "4000", "--expect-action", "child.loaded", "--expect-action", "grandchild.loaded",
+    "Loadables": ["420", "330", "--configuration", '{"resourceFolder": "{test_files_folder_json}"}', "--delay", "4000", "--expect-action", "child.loaded", "--expect-action", "grandchild.loaded",
                   "--expect-action", "remote.loaded"],
     # A LoadableView's download: a redirect (github.com to raw.githubusercontent.com) is followed; a body past
     # the limit (lowered to 50 bytes here) is refused.
@@ -218,7 +218,7 @@ PREVIEW_OPTIONS = {
     # A host policy that refuses LoadableViews' remote loads: the download is not even started; a file loads.
     "LoadPolicy": ["420", "160", "--refuse-remote-loads", "--delay", "3000", "--forbid-action", "refused.loaded",
                    "--expect-action", "file.loaded",
-                   "--expect-log", "LoadableView 3: not loading https://raw.githubusercontent.com/abra-code/ActionUI/WinUI-CI/ActionUIWinUI/Apps/Preview/Documents/Loadable/Remote.json: the trust policy refuses it"],
+                   "--expect-log", "LoadableView 3: not loading https://raw.githubusercontent.com/abra-code/ActionUI/WinUI-CI/ActionUIWinUI/Apps/Preview/TestFiles/Loadable/Remote.json: the trust policy refuses it"],
     # The host trusts raw.githubusercontent.com (its configuration); JSON asked of github.com and redirected
     # there is judged by where it came from: trusted, so its Windows settings link opens (--no-launch).
     "TrustedOrigins": ["420", "220", "--no-launch",
@@ -292,7 +292,7 @@ PREVIEW_OPTIONS = {
     "SymbolMix": ["820", "300"],
     "UserLocations": ["420", "200", "--delay", "6000", "--expect-log", "; user location: "],
     # 20 s: Media Foundation's first open on a cold runner has taken more than 8 s (x64 twice, arm64 once).
-    "VideoPlayers": ["420", "300", "--set-value", "2", "{documents_url}/Media/one-second.mp4", "--delay", "20000",
+    "VideoPlayers": ["420", "300", "--set-value", "2", "{test_files_url}/Media/one-second.mp4", "--delay", "20000",
                      "--expect-log", "VideoPlayer 2 opened", "--expect-log", "VideoPlayer 4 could not play"],
     # A host policy decides for the app's own videos too: refused, an https video is not opened.
     "RefusedMedia": ["420", "200", "--refuse-media", "--delay", "3000",
@@ -304,8 +304,8 @@ PREVIEW_OPTIONS = {
                           # A drive path is a local file to Windows' player: asked as a file read, not as media.
                           "--expect-log", "Not reading C:/Windows/Media/clip.mp4 for element 503"],
     "SplitViews": ["420", "260", "--drag", "2", "120.5", "45", "180.5", "45", "--expect-width", "3", "180"],
-    "TableCells": ["420", "260", "--add-row", "2", "Write|false|star|false|{documents_url}/Images/sample_image.png|Open",
-                   "--add-row", "2", "Test|true|heart|true|{documents_url}/Images/sample_image.png|Open", "--wait",
+    "TableCells": ["420", "260", "--add-row", "2", "Write|false|star|false|{test_files_url}/Images/sample_image.png|Open",
+                   "--add-row", "2", "Test|true|heart|true|{test_files_url}/Images/sample_image.png|Open", "--wait",
                    "--invoke-part", "2", "0", "--expect-action", "open.pressed", "--on-action", "open.pressed", "3", "Pressed row 0"],
     "Tables": ["420", "330", "--add-rows", "2", "100", "File #.txt|Document|# KB", "--add-row", "3", "Build|Run",
                "--add-row", "3", "Test|Run", "--wait", "--select-part", "2", "2", "--expect-action", "table.selected",
@@ -313,11 +313,11 @@ PREVIEW_OPTIONS = {
                "--drag", "2", "311.5", "10", "271.5", "10"],
     # The app's own Image and AsyncImage show a local file; the same file named by JSON from a server (Image,
     # AsyncImage, Canvas, List and Table cells, VideoPlayer) is refused, outside the app's resources.
-    "LessTrustedFiles": ["420", "330", "--set-value", "5", "{documents_url}/Images/sample_image.png", "--delay", "4000",
-                         "--set-value", "405", "{documents_url}/Images/sample_image.png",
-                         "--set-value", "406", "{documents_url}/Media/one-second.mp4",
+    "LessTrustedFiles": ["420", "330", "--set-value", "5", "{test_files_url}/Images/sample_image.png", "--delay", "4000",
+                         "--set-value", "405", "{test_files_url}/Images/sample_image.png",
+                         "--set-value", "406", "{test_files_url}/Media/one-second.mp4",
                          "--add-row", "403", "Images/sample_image.png",
-                         "--add-row", "404", "Images/sample_image.png|{documents_url}/Images/sample_image.png",
+                         "--add-row", "404", "Images/sample_image.png|{test_files_url}/Images/sample_image.png",
                          "--delay", "1000",
                          "--expect-log", "for element 401: the trust policy refuses it",
                          "--expect-log", "for element 402: the trust policy refuses it",
@@ -348,11 +348,11 @@ PREVIEW_OPTIONS = {
                          "--expect-log", "Link 901: opening ms-settings:display",
                          "--expect-log", "Link 951: opening ms-settings:display"],
     # An image file that declares 9000 x 9000 pixels (in 10 KB) is not decoded: the photo symbol, logged.
-    "ImageDecodeCap": ["420", "120", "--set-value", "6", "{documents_url}/Images/declares-81-megapixels.png", "--delay", "1000",
+    "ImageDecodeCap": ["420", "120", "--set-value", "6", "{test_files_url}/Images/declares-81-megapixels.png", "--delay", "1000",
                        "--expect-log", "Image not shown: Images/declares-81-megapixels.png is 9000 x 9000 pixels",
-                       "--expect-log", "Documents/Images/declares-81-megapixels.png is 9000 x 9000 pixels"],
-    "AsyncImages": ["460", "340", "--set-value", "7", "{documents_url}/Images/sample_image.png",
-                    "--set-value", "8", "{documents_url}/Images/ActionUIDemo.svg"],
+                       "--expect-log", "TestFiles/Images/declares-81-megapixels.png is 9000 x 9000 pixels"],
+    "AsyncImages": ["460", "340", "--set-value", "7", "{test_files_url}/Images/sample_image.png",
+                    "--set-value", "8", "{test_files_url}/Images/ActionUIDemo.svg"],
     "Menus": ["420", "260", "--invoke-menu-item", "2", "0", "--toggle-menu-item", "2", "3",
               "--expect-action", "menu.copy", "--expect-action", "menu.grid",
               "--on-action", "menu.grid", "12", "Copied, then the grid turned on"],
@@ -458,7 +458,7 @@ def testing_counts(log_path):
 
 def check_verifier_tool(results, summary):
     """Builds Apps/ActionUIVerifier's actionui-verify and runs it on the parity fixtures: a valid
-    document (exit 0, or 2 for warnings only) and one with errors (exit 1). It finds the schemas in
+    UI description (exit 0, or 2 for warnings only) and one with errors (exit 1). It finds the schemas in
     this checkout, as a tool built from one does. True when both answered so."""
     scratch = ["--scratch-path", str(REPO_DIR / ".build" / "ci-windows-verifier")]
     package = ["--package-path", str(REPO_DIR / "Apps" / "ActionUIVerifier")]
@@ -644,7 +644,7 @@ def windows_arch():
 # front. On the Arm64 runner a system window (Windows.UI.Core.CoreWindow, in another program) stays in
 # front and Windows refuses to bring another one there, so those options run on x64 only.
 REAL_INPUT_OPTIONS = {"--drag": 5, "--wheel": 5, "--expect-width": 2}
-# What a document's --drag must cause, checked only where the drag runs (x64).
+# What a test file's --drag must cause, checked only where the drag runs (x64).
 REAL_INPUT_EXPECTATIONS = {
     "Maps": ["--expect-action", "map.moved", "--expect-action", "map.changed"],
     "Hovers": ["--expect-action", "hover.changed"],
@@ -653,7 +653,7 @@ REAL_INPUT_EXPECTATIONS = {
 }
 
 
-# The same for the add-on elements' documents (ActionUIWinUI/Library/Documents), rendered by the preview tool with the
+# The same for the add-on elements' test files (ActionUIWinUI/Apps/Preview/TestFiles/AddOns), rendered by the preview tool with the
 # add-ons ActionUI.dll links (ActionUIWinUIAddOnPreview).
 ADD_ON_PREVIEW_OPTIONS = {
     # The Diff add-on's element (linked into the program through ActionUILinkedAddOns_register): the add-on's example, a
@@ -669,8 +669,8 @@ ADD_ON_PREVIEW_OPTIONS = {
     # a size hint. Each box takes its frame's width and the image's aspect for its height; WinUI shows every image
     # (no failure line).
     "CachedImage": ["520", "360",
-                    "--set-value", "5", "{documents_url}/../../Apps/Preview/Documents/Images/sample_image.png",
-                    "--set-value", "6", "{documents_url}/../../Apps/Preview/Documents/Images/sample_image.png",
+                    "--set-value", "5", "{test_files_url}/../Images/sample_image.png",
+                    "--set-value", "6", "{test_files_url}/../Images/sample_image.png",
                     "--delay", "3000",
                     "--expect-width", "4", "120", "--expect-height", "4", "90",
                     "--expect-width", "5", "160", "--expect-height", "5", "100",
@@ -1073,7 +1073,7 @@ def check_shim(results, install, swift=False):
 def check_viewer(shim_out, bin_path, results, summary, env):
     """Builds Apps/ActionUIViewer's Windows program (its own package, as on Linux) with the shim's import
     library, puts the shim's DLL, the bootstrapper, WebView2's Core DLL and the programs' manifest beside it,
-    and runs it: a preview document saved with --screenshot (exit 0, a PNG), and a document that cannot be
+    and runs it: a preview test file saved with --screenshot (exit 0, a PNG), and a file that cannot be
     loaded (exit 65, its error window saved). True when both answered so."""
     scratch = ["--scratch-path", str(REPO_DIR / ".build" / "ci-windows-viewer"), "--manifest-cache", "none"]
     package = ["--package-path", str(REPO_DIR / "Apps" / "ActionUIViewer")]
@@ -1093,8 +1093,8 @@ def check_viewer(shim_out, bin_path, results, summary, env):
     shutil.copy2(REPO_DIR / "ActionUIWinUI" / "Apps" / "Smoke" / "ActionUIWinUISmoke.exe.manifest",
                  viewer_bin / "ActionUIViewer.exe.manifest")
     passed = True
-    document = REPO_DIR / "ActionUIWinUI" / "Apps" / "Preview" / "Documents" / "Controls.json"
-    for name, path, expected in [("viewer-document", document, 0), ("viewer-missing", results / "no-such-document.json", 65)]:
+    ui_file = REPO_DIR / "ActionUIWinUI" / "Apps" / "Preview" / "TestFiles" / "Controls.json"
+    for name, path, expected in [("viewer-controls", ui_file, 0), ("viewer-missing", results / "no-such-file.json", 65)]:
         png = results / f"{name}.png"
         step = run_step(name, [viewer, path, "--screenshot", png], results, env, cwd=viewer_bin,
                         timeout=SMOKE_TIMEOUT_SECONDS)
@@ -1102,7 +1102,7 @@ def check_viewer(shim_out, bin_path, results, summary, env):
         answered = step["status"] == expected and png.is_file() and png.stat().st_size > 0
         if name == "viewer-missing":
             # The window says it in a short sentence with the file's name, not the raw error and its path.
-            sentence = 'shows: The file "no-such-document.json" was not found.'
+            sentence = 'shows: The file "no-such-file.json" was not found.'
             if sentence not in (results / step["log"]).read_text(encoding="utf-8", errors="replace"):
                 summary["findings"].append(f"viewer {path.name}: the window did not show the expected sentence")
                 answered = False
@@ -1266,7 +1266,7 @@ def check_python(package, results, summary, msvc):
     for item in (REPO_DIR / "ActionUIPython").iterdir():
         if item.is_file() and (item.suffix in (".py", ".c", ".toml") or item.name == "LICENSE.txt"):
             shutil.copy2(item, source / item.name)
-    # test_app_lifecycle's document, at the path it expects beside the folder (../ActionUIObjCTestApp).
+    # test_app_lifecycle's UI description, at the path it expects beside the folder (../ActionUIObjCTestApp).
     fixture = REPO_DIR / "ActionUIObjCTestApp" / "DefaultWindowContentView.json"
     (work / fixture.parent.name).mkdir()
     shutil.copy2(fixture, work / fixture.parent.name / fixture.name)
@@ -1402,7 +1402,7 @@ def check_node(package, results, summary, msvc):
     for item in (REPO_DIR / "ActionUINodeJS").iterdir():
         if item.is_file() and item.suffix in (".js", ".json"):
             shutil.copy2(item, source / item.name)
-    # test_app_lifecycle's document, at the path it expects beside the folder (../ActionUIObjCTestApp).
+    # test_app_lifecycle's UI description, at the path it expects beside the folder (../ActionUIObjCTestApp).
     fixture = REPO_DIR / "ActionUIObjCTestApp" / "DefaultWindowContentView.json"
     (work / fixture.parent.name).mkdir()
     shutil.copy2(fixture, work / fixture.parent.name / fixture.name)
@@ -1553,7 +1553,7 @@ def check_c_app(bin_path, results, summary, msvc, env):
     # The manifest the other programs have (supported OS, per-monitor DPI).
     shutil.copy2(REPO_DIR / "ActionUIWinUI" / "Apps" / "Smoke" / "ActionUIWinUISmoke.exe.manifest",
                  bin_path / "ActionUIAppCheck.exe.manifest")
-    remote = "https://raw.githubusercontent.com/abra-code/ActionUI/WinUI-CI/ActionUIWinUI/Apps/Preview/Documents/Loadable/Remote.json"
+    remote = "https://raw.githubusercontent.com/abra-code/ActionUI/WinUI-CI/ActionUIWinUI/Apps/Preview/TestFiles/Loadable/Remote.json"
     step = run_step("c-app-check", [checker, folder / "Window.json", remote], results, env, cwd=bin_path,
                     timeout=SMOKE_TIMEOUT_SECONDS)
     summary["steps"].append(step)
@@ -1677,21 +1677,21 @@ def build_library(shim_out, bin_path, results, summary, msvc, env):
 
 
 def render_previews(program, folder, options_by_name, real_input_by_name, prefix, bin_path, results, summary, env):
-    """Renders each document in `folder` with the preview tool `program` into results/<prefix>-<name>.png, with
+    """Renders each test file in `folder` with the preview tool `program` into results/<prefix>-<name>.png, with
     the options `options_by_name` gives its name, and on x64 the real input checks `real_input_by_name` gives it
     (removed on Arm64). True when every run passed."""
     passed = True
-    for document in sorted(folder.glob("*.json")):
-        png = results / f"{prefix}-{document.stem}.png"
-        options = [option.replace("{documents_url}", document.parent.as_uri())
-                   .replace("{documents_folder_json}", json.dumps(str(document.parent))[1:-1])
+    for ui_file in sorted(folder.glob("*.json")):
+        png = results / f"{prefix}-{ui_file.stem}.png"
+        options = [option.replace("{test_files_url}", ui_file.parent.as_uri())
+                   .replace("{test_files_folder_json}", json.dumps(str(ui_file.parent))[1:-1])
                    .replace("{program_folder_upper}", str(bin_path).upper()).replace("{program_folder}", str(bin_path))
-                   for option in options_by_name.get(document.stem, [])]
+                   for option in options_by_name.get(ui_file.stem, [])]
         if windows_arch() == "arm64":
             options = without_real_input(options)
         else:
-            options += real_input_by_name.get(document.stem, [])
-        step = run_step(f"{prefix}-{document.stem}", [program, document, png] + options, results, env, cwd=bin_path,
+            options += real_input_by_name.get(ui_file.stem, [])
+        step = run_step(f"{prefix}-{ui_file.stem}", [program, ui_file, png] + options, results, env, cwd=bin_path,
                         timeout=SMOKE_TIMEOUT_SECONDS)
         summary["steps"].append(step)
         summary["findings"] += [line for line in (results / step["log"]).read_text(encoding="utf-8", errors="replace")
@@ -1704,8 +1704,8 @@ def check_swift_smoke(shim_out, bootstrap, results, summary, msvc, host_build):
     """Builds the Swift package for Windows (ActionUIWinUISmoke, ActionUIWinUIPreview) and ActionUI.dll's
     package (build_library) with the shim's import library on the linker path, places the shim DLL, the
     bootstrapper DLL and the programs' manifests beside them, runs the smoke test and the C adapter's check, then
-    renders each document in ActionUIWinUI/Apps/Preview/Documents with the preview and each in
-    ActionUIWinUI/Library/Documents with the add-on preview. True when all of them passed."""
+    renders each test file in ActionUIWinUI/Apps/Preview/TestFiles with the preview and each in
+    ActionUIWinUI/Apps/Preview/TestFiles/AddOns with the add-on preview. True when all of them passed."""
     # --manifest-cache none: the package's exclude lists come from the folder listing (Package.swift).
     scratch = ["--scratch-path", str(REPO_DIR / ".build" / "ci-windows-winui"), "--manifest-cache", "none"]
     env = dict(os.environ)
@@ -1754,11 +1754,11 @@ def check_swift_smoke(shim_out, bootstrap, results, summary, msvc, host_build):
             passed = check_python(package, results, summary, msvc) and passed
             passed = check_node(package, results, summary, msvc) and passed
             passed = check_rust(package, results, summary, msvc) and passed
-    passed = render_previews(preview, REPO_DIR / "ActionUIWinUI" / "Apps" / "Preview" / "Documents", PREVIEW_OPTIONS,
+    passed = render_previews(preview, REPO_DIR / "ActionUIWinUI" / "Apps" / "Preview" / "TestFiles", PREVIEW_OPTIONS,
                              REAL_INPUT_EXPECTATIONS, "preview", bin_path, results, summary, env) and passed
     if library_built:
         passed = render_previews(bin_path / "ActionUIWinUIAddOnPreview.exe",
-                                 REPO_DIR / "ActionUIWinUI" / "Library" / "Documents", ADD_ON_PREVIEW_OPTIONS,
+                                 REPO_DIR / "ActionUIWinUI" / "Apps" / "Preview" / "TestFiles" / "AddOns", ADD_ON_PREVIEW_OPTIONS,
                                  {}, "add-on-preview", bin_path, results, summary, env) and passed
         passed = check_diff_files(bin_path / "ActionUIWinUIAddOnPreview.exe", results, summary, env) and passed
     passed = check_share_reads(preview, bin_path / "ActionUIWinUIAddOnPreview.exe" if library_built else None,
@@ -1815,10 +1815,10 @@ def check_diff_files(add_on_preview, results, summary, env):
                                           "--forbid-log", "Diff is not available on Windows yet",
                                           "--forbid-log", "creating the element Diff"]),
                 ("diff-files-unreadable", unreadable, [option for text in expected for option in ["--expect-log", text]])]:
-            document = folder / f"{name}.json"
-            document.write_text(json.dumps({"type": "VStack", "id": 1, "properties": {"spacing": 8, "padding": 12},
+            ui_file = folder / f"{name}.json"
+            ui_file.write_text(json.dumps({"type": "VStack", "id": 1, "properties": {"spacing": 8, "padding": 12},
                                             "children": children}), encoding="utf-8")
-            steps.append(run_step(name, [add_on_preview, document, results / f"{name}.png", "520", "360"] + options,
+            steps.append(run_step(name, [add_on_preview, ui_file, results / f"{name}.png", "520", "360"] + options,
                                   results, env, cwd=folder, timeout=SMOKE_TIMEOUT_SECONDS))
     finally:
         big.unlink(missing_ok=True)
@@ -1877,14 +1877,14 @@ def check_share_reads(preview, add_on_preview, bin_path, results, summary, env):
         return True
     try:
         before = canary_connections()
-        document = REPO_DIR / "ActionUIWinUI" / "Apps" / "Preview" / "Documents" / "LessTrustedShares.json"
-        step = run_step("share-canary-less-trusted", [preview, document, results / "share-canary-less-trusted.png"]
+        ui_file = REPO_DIR / "ActionUIWinUI" / "Apps" / "Preview" / "TestFiles" / "LessTrustedShares.json"
+        step = run_step("share-canary-less-trusted", [preview, ui_file, results / "share-canary-less-trusted.png"]
                         + PREVIEW_OPTIONS["LessTrustedShares"], results, env, cwd=bin_path, timeout=SMOKE_TIMEOUT_SECONDS)
         summary["steps"].append(step)
-        diff_document = REPO_DIR / "ActionUIWinUI" / "Library" / "Documents" / "LessTrustedDiffShares.json"
+        diff_ui_file = REPO_DIR / "ActionUIWinUI" / "Apps" / "Preview" / "TestFiles" / "AddOns" / "LessTrustedDiffShares.json"
         if add_on_preview is not None:
             diff_steps.append(run_step("share-canary-less-trusted-diff",
-                                       [add_on_preview, diff_document, results / "share-canary-less-trusted-diff.png"]
+                                       [add_on_preview, diff_ui_file, results / "share-canary-less-trusted-diff.png"]
                                        + ADD_ON_PREVIEW_OPTIONS["LessTrustedDiffShares"], results, env, cwd=bin_path,
                                        timeout=SMOKE_TIMEOUT_SECONDS))
         less_trusted = canary_connections()
@@ -1900,12 +1900,12 @@ def check_share_reads(preview, add_on_preview, bin_path, results, summary, env):
             # The same JSON from a server, the program's current folder on the share (the preview changes into the
             # folder of the UI description it is given, so that is read from the share): "old.txt" and "\old.txt"
             # are read from there, so the add-on must judge the full path Windows makes of each, a path on the share.
-            shutil.copy2(diff_document, folder / diff_document.name)
+            shutil.copy2(diff_ui_file, folder / diff_ui_file.name)
             relative = [option for element in [904, 905]
                         for option in ["--expect-log", f"Not reading {share}\\old.txt for element {element}: "
                                                        "less-trusted content reads no network"]]
             diff_steps.append(run_step("share-canary-less-trusted-diff-current-folder",
-                                       [add_on_preview, f"{share}\\{diff_document.name}",
+                                       [add_on_preview, f"{share}\\{diff_ui_file.name}",
                                         results / "share-canary-less-trusted-diff-current-folder.png", "520", "360",
                                         "--delay", "4000"] + relative, results, env, cwd=bin_path,
                                        timeout=SMOKE_TIMEOUT_SECONDS))
@@ -1974,7 +1974,7 @@ def check_ambient_identity(preview, bin_path, results, summary, env):
     port_file, record, stop_file = folder / "port", folder / "requests.jsonl", folder / "stop"
     for path in (port_file, record, stop_file):
         path.unlink(missing_ok=True)
-    video = REPO_DIR / "ActionUIWinUI" / "Apps" / "Preview" / "Documents" / "Media" / "one-second.mp4"
+    video = REPO_DIR / "ActionUIWinUI" / "Apps" / "Preview" / "TestFiles" / "Media" / "one-second.mp4"
     log = open(folder / "responder.log", "w", encoding="utf-8")
     try:
         responder = subprocess.Popen([sys.executable, "-I", str(REPO_DIR / "Scripts" / "ci-http-responder.py"),
@@ -1994,8 +1994,8 @@ def check_ambient_identity(preview, bin_path, results, summary, env):
         if not port.isdigit():
             findings.append("ambient identity: FAILED: the responder did not start (see ambient-identity/responder.log)")
             return False
-        document = REPO_DIR / "ActionUIWinUI" / "Apps" / "Preview" / "Documents" / "Probes" / "AmbientIdentity.json"
-        step = run_step("ambient-identity", [preview, document, results / "ambient-identity.png", "420", "400",
+        ui_file = REPO_DIR / "ActionUIWinUI" / "Apps" / "Preview" / "TestFiles" / "Probes" / "AmbientIdentity.json"
+        step = run_step("ambient-identity", [preview, ui_file, results / "ambient-identity.png", "420", "400",
                                              "--configuration", '{"limits": {"maximumDownloadTime": 3}}',
                                              "--fetch-limit", "100000",
                                              "--expect-log", "/slow.json: loading it took longer than 3 seconds",
@@ -2019,7 +2019,7 @@ def check_ambient_identity(preview, bin_path, results, summary, env):
         # No time limit: every stalled download still ends, after the 30 seconds one step may wait.
         stalled = "the server sent nothing for 30 seconds"
         stall_step = run_step("stalled-downloads",
-                              [preview, document.parent / "StalledDownloads.json", results / "stalled-downloads.png",
+                              [preview, ui_file.parent / "StalledDownloads.json", results / "stalled-downloads.png",
                                "420", "200", "--configuration", '{"limits": {"maximumDownloadTime": null}}',
                                "--expect-log", f"/silent.json: {stalled}",
                                "--expect-log", f"/stalled.json: {stalled}",
