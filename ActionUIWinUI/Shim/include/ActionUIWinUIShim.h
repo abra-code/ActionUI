@@ -1200,6 +1200,19 @@ ACTIONUI_WINUI_API uint64_t actionUIWinUIRenderingAdd(ActionUIWinUIRenderingCall
 // Removes a handler actionUIWinUIRenderingAdd added (it may be running: it may remove itself). destroyContext
 // runs once no call of it is running. An unknown token does nothing. Main thread.
 ACTIONUI_WINUI_API void actionUIWinUIRenderingRemove(uint64_t token);
+// XamlRoot.Changed of the window `element` is in now: handler(context) runs on the UI thread when that window's
+// size, scale (RasterizationScale: another display, or a new scale setting) or visibility (IsHostVisible:
+// minimized or restored) changes. It watches the window the element is in when called: an element put in
+// another window needs a new watch. Returns a token for actionUIWinUIXamlRootChangedRemove, 0 when the element
+// is in no window or on failure (destroyContext has then run). Main thread.
+ACTIONUI_WINUI_API uint64_t actionUIWinUIXamlRootChangedAdd(ActionUIWinUIObject *element, ActionUIWinUICallback handler,
+                                                            void *context, ActionUIWinUICallback destroyContext);
+// Removes a watch actionUIWinUIXamlRootChangedAdd added (it may be running: it may remove itself).
+// destroyContext runs once no call of it is running. An unknown token does nothing. Main thread.
+ACTIONUI_WINUI_API void actionUIWinUIXamlRootChangedRemove(uint64_t token);
+// Whether the window `element` is in is shown (its XamlRoot's IsHostVisible): false while it is minimized, and
+// when the element is in no window.
+ACTIONUI_WINUI_API bool actionUIWinUIElementIsHostVisible(ActionUIWinUIObject *element);
 
 // MARK: - Drawing (a Canvas)
 

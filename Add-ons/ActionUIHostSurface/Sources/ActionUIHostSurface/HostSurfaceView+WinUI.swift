@@ -9,8 +9,8 @@
 // element applies "hidden" itself). The view decides the events from what the panel observes, by the rules of the
 // Apple and Linux views:
 // - "created" once the panel is in a window, has a nonzero pixel size, and its name has a client;
-// - "changed" when the size in points or the window's scale changes;
-// - "suspended" and "resumed" as it leaves and returns to the screen: hidden, or zero pixels;
+// - "changed" when the size in points or the window's scale changes (another display, a new scale setting);
+// - "suspended" and "resumed" as it leaves and returns to the screen: hidden, zero pixels, or its window minimized;
 // - "destroyed" when the panel leaves its window (the element was removed, its window closed), and to the outgoing
 //   client when its name is bound to another. A panel put in a window again is announced again, with a new
 //   surfaceID.
@@ -18,9 +18,10 @@
 // Frame callbacks come from WinUI's frame tick (CompositionTarget.Rendering) while announced, not suspended, and
 // continuous or asked for a frame. The tick is added only then: WinUI draws frames while one is added.
 //
-// Not yet on Windows: input and focus, the client's cursor (actionUIHostSurfaceSetCursor returns false),
-// suspending while the window is minimized, and "changed" for a new scale alone (another display) as soon as it
-// happens: it is seen at the next frame tick or layout.
+// The window's scale and visibility come from a watch on the window the panel is in (its XamlRoot), added when the
+// panel is put in a window and removed when it leaves.
+//
+// Not yet on Windows: input and focus, and the client's cursor (actionUIHostSurfaceSetCursor returns false).
 
 #if os(Windows)
 
@@ -85,6 +86,9 @@ final class HostSurfaceView {
     private var framePending = false
     /// The frame tick (actionUIWinUIRenderingAdd), 0 when none.
     private var renderingToken: UInt64 = 0
+    /// The watch on the panel's window (actionUIWinUIXamlRootChangedAdd), 0 when none.
+    private var windowWatch: UInt64 = 0
+    private var warnedWindowWatch = false
     private var warnedFixedProperties = false
     private var warnedFrame = false
     private var warnedTick = false
@@ -312,7 +316,8 @@ final class HostSurfaceView {
 
     /// Out of the screen for any reason; see the file note.
     private var shouldSuspend: Bool {
-        properties.hidden || !geometry.hasPixels
+        // Minimized counts only while the window is watched: without the watch nothing would resume the surface.
+        properties.hidden || !geometry.hasPixels || (windowWatch != 0 && !actionUIWinUIElementIsHostVisible(panel.pointer))
     }
 
     // MARK: lifecycle
@@ -320,6 +325,11 @@ final class HostSurfaceView {
     /// Brings the surface events up to date with what the panel observes. Called after every change.
     func refresh() {
         guard !isTornDown, loaded, !isPlaceholder else {
+            return
+        }
+        // Out of its window but not yet retracted (WinUI's Unloaded comes after the removal, from a frame tick or the
+        // old window's watch): nothing to measure; the Unloaded retracts it, or finds it put back.
+        if surfaceID != 0, !isInWindow {
             return
         }
         let current = geometry
@@ -331,6 +341,9 @@ final class HostSurfaceView {
             // In the registry before it is live, so a rebind reaches it (its Loaded may not have come yet: a parent
             // already in the window counts).
             attach()
+            if windowWatch == 0 {
+                watchWindow()
+            }
             surfaceID = HostSurfaceRegistry.shared.announce(self)
             HostSurfaceSinks.open(surfaceID)
             announcedBinding = binding
@@ -383,6 +396,7 @@ final class HostSurfaceView {
             retract()
             isTornDown = true
             removeTick()
+            unwatchWindow()
             detach()
         }
     }
@@ -396,13 +410,44 @@ final class HostSurfaceView {
         }
         if isInWindow {
             attach()
+            if !isPlaceholder {
+                watchWindow()
+            }
             refresh()
         } else {
+            unwatchWindow()
             HostSurfaceRegistry.shared.deliver {
                 retract()
                 detach()
             }
         }
+    }
+
+    /// Watches the window the panel is in now, in place of any window watched before (the panel may have moved).
+    private func watchWindow() {
+        unwatchWindow()
+        let box = Unmanaged.passRetained(WeakHostSurfaceView(self)).toOpaque()
+        windowWatch = actionUIWinUIXamlRootChangedAdd(panel.pointer, hostSurfaceWindowRootChanged, box,
+                                                      releaseWeakHostSurfaceView)
+        if windowWatch == 0, !warnedWindowWatch {
+            warnedWindowWatch = true
+            logger.log("HostSurface \(viewID): watching its window failed: \(lastHostShimError()); a new scale is seen at the next layout or frame, and a minimized window does not suspend the surface", .warning)
+        }
+    }
+
+    private func unwatchWindow() {
+        if windowWatch != 0 {
+            actionUIWinUIXamlRootChangedRemove(windowWatch)
+            windowWatch = 0
+        }
+    }
+
+    /// The window's size, scale or visibility changed.
+    fileprivate func windowRootChanged() {
+        guard !isTornDown else {
+            return
+        }
+        refresh()
     }
 
     private func attach() {
@@ -507,7 +552,8 @@ final class HostSurfaceView {
     /// One tick before WinUI draws a frame.
     fileprivate func tick(seconds: Double) {
         framePending = false
-        // The window's scale can change with no new size (moved to another display): seen here.
+        // The window's scale can change with no new size (moved to another display): the window watch reports it, and
+        // this catches it should the watch be missing.
         if surfaceID != 0, let lastGeometry, geometry != lastGeometry {
             refresh()
         }
@@ -568,6 +614,13 @@ private let hostSurfaceWindowChanged: ActionUIWinUICallback = { context in
     let box = weakView(context)
     MainActor.assumeIsolated {
         box?.view?.windowChanged()
+    }
+}
+
+private let hostSurfaceWindowRootChanged: ActionUIWinUICallback = { context in
+    let box = weakView(context)
+    MainActor.assumeIsolated {
+        box?.view?.windowRootChanged()
     }
 }
 

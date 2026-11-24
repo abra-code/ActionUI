@@ -1,6 +1,7 @@
-// Frames.cpp - frames drawn elsewhere, shown by a WinUI Image, and the tick before each frame WinUI draws: what
-// ActionUI's HostSurface add-on needs for a frame sink (a client presents finished frames; the element shows the
-// newest one, and asks the client for the next one as WinUI draws).
+// Frames.cpp - frames drawn elsewhere, shown by a WinUI Image, the tick before each frame WinUI draws, and a watch
+// on the element's window: what ActionUI's HostSurface add-on needs for a frame sink (a client presents finished
+// frames; the element shows the newest one, asks the client for the next one as WinUI draws, and stops asking
+// while its window is minimized).
 
 #include "ShimInternal.h"
 
@@ -45,6 +46,38 @@ std::map<uint64_t, winrt::event_token> &frameHandlers() {
 }
 
 uint64_t nextFrameHandler = 1;
+
+// One actionUIWinUIXamlRootChangedAdd watch. destroyContext runs once, when the last copy goes: after
+// actionUIWinUIXamlRootChangedRemove revokes it (or its window's XamlRoot is gone) and no call of it is running.
+struct RootWatch {
+    RootWatch(ActionUIWinUICallback handler, void *context, ActionUIWinUICallback destroyContext)
+        : handler(handler), context(context), destroyContext(destroyContext) {}
+    RootWatch(RootWatch const &) = delete;
+    RootWatch &operator=(RootWatch const &) = delete;
+    ~RootWatch() {
+        if (destroyContext != nullptr) {
+            destroyContext(context);
+        }
+    }
+
+    ActionUIWinUICallback handler;
+    void *context;
+    ActionUIWinUICallback destroyContext;
+};
+
+// A watch's window, held weakly (a watch must not keep a closed window's content alive), and its event.
+struct RootWatchEntry {
+    winrt::weak_ref<mux::XamlRoot> root;
+    winrt::event_token event;
+};
+
+// The watches added, by token. UI thread only.
+std::map<uint64_t, RootWatchEntry> &rootWatches() {
+    static std::map<uint64_t, RootWatchEntry> watches;
+    return watches;
+}
+
+uint64_t nextRootWatch = 1;
 
 } // namespace
 
@@ -120,6 +153,72 @@ void actionUIWinUIRenderingRemove(uint64_t token) {
         media::CompositionTarget::Rendering(event);
         return true;
     });
+}
+
+uint64_t actionUIWinUIXamlRootChangedAdd(ActionUIWinUIObject *element, ActionUIWinUICallback handler, void *context,
+                                         ActionUIWinUICallback destroyContext) {
+    std::shared_ptr<RootWatch> holder;
+    uint64_t token = 0;
+    bool added = guarded("xaml root changed add", [&]() {
+        if (handler == nullptr) {
+            return fail("xaml root changed add", "the handler is NULL");
+        }
+        mux::XamlRoot root = objectAs<mux::UIElement>(element, L"UIElement").XamlRoot();
+        if (root == nullptr) {
+            return fail("xaml root changed add", "the element is in no window");
+        }
+        holder = std::make_shared<RootWatch>(handler, context, destroyContext);
+        // In the map before the handler is registered, so nothing can fail after it is (a failure here leaves no
+        // handler, and the holder's end runs destroyContext).
+        auto &watches = rootWatches();
+        uint64_t next = nextRootWatch;
+        auto slot = watches.emplace(next, RootWatchEntry{winrt::make_weak(root), {}}).first;
+        try {
+            slot->second.event = root.Changed([holder](auto &&, auto &&) {
+                // Held while it runs: a handler that removes itself must not free its context under it.
+                std::shared_ptr<RootWatch> keep = holder;
+                keep->handler(keep->context);
+            });
+        } catch (...) {
+            watches.erase(slot);
+            throw;
+        }
+        nextRootWatch++;
+        token = next;
+        return true;
+    });
+    if (!added && holder == nullptr && destroyContext != nullptr) {
+        destroyContext(context);
+    }
+    return added ? token : 0;
+}
+
+void actionUIWinUIXamlRootChangedRemove(uint64_t token) {
+    auto &watches = rootWatches();
+    auto found = watches.find(token);
+    if (found == watches.end()) {
+        return;
+    }
+    RootWatchEntry entry = found->second;
+    watches.erase(found);
+    guarded("xaml root changed remove", [&]() {
+        // A root already gone took its handlers with it.
+        if (mux::XamlRoot root = entry.root.get()) {
+            root.Changed(entry.event);
+        }
+        return true;
+    });
+}
+
+bool actionUIWinUIElementIsHostVisible(ActionUIWinUIObject *element) {
+    bool visible = false;
+    guarded("element is host visible", [&]() {
+        if (mux::XamlRoot root = objectAs<mux::UIElement>(element, L"UIElement").XamlRoot()) {
+            visible = root.IsHostVisible();
+        }
+        return true;
+    });
+    return visible;
 }
 
 } // extern "C"
