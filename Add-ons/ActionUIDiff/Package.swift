@@ -17,6 +17,11 @@
 // the diff, and it links ActionUI's ActionUIStatic product: one process has one Swift runtime. It has no
 // Documentation target there: Bundle.module needs full Foundation, and with it ICU's data, which the Linux build
 // leaves out.
+//
+// On Windows the add-on is the WinUI element (Diff+WinUI.swift), drawn through the shim's C functions (ActionUI's
+// CWinUI product) from DiffView's model and presentation (DiffView 0.3.1 builds them alone there), and it links
+// ActionUIStatic as on Linux. ActionUI.dll links it (ActionUIWinUI/Library). No test or Documentation target there
+// yet.
 
 import PackageDescription
 
@@ -52,6 +57,31 @@ let package = Package(
                 .product(name: "DiffView", package: "DiffView"),
             ],
             path: "Tests"
+        ),
+    ]
+)
+#elseif os(Windows)
+let package = Package(
+    name: "ActionUIDiff",
+    products: [
+        .library(name: "ActionUIDiff", targets: ["ActionUIDiff"]),
+    ],
+    dependencies: [
+        .package(path: "../.."),   // the ActionUI package at the repo root
+        // 0.3.1 is its first version that builds on Windows with DiffPresentation public, which this element draws from.
+        .package(url: "https://github.com/abra-code/DiffView", from: "0.3.1"),
+    ],
+    targets: [
+        .target(
+            name: "ActionUIDiff",
+            dependencies: [
+                .product(name: "ActionUIStatic", package: "ActionUI"),
+                .product(name: "CWinUI", package: "ActionUI"),
+                .product(name: "DiffView", package: "DiffView"),
+            ],
+            path: "Sources/ActionUIDiff",
+            // The SwiftUI element and the GTK one.
+            exclude: ["Diff.swift", "Diff+Adwaita.swift"]
         ),
     ]
 )

@@ -577,12 +577,14 @@ REAL_INPUT_EXPECTATIONS = {
 # The same for the add-on elements' documents (ActionUIWinUI/Library/Documents), rendered by the preview tool with the
 # add-ons ActionUI.dll links (ActionUIWinUIAddOnPreview).
 ADD_ON_PREVIEW_OPTIONS = {
-    # No add-on builds for Windows yet: Diff shows the placeholder, and the preview's own probe is not in this
-    # program (ActionUILinkedAddOns_register is LinkedAddOns.swift's).
-    "LinkedAddOns": ["420", "160",
-                     "--expect-automation", "2", "name", "Add-on elements, as ActionUI.dll links them",
-                     "--expect-log", "Diff is not available on Windows yet; showing a placeholder",
-                     "--expect-log", "LinkedAddOnProbe is not available on Windows yet; showing a placeholder"],
+    # The Diff add-on's element (linked into the program through ActionUILinkedAddOns_register): the add-on's example, a
+    # diff with collapsed context (two gaps), and two identical texts ("No changes"). None shows the placeholder, and
+    # each takes the width it is offered (520 less the stack's padding), as the SwiftUI view does.
+    "Diff": ["520", "420",
+             "--expect-automation", "2", "name", "Diff (add-on element): greet(_:) before and after",
+             "--expect-width", "3", "496", "--expect-width", "4", "496", "--expect-width", "5", "496",
+             "--forbid-log", "Diff is not available on Windows yet", "--forbid-log", "creating the element Diff",
+             "--forbid-log", "Diff: "],
 }
 
 

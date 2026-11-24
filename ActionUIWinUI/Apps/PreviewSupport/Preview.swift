@@ -63,6 +63,8 @@
 //                            count for neither
 //   --expect-log TEXT        fails unless a message ActionUI logged contains TEXT (a VideoPlayer's
 //                            video opened); repeatable
+//   --forbid-log TEXT        fails if a message ActionUI logged contains TEXT (an add-on element's
+//                            placeholder); repeatable
 //   --on-action ACTION ID TEXT  when ACTION fires, sets element ID's value to TEXT (a Text shows it)
 //   --fetch-limit BYTES      a LoadableView's download is refused past BYTES (default: 16 MB)
 //   --configuration JSON     the host's configuration (ActionUIConfiguration), before the document loads
@@ -632,7 +634,7 @@ public func runActionUIWinUIPreview(registeringElements registerElements: () -> 
 
     let arguments = CommandLine.arguments
 
-    let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --select-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --scroll-row ID ROW | --expect-row-name ID ROW NAME | --drag ID X1 Y1 X2 Y2 | --wheel ID X Y DX DY | --expect-width ID W | --invoke-menu-item ID N | --toggle-menu-item ID N | --set-value ID VALUE | --set-property ID NAME VALUE | --set-path ID IDS | --add-row ID TEXT | --add-rows ID N TEXT | --set-state ID KEY VALUE | --expect-state ID KEY VALUE | --expect-automation ID FIELD TEXT | --delay MS | --wait]... [--max-instances ID N]... [--expect-action ACTION]... [--expect-log TEXT]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]... [--no-launch] [--fetch-limit BYTES] [--refuse-remote-loads] [--refuse-media] [--allow-user-scripts] [--configuration JSON]"
+    let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --select-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --scroll-row ID ROW | --expect-row-name ID ROW NAME | --drag ID X1 Y1 X2 Y2 | --wheel ID X Y DX DY | --expect-width ID W | --invoke-menu-item ID N | --toggle-menu-item ID N | --set-value ID VALUE | --set-property ID NAME VALUE | --set-path ID IDS | --add-row ID TEXT | --add-rows ID N TEXT | --set-state ID KEY VALUE | --expect-state ID KEY VALUE | --expect-automation ID FIELD TEXT | --delay MS | --wait]... [--max-instances ID N]... [--expect-action ACTION]... [--expect-log TEXT]... [--forbid-log TEXT]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]... [--no-launch] [--fetch-limit BYTES] [--refuse-remote-loads] [--refuse-media] [--allow-user-scripts] [--configuration JSON]"
     guard arguments.count >= 3 else {
         print(usage)
         exit(64)
@@ -642,6 +644,8 @@ public func runActionUIWinUIPreview(registeringElements registerElements: () -> 
     registerElements()
     /// --expect-log: the texts some logged message must contain.
     var expectedLogs: [String] = []
+    /// --forbid-log: the texts no logged message may contain.
+    var forbiddenLogs: [String] = []
     preview.documentPath = arguments[1]
     // Absolute, since the program changes to the document's folder once it has read it.
     preview.pngPath = absolutePath(arguments[2])
@@ -754,6 +758,9 @@ public func runActionUIWinUIPreview(registeringElements registerElements: () -> 
         } else if option == "--expect-log", index + 1 < arguments.count {
             expectedLogs.append(arguments[index + 1])
             index += 2
+        } else if option == "--forbid-log", index + 1 < arguments.count {
+            forbiddenLogs.append(arguments[index + 1])
+            index += 2
         } else if option == "--fetch-limit", index + 1 < arguments.count, let bytes = Int64(arguments[index + 1]), bytes > 0 {
             // A LoadableView's download refused past BYTES (default: the cap on ActionUI JSON).
             LoadableFetch.maximumBytes = bytes
@@ -803,7 +810,7 @@ public func runActionUIWinUIPreview(registeringElements registerElements: () -> 
     }
     _ = preview.pngPath.withCString(encodedAs: UTF16.self) { _wremove($0) }
     let recordingLogger = RecordingLogger(forwardingTo: ActionUIModel.shared.logger)
-    if !expectedLogs.isEmpty {
+    if !expectedLogs.isEmpty || !forbiddenLogs.isEmpty {
         ActionUIModel.shared.logger = recordingLogger
     }
 
@@ -828,11 +835,15 @@ public func runActionUIWinUIPreview(registeringElements registerElements: () -> 
     if !unlogged.isEmpty {
         print("preview: expected log messages that were not logged: \(unlogged)")
     }
+    let loggedForbidden = forbiddenLogs.filter { text in recordingLogger.messages.contains { $0.contains(text) } }
+    if !loggedForbidden.isEmpty {
+        print("preview: log messages that must not be logged were: \(loggedForbidden)")
+    }
     let forbidden = preview.forbiddenActions.filter { preview.firedActions.contains($0) }
     if !forbidden.isEmpty {
         print("preview: actions that must not fire fired: \(forbidden)")
     }
     print("preview: run \(ran ? "ok" : "failed"), rendered \(preview.rendered ? "yes" : "no"), PNG \(size) bytes, actions fired \(preview.firedActions.count)")
-    exit(ran && preview.rendered && size > 0 && missing.isEmpty && unlogged.isEmpty && forbidden.isEmpty && preview.invocationsWorked
-         && preview.instancesWithinLimit ? 0 : 1)
+    exit(ran && preview.rendered && size > 0 && missing.isEmpty && unlogged.isEmpty && loggedForbidden.isEmpty && forbidden.isEmpty
+         && preview.invocationsWorked && preview.instancesWithinLimit ? 0 : 1)
 }

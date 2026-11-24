@@ -1,0 +1,53 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": {
+    "spacing": 10,
+    "padding": 12,
+    "alignment": "leading"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "id": 2,
+      "properties": {
+        "text": "Diff (add-on element): greet(_:) before and after",
+        "font": "headline"
+      }
+    },
+    {
+      "type": "Diff",
+      "id": 3,
+      "properties": {
+        "oldText": "func greet(_ name: String) -> String {\n    return \"Hello, \\(name)!\"\n}",
+        "newText": "func greet(_ name: String) -> String {\n    return \"Hello, \\(name)! Welcome back.\"\n}",
+        "frame": {
+          "maxWidth": "infinity"
+        }
+      }
+    },
+    {
+      "type": "Diff",
+      "id": 4,
+      "properties": {
+        "oldText": "line 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10\nline 11\nline 12\n",
+        "newText": "line 1\nline 2\nline 3\nline 4\nline 5\nline six\nline 7\nline 8\nline 9\nline 10\nline 11\nline 12\n",
+        "contextLines": 1,
+        "frame": {
+          "maxWidth": "infinity"
+        }
+      }
+    },
+    {
+      "type": "Diff",
+      "id": 5,
+      "properties": {
+        "oldText": "same\n",
+        "newText": "same\n",
+        "frame": {
+          "maxWidth": "infinity"
+        }
+      }
+    }
+  ]
+}

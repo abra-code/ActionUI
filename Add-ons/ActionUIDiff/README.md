@@ -41,6 +41,10 @@ instead of a misleading diff; a side with neither is an empty side (a new-file o
 - Linux: `DiffView.DiffGtkView` (GTK widgets), drawn as on Apple, with the same properties: each number, marker
   and line is selectable on its own, as each SwiftUI `Text` is. A Swift program links `ActionUIDiff` and calls
   `ActionUIDiff.register()`, as on Apple; `libActionUI.so` registers it for programs in other languages.
+- Windows: WinUI text blocks drawn by the add-on (`Diff+WinUI.swift`) from DiffView's model and presentation,
+  as the GTK view draws them, each piece of text selectable. A Swift program links `ActionUIDiff` and calls
+  `ActionUIDiff.register()`; `ActionUI.dll` registers it for programs in other languages. A relative file path
+  is resolved as Windows resolves it before the trust policy is asked about it.
 
 The element is **display-only** (void value): there is nothing to read back with `getElementValue`.
 It is **stateless** - it builds from its current properties on every render - so a host can drive it
