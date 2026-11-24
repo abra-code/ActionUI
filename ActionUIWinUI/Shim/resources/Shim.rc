@@ -1,0 +1,6 @@
+// ActionUIWinUI/Shim/resources/Shim.rc - the resources compiled into ActionUIWinUIShim.dll (Scripts/ci-windows.py
+// runs rc on this file and links the result into the DLL).
+
+// A blank 32 x 32 cursor (every pixel transparent): the hidden cursor of actionUIWinUIPanelSetCursor, which a
+// HostSurface client asks for (Windows has no hidden system cursor).
+ACTIONUI_HIDDEN_CURSOR CURSOR "hidden.cur"
