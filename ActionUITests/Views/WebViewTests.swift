@@ -645,9 +645,9 @@ final class WebViewTests: XCTestCase {
         let remote = UUID().uuidString
         ActionUIModel.shared.logger = consoleLogger
         defer { ActionUIModel.shared.logger = logger }
-        _ = try ActionUIDocumentLoader.load(data: document, format: "json", windowUUID: remote, isContentView: true, parentID: 0,
+        _ = try ActionUIContentLoader.load(data: document, format: "json", windowUUID: remote, isContentView: true, parentID: 0,
                                             source: .remote(URL(string: "https://example.com/v.json")!))
-        _ = try ActionUIDocumentLoader.load(data: document, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
+        _ = try ActionUIContentLoader.load(data: document, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
         let script = WebView.Props.UserScript(["filePath": tmp])
         XCTAssertNil(WebViewSupport.resolveJSSource(from: script, logger: consoleLogger) {
             ActionUIModel.shared.readsScriptFile($0, windowUUID: remote, viewID: 7)

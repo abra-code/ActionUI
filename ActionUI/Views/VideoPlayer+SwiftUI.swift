@@ -14,7 +14,7 @@ extension VideoPlayer: ActionUISwiftUIRenderer {
             // named pipe, which AVFoundation would read without end or wait on for good, as on Linux
             // and Android. A missing file goes on to AVFoundation, which reports it.
             if url.isFileURL, FileManager.default.fileExists(atPath: url.path),
-               ActionUIDocumentLoader.regularFilePath(url) == nil {
+               ActionUIContentLoader.regularFilePath(url) == nil {
                 logger.log("VideoPlayer not playing '\(url.absoluteString)': \(url.path) is not a regular file", .error)
                 return SwiftUI.Label("Not a regular file", systemImage: "exclamationmark.triangle")
             }

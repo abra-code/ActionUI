@@ -62,7 +62,7 @@ enum WebViewSupport {
     /// a link in the bundle could still lead to a device or a pipe, which would never finish (or
     /// never begin) reading on the main thread.
     private static func regularFileText(_ path: String) throws -> String {
-        let data = try ActionUIDocumentLoader.readRegularFile(URL(fileURLWithPath: path))
+        let data = try ActionUIContentLoader.readRegularFile(URL(fileURLWithPath: path))
         guard let text = String(data: data, encoding: .utf8) else { throw CocoaError(.fileReadInapplicableStringEncoding) }
         return text
     }
@@ -81,7 +81,7 @@ enum WebViewSupport {
             guard readsFile(filePath) else { return nil }
             do {
                 // Only a regular file: a device or a pipe named by the document would block.
-                let data = try ActionUIDocumentLoader.readRegularFile(URL(fileURLWithPath: filePath))
+                let data = try ActionUIContentLoader.readRegularFile(URL(fileURLWithPath: filePath))
                 guard let text = String(data: data, encoding: .utf8) else {
                     logger.log("WebView userScript: the file at '\(filePath)' is not UTF-8 text", .warning)
                     return nil

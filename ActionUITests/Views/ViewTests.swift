@@ -1470,9 +1470,9 @@ final class ViewTests: XCTestCase {
         let document = Data(#"{"id": 7, "type": "Button", "properties": {"title": "Open", "navigationTitle": "Bank"}, "sheet": {"id": 8, "type": "Text", "properties": {"text": "Sheet"}}}"#.utf8)
         let remote = UUID().uuidString
         let host = UUID().uuidString
-        _ = try ActionUIDocumentLoader.load(data: document, format: "json", windowUUID: remote, isContentView: true, parentID: 0,
+        _ = try ActionUIContentLoader.load(data: document, format: "json", windowUUID: remote, isContentView: true, parentID: 0,
                                             source: .remote(URL(string: "https://example.com/v.json")!))
-        _ = try ActionUIDocumentLoader.load(data: document, format: "json", windowUUID: host, isContentView: true, parentID: 0, source: nil)
+        _ = try ActionUIContentLoader.load(data: document, format: "json", windowUUID: host, isContentView: true, parentID: 0, source: nil)
         func modified(_ window: String) throws -> String {
             let element = try XCTUnwrap(ActionUIModel.shared.windowModels[window]?.element)
             let view = View.applyModifiers(SwiftUI.Text("x"), element, window, element.properties, recording)

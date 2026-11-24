@@ -102,7 +102,7 @@ package enum URLLoader {
     }
 
     /// `url`'s bytes as Data, with the address they finally came from (after redirects), for a
-    /// caller that takes an asynchronous fetch (ActionUIDocumentLoader); throws when fetch gives nil.
+    /// caller that takes an asynchronous fetch (ActionUIContentLoader); throws when fetch gives nil.
     static func data(_ url: URL, maximumSize: Int? = nil) async throws -> (data: Data, finalURL: URL) {
         let bytes = await withCheckedContinuation { continuation in
             fetch(url.absoluteString, maximumSize: maximumSize) { continuation.resume(returning: $0) }

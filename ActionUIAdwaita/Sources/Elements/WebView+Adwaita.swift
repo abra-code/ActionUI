@@ -255,7 +255,7 @@ extension WebView: ActionUIAdwaitaRenderer {
         let logger = ActionUIModel.shared.logger
         // Only a regular file: a device or a named pipe the document names would block the window.
         func read(_ path: String) -> String? {
-            (try? ActionUIDocumentLoader.readRegularFile(URL(fileURLWithPath: path))).map { String(decoding: $0, as: UTF8.self) }
+            (try? ActionUIContentLoader.readRegularFile(URL(fileURLWithPath: path))).map { String(decoding: $0, as: UTF8.self) }
         }
         if let source = script.source {
             return source

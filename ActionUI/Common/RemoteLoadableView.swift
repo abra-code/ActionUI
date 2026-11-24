@@ -141,8 +141,8 @@ enum RemoteJSONFetch {
 // View for remote asynchronous loading
 @MainActor
 public struct RemoteLoadableView: SwiftUI.View {
-    // viewDidLoadActionID once per source (Core/Common/DocumentLoader.swift)
-    private static let viewDidLoad = ActionUIDocumentLoader.ViewDidLoad()
+    // viewDidLoadActionID once per source (Core/Common/ActionUIContentLoader.swift)
+    private static let viewDidLoad = ActionUIContentLoader.ViewDidLoad()
 
     let url: URL
     let windowUUID: String
@@ -191,11 +191,11 @@ public struct RemoteLoadableView: SwiftUI.View {
                         let limit = WindowModel.maximumJSONSize
                         // An address the host named keeps the app's session (a server of its own may
                         // need its cookies); one less-trusted content named gets a private one.
-                        let session = ActionUIDocumentLoader.isNamedByLessTrustedContent(
+                        let session = ActionUIContentLoader.isNamedByLessTrustedContent(
                             windowUUID: windowUUID, isContentView: isContentView, parentID: parentID, around: around)
                             ? RemoteJSONFetch.privateSession : URLSession.shared
                         do {
-                            element = try await ActionUIDocumentLoader.loadRemote(
+                            element = try await ActionUIContentLoader.loadRemote(
                                 url: url, windowUUID: windowUUID, isContentView: isContentView, parentID: parentID, around: around, logger: logger
                             ) { url in
                                 var request = URLRequest(url: url)

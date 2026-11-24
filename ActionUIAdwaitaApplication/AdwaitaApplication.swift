@@ -741,7 +741,7 @@ public final class AdwaitaApplication {
         case .json(let data):
             let document = windowGroup(data, format: "json")
             do {
-                try loadDocument(document, format: "json", windowUUID: windowUUID)
+                try loadContent(document, format: "json", windowUUID: windowUUID)
                 return (nil, document.title, document.commands)
             } catch {
                 logger.log("Window \(windowUUID): the JSON could not be loaded: \(error)", .error)
@@ -767,10 +767,10 @@ public final class AdwaitaApplication {
             } else {
                 finalURL = url
             }
-            let format = AppBundle.documentFormat(of: url)
+            let format = AppBundle.contentFormat(of: url)
             let document = windowGroup(data, format: format)
             do {
-                try loadDocument(document, format: format, windowUUID: windowUUID, from: finalURL)
+                try loadContent(document, format: format, windowUUID: windowUUID, from: finalURL)
                 // No commands from a server, trusted or not: as on Apple, where a WindowGroup's
                 // commands come only from the app's own scenes, never from a window loaded at run time.
                 return (nil, document.title ?? title, ownCommands(document, from: text, isAppResource: false))
@@ -787,11 +787,11 @@ public final class AdwaitaApplication {
             }
             var title = url.deletingPathExtension().lastPathComponent
             do {
-                let format = AppBundle.documentFormat(of: url)
+                let format = AppBundle.contentFormat(of: url)
                 let document = windowGroup(try Data(contentsOf: url), format: format)
                 title = document.title ?? title
                 AppBundle.setDocumentFolder(url.deletingLastPathComponent().path, window: windowUUID)
-                try loadDocument(document, format: format, windowUUID: windowUUID, from: url)
+                try loadContent(document, format: format, windowUUID: windowUUID, from: url)
                 return (nil, title, ownCommands(document, from: url.path, isAppResource: Self.isInResourceFolder(url)))
             } catch {
                 logger.log("Window \(windowUUID): \(url.path) could not be loaded: \(error)", .error)
@@ -809,17 +809,17 @@ public final class AdwaitaApplication {
     /// provided". Any other document comes back as it is. JSON only: a property list has no
     /// WindowGroup scene. One larger than the cap comes back unread, for the load to refuse: its
     /// content alone could be under the cap.
-    func windowGroup(_ data: Data, format: String) -> WindowDocument {
+    func windowGroup(_ data: Data, format: String) -> WindowContent {
         guard format == "json", data.count <= ActionUIModel.maximumJSONSize,
               let parsed = (try? ActionUIJSON.value(from: String(decoding: data, as: UTF8.self))) as? [String: Any],
-              parsed["type"] as? String == "WindowGroup" else { return WindowDocument(data: data) }
+              parsed["type"] as? String == "WindowGroup" else { return WindowContent(data: data) }
         // Its platform overrides ("title:linux" and the like) resolved first, as Core resolves them
         // in the whole document on Apple.
         let filter = PlatformFilter(active: PlatformFilter.runtimeActiveSet, logger: ActionUIModel.shared.logger)
         let root = filter.filter(parsed) as? [String: Any] ?? parsed
         let properties = root["properties"] as? [String: Any] ?? [:]
         let title = (properties["title"] as? String).flatMap { $0.isEmpty ? nil : $0 }
-        var document = WindowDocument(data: data, title: title)
+        var document = WindowContent(data: data, title: title)
         if let commands = root["commands"] as? [Any], let json = try? ActionUIJSON.string(from: commands) {
             let key = (properties["windowGroupID"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? title ?? json
             document.commands = (json, key)
@@ -836,7 +836,7 @@ public final class AdwaitaApplication {
     /// A WindowGroup's commands when its document is the app's own (`isAppResource`), else none, with
     /// a warning naming where the document came from. Host JSON does not come through here: the
     /// host passed it, so its commands are the host's.
-    private func ownCommands(_ document: WindowDocument, from source: String, isAppResource: Bool) -> (json: String, key: String)? {
+    private func ownCommands(_ document: WindowContent, from source: String, isAppResource: Bool) -> (json: String, key: String)? {
         guard let commands = document.commands else { return nil }
         if isAppResource { return commands }
         ActionUIModel.shared.logger.log("WindowGroup commands from \(source) are ignored: only a document in the app's resource folder, or JSON the host passes, adds menu commands", .warning)
@@ -852,7 +852,7 @@ public final class AdwaitaApplication {
 
     /// A window's document as windowGroup leaves it: what to load, its default title, the commands
     /// to add once it shows, or why it cannot be.
-    struct WindowDocument {
+    struct WindowContent {
         var data: Data
         var title: String? = nil
         var commands: (json: String, key: String)? = nil
@@ -865,11 +865,11 @@ public final class AdwaitaApplication {
 
     /// Loads `document` into the model under `windowUUID`.
     /// `url`: the file or http address the document was read from (its origin), nil for host JSON.
-    private func loadDocument(_ document: WindowDocument, format: String, windowUUID: String, from url: URL? = nil) throws {
+    private func loadContent(_ document: WindowContent, format: String, windowUUID: String, from url: URL? = nil) throws {
         if let error = document.error {
             throw DocumentError(description: error)
         }
-        try ActionUIModel.shared.loadWindowDocument(document.data, format: format, windowUUID: windowUUID, from: url)
+        try ActionUIModel.shared.loadWindowContent(document.data, format: format, windowUUID: windowUUID, from: url)
     }
 
     /// Whether `text` is an http or https URL, which loads before its window appears.

@@ -76,7 +76,7 @@ enum PrivateImageLoad {
     /// place does not block), checked again to be a regular file, and read for at most maximumBytes
     /// + 1 bytes.
     nonisolated static func readFile(_ url: URL) throws -> Data {
-        guard let path = ActionUIDocumentLoader.regularFilePath(url) else {
+        guard let path = ActionUIContentLoader.regularFilePath(url) else {
             throw ActionUIError("it names no regular file")
         }
         let descriptor = open(path, O_RDONLY | O_NONBLOCK | O_CLOEXEC)

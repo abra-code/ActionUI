@@ -121,7 +121,7 @@ internal fun loadableNestingKey(source: LoadableSource): String? = when (source)
  * showing [enclosing] (the outermost first), or null when it may. A document that loads
  * itself, directly or through others, would load without end: file and asset sources load
  * while the view is composed. Siblings showing the same source are not in [enclosing], so
- * they stay allowed. The same rule and words as Apple's `ActionUIDocumentLoader.nestingRefusal`.
+ * they stay allowed. The same rule and words as Apple's `ActionUIContentLoader.nestingRefusal`.
  */
 internal fun loadableNestingRefusal(key: String, enclosing: List<String>): String? = when {
     key in enclosing -> "it includes itself"

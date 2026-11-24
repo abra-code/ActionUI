@@ -109,10 +109,10 @@ package enum AppBundle {
         documentFolders[windowUUID]
     }
 
-    /// A document's format by its URL ("json" or "plist"), as Core reads it (ActionUIDocumentLoader),
+    /// A document's format by its URL ("json" or "plist"), as Core reads it (ActionUIContentLoader),
     /// for the application module: Core is also built for Apple, where it takes no package access.
-    package static func documentFormat(of url: URL) -> String {
-        ActionUIDocumentLoader.format(of: url)
+    package static func contentFormat(of url: URL) -> String {
+        ActionUIContentLoader.format(of: url)
     }
 
     // MARK: Icon theme

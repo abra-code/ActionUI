@@ -2,7 +2,7 @@
 // Not built (#if false): kept as the sketch of a LoadableWindowGroup that loads its WindowGroup from
 // a file path or a URL at run time, which LoadableWindowGroup.buildScene (also not built) would use;
 // today's LoadableWindowGroup loads a resource in the app's bundle only. If it comes back, load
-// through ActionUIDocumentLoader, as LoadableView does (readRegularFile, or loadRemote with
+// through ActionUIContentLoader, as LoadableView does (readRegularFile, or loadRemote with
 // RemoteJSONFetch), so the content gets its origin, the size and time limits, and the address after
 // redirects; as written, it loads the JSON as the host's own, trusted, with no limits.
 #if false

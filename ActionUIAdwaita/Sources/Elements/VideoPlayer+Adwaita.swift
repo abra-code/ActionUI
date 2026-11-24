@@ -126,7 +126,7 @@ extension VideoPlayer: ActionUIAdwaitaRenderer {
         // pipe, which GStreamer would read without end or wait on for good. A missing file goes on
         // to GStreamer, which reports it.
         if url.isFileURL, FileManager.default.fileExists(atPath: url.path),
-           ActionUIDocumentLoader.regularFilePath(url) == nil {
+           ActionUIContentLoader.regularFilePath(url) == nil {
             ActionUIModel.shared.logger.log("VideoPlayer not playing '\(url.absoluteString)': \(url.path) is not a regular file", .error)
             gtk_video_set_file(opaque(video), nil)
             return

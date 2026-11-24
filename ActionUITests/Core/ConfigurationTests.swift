@@ -24,7 +24,7 @@ final class ConfigurationTests: XCTestCase {
     private var windowUUID: String!
 
     override func setUp() async throws {
-        // No super.setUp(): see DocumentLoaderTests.
+        // No super.setUp(): see ActionUIContentLoaderTests.
         ActionUIModel.shared.logger = XCTestLogger(maxLevel: .verbose)
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
@@ -153,7 +153,7 @@ final class ConfigurationTests: XCTestCase {
     func testTheFirstLoadFixesTheConfiguration() async throws {
         try ActionUIConfiguration.set(json: #"{"limits": {"maximumNestingDepth": 4}}"#)
         XCTAssertFalse(ActionUIConfiguration.isFixed)
-        _ = try ActionUIDocumentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
+        _ = try ActionUIContentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
         XCTAssertTrue(ActionUIConfiguration.isFixed)
         for change in [{ try ActionUIConfiguration.set(json: #"{"limits": {"maximumNestingDepth": 8}}"#) },
                        { try ActionUIConfiguration.set(ActionUIConfiguration()) },
@@ -186,9 +186,9 @@ final class ConfigurationTests: XCTestCase {
     func testTheLimitsComeFromTheConfiguration() throws {
         try ActionUIConfiguration.set(json: #"{"limits": {"maximumJSONSize": 3000, "maximumNestingDepth": 2}}"#)
         XCTAssertEqual(WindowModel.maximumJSONSize, 3000)
-        XCTAssertEqual(ActionUIDocumentLoader.maximumFileSize, 3000)
-        XCTAssertNil(ActionUIDocumentLoader.nestingRefusal("c", inside: ["a"]))
-        XCTAssertEqual(ActionUIDocumentLoader.nestingRefusal("c", inside: ["a", "b"]), "LoadableViews are nested more than 2 deep")
+        XCTAssertEqual(ActionUIContentLoader.maximumFileSize, 3000)
+        XCTAssertNil(ActionUIContentLoader.nestingRefusal("c", inside: ["a"]))
+        XCTAssertEqual(ActionUIContentLoader.nestingRefusal("c", inside: ["a", "b"]), "LoadableViews are nested more than 2 deep")
     }
 
     // MARK: Trusted origins
@@ -196,7 +196,7 @@ final class ConfigurationTests: XCTestCase {
     func testATrustedOriginIsTrustedOnlyByItsExactOriginAndInsideTrustedContent() {
         let origins = [URL(string: "https://ui.example.com")!]
         func trust(_ address: String, inside parent: JSONContentOrigin? = nil) -> JSONContentOrigin.Trust {
-            ActionUIDocumentLoader.origin(for: .remote(URL(string: address)!), inside: parent, parentID: nil,
+            ActionUIContentLoader.origin(for: .remote(URL(string: address)!), inside: parent, parentID: nil,
                                           resourceFolders: [], trustedOrigins: origins).trust
         }
         XCTAssertEqual(trust("https://ui.example.com/app/main.json"), .trusted)
@@ -208,7 +208,7 @@ final class ConfigurationTests: XCTestCase {
         let remote = JSONContentOrigin(source: .remote(URL(string: "https://other.net/a.json")!), trust: .lessTrusted, parentID: nil)
         XCTAssertEqual(trust("https://ui.example.com/main.json", inside: remote), .lessTrusted, "named by less-trusted content")
         XCTAssertEqual(trust("https://ui.example.com/main.json", inside: .host), .trusted)
-        XCTAssertEqual(ActionUIDocumentLoader.origin(for: .remote(URL(string: "https://ui.example.com/a.json")!), inside: nil, parentID: nil,
+        XCTAssertEqual(ActionUIContentLoader.origin(for: .remote(URL(string: "https://ui.example.com/a.json")!), inside: nil, parentID: nil,
                                                      resourceFolders: []).trust, .lessTrusted, "no trusted origins by default")
     }
 
@@ -220,14 +220,14 @@ final class ConfigurationTests: XCTestCase {
         let logger = XCTestLogger(maxLevel: .verbose)
 
         // Redirected off the trusted server: less trusted, recorded with the address it came from.
-        var element = try await ActionUIDocumentLoader.loadRemote(url: trusted, windowUUID: windowUUID, isContentView: true,
+        var element = try await ActionUIContentLoader.loadRemote(url: trusted, windowUUID: windowUUID, isContentView: true,
                                                                   parentID: 0, logger: logger) { _ in (data, elsewhere) }
         var origin = ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: element.id)
         XCTAssertEqual(origin?.trust, .lessTrusted)
         XCTAssertEqual(origin?.source, .remote(elsewhere))
 
         // Straight from it: trusted, with nothing refused.
-        element = try await ActionUIDocumentLoader.loadRemote(url: trusted, windowUUID: windowUUID, isContentView: true,
+        element = try await ActionUIContentLoader.loadRemote(url: trusted, windowUUID: windowUUID, isContentView: true,
                                                               parentID: 0, logger: logger) { url in (data, url) }
         origin = ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: element.id)
         XCTAssertEqual(origin?.trust, .trusted)
@@ -236,10 +236,10 @@ final class ConfigurationTests: XCTestCase {
         XCTAssertTrue(ActionUIModel.shared.allows(.presentModal, windowUUID: windowUUID, viewID: element.id))
 
         // A LoadableView in it that loads more from the server: trusted; from elsewhere: less trusted.
-        let sub = try await ActionUIDocumentLoader.loadRemote(url: URL(string: "https://ui.example.com/panel.json")!, windowUUID: windowUUID,
+        let sub = try await ActionUIContentLoader.loadRemote(url: URL(string: "https://ui.example.com/panel.json")!, windowUUID: windowUUID,
                                                               isContentView: false, parentID: 100, logger: logger) { url in (self.panel, url) }
         XCTAssertEqual(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: sub.id)?.trust, .trusted)
-        let other = try await ActionUIDocumentLoader.loadRemote(url: elsewhere, windowUUID: windowUUID,
+        let other = try await ActionUIContentLoader.loadRemote(url: elsewhere, windowUUID: windowUUID,
                                                                 isContentView: false, parentID: 100, logger: logger) { url in (self.panel, url) }
         XCTAssertEqual(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: other.id)?.trust, .lessTrusted)
     }
@@ -256,7 +256,7 @@ final class ConfigurationTests: XCTestCase {
         let recorder = Recorder()
         ActionUIModel.shared.trustPolicy = recorder
         let data = root
-        let element = try await ActionUIDocumentLoader.loadRemote(url: URL(string: "https://ui.example.com/root.json")!, windowUUID: windowUUID,
+        let element = try await ActionUIContentLoader.loadRemote(url: URL(string: "https://ui.example.com/root.json")!, windowUUID: windowUUID,
                                                                   isContentView: true, parentID: 0, logger: XCTestLogger(maxLevel: .verbose)) { url in (data, url) }
         XCTAssertEqual(recorder.defaults, [.trusted])
         XCTAssertEqual(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: element.id)?.trust, .lessTrusted, "the policy has the last word")

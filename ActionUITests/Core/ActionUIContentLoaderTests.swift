@@ -1,6 +1,6 @@
-// Core/DocumentLoaderTests.swift
+// Core/ActionUIContentLoaderTests.swift
 /*
- Tests for ActionUIDocumentLoader: where a LoadableView's text points (with a stub bundle), the
+ Tests for ActionUIContentLoader: where a LoadableView's text points (with a stub bundle), the
  format of a file or URL, loading a description as content or as a sub-view (from data, and from a
  stub fetch), viewDidLoad once per source, and the origin each loaded element is given (trusted
  for the host and the app's resources, less trusted for remote documents, files elsewhere and all
@@ -41,7 +41,7 @@ private final class RecordingLogger: ActionUILogger, @unchecked Sendable {
 }
 
 @MainActor
-final class DocumentLoaderTests: XCTestCase {
+final class ActionUIContentLoaderTests: XCTestCase {
     private var windowUUID: String!
     private var logger: XCTestLogger!
 
@@ -69,8 +69,8 @@ final class DocumentLoaderTests: XCTestCase {
         return files.contains(file) ? URL(fileURLWithPath: "/bundle/" + file) : nil
     }
 
-    private func source(_ value: String) -> Result<ActionUIDocumentLoader.Source, ActionUIDocumentLoader.SourceError> {
-        ActionUIDocumentLoader.source(for: value, bundleURL: bundleURL, logger: logger)
+    private func source(_ value: String) -> Result<ActionUIContentLoader.Source, ActionUIContentLoader.SourceError> {
+        ActionUIContentLoader.source(for: value, bundleURL: bundleURL, logger: logger)
     }
 
     func testOnlyARegularFileIsRead() throws {
@@ -84,16 +84,16 @@ final class DocumentLoaderTests: XCTestCase {
         let deviceLink = folder.appendingPathComponent("zero.json")
         try FileManager.default.createSymbolicLink(at: deviceLink, withDestinationURL: URL(fileURLWithPath: "/dev/zero"))
 
-        XCTAssertEqual(try ActionUIDocumentLoader.readRegularFile(file), Data("{}".utf8))
-        XCTAssertEqual(try ActionUIDocumentLoader.readRegularFile(link), Data("{}".utf8), "a link to a regular file is read")
+        XCTAssertEqual(try ActionUIContentLoader.readRegularFile(file), Data("{}".utf8))
+        XCTAssertEqual(try ActionUIContentLoader.readRegularFile(link), Data("{}".utf8), "a link to a regular file is read")
         for path in ["/dev/zero", "/dev/null", folder.path, deviceLink.path] {
-            XCTAssertThrowsError(try ActionUIDocumentLoader.readRegularFile(URL(fileURLWithPath: path)), path) { error in
-                XCTAssertTrue(error is ActionUIDocumentLoader.NotARegularFile, "\(path): \(error)")
+            XCTAssertThrowsError(try ActionUIContentLoader.readRegularFile(URL(fileURLWithPath: path)), path) { error in
+                XCTAssertTrue(error is ActionUIContentLoader.NotARegularFile, "\(path): \(error)")
             }
         }
         // A missing file keeps the system's own error (LoadableView shows "no such file").
-        XCTAssertThrowsError(try ActionUIDocumentLoader.readRegularFile(folder.appendingPathComponent("missing.json"))) { error in
-            XCTAssertFalse(error is ActionUIDocumentLoader.NotARegularFile, "\(error)")
+        XCTAssertThrowsError(try ActionUIContentLoader.readRegularFile(folder.appendingPathComponent("missing.json"))) { error in
+            XCTAssertFalse(error is ActionUIContentLoader.NotARegularFile, "\(error)")
             XCTAssertEqual((error as? CocoaError)?.code, .fileReadNoSuchFile, "\(error)")
         }
     }
@@ -107,20 +107,20 @@ final class DocumentLoaderTests: XCTestCase {
         let link = folder.appendingPathComponent("link.png")
         try FileManager.default.createSymbolicLink(at: link, withDestinationURL: file)
 
-        XCTAssertEqual(ActionUIDocumentLoader.regularFilePath(file), file.resolvingSymlinksInPath().path)
-        XCTAssertEqual(ActionUIDocumentLoader.regularFilePath(link), file.resolvingSymlinksInPath().path,
+        XCTAssertEqual(ActionUIContentLoader.regularFilePath(file), file.resolvingSymlinksInPath().path)
+        XCTAssertEqual(ActionUIContentLoader.regularFilePath(link), file.resolvingSymlinksInPath().path,
                        "a link gives the path of the file it names")
         for path in ["/dev/zero", "/dev/null", folder.path, folder.appendingPathComponent("missing.png").path] {
-            XCTAssertNil(ActionUIDocumentLoader.regularFilePath(URL(fileURLWithPath: path)), path)
+            XCTAssertNil(ActionUIContentLoader.regularFilePath(URL(fileURLWithPath: path)), path)
         }
     }
 
     func testTheNestingRuleRefusesARepeatAndADeepChain() {
-        XCTAssertNil(ActionUIDocumentLoader.nestingRefusal("b", inside: ["a"]))
-        XCTAssertEqual(ActionUIDocumentLoader.nestingRefusal("a", inside: ["a", "b"]), "it includes itself")
+        XCTAssertNil(ActionUIContentLoader.nestingRefusal("b", inside: ["a"]))
+        XCTAssertEqual(ActionUIContentLoader.nestingRefusal("a", inside: ["a", "b"]), "it includes itself")
         let deep = (0..<16).map { "doc\($0)" }
-        XCTAssertEqual(ActionUIDocumentLoader.nestingRefusal("next", inside: deep), "LoadableViews are nested more than 16 deep")
-        XCTAssertNil(ActionUIDocumentLoader.nestingRefusal("next", inside: Array(deep.dropLast())))
+        XCTAssertEqual(ActionUIContentLoader.nestingRefusal("next", inside: deep), "LoadableViews are nested more than 16 deep")
+        XCTAssertNil(ActionUIContentLoader.nestingRefusal("next", inside: Array(deep.dropLast())))
     }
 
     func testANestingKeyNamesAFileByItsResolvedPath() throws {
@@ -133,11 +133,11 @@ final class DocumentLoaderTests: XCTestCase {
         try FileManager.default.createSymbolicLink(at: link, withDestinationURL: file)
         try FileManager.default.createDirectory(at: folder.appendingPathComponent("sub"), withIntermediateDirectories: true)
         let dotted = URL(fileURLWithPath: folder.path + "/./sub/../a.json")
-        let key = ActionUIDocumentLoader.nestingKey(for: .file(file))
-        XCTAssertEqual(ActionUIDocumentLoader.nestingKey(for: .file(link)), key)
-        XCTAssertEqual(ActionUIDocumentLoader.nestingKey(for: .file(dotted)), key)
+        let key = ActionUIContentLoader.nestingKey(for: .file(file))
+        XCTAssertEqual(ActionUIContentLoader.nestingKey(for: .file(link)), key)
+        XCTAssertEqual(ActionUIContentLoader.nestingKey(for: .file(dotted)), key)
         let remote = URL(string: "https://example.com/a.json?x=1")!
-        XCTAssertEqual(ActionUIDocumentLoader.nestingKey(for: .remote(remote)), remote.absoluteString)
+        XCTAssertEqual(ActionUIContentLoader.nestingKey(for: .remote(remote)), remote.absoluteString)
     }
 
     func testRemoteURLs() {
@@ -167,19 +167,19 @@ final class DocumentLoaderTests: XCTestCase {
     }
 
     func testFormat() {
-        XCTAssertEqual(ActionUIDocumentLoader.format(of: URL(fileURLWithPath: "/a/b.plist")), "plist")
-        XCTAssertEqual(ActionUIDocumentLoader.format(of: URL(string: "https://x/b.PLIST")!), "plist")
-        XCTAssertEqual(ActionUIDocumentLoader.format(of: URL(fileURLWithPath: "/a/b.json")), "json")
-        XCTAssertEqual(ActionUIDocumentLoader.format(of: URL(fileURLWithPath: "/a/b")), "json")
+        XCTAssertEqual(ActionUIContentLoader.format(of: URL(fileURLWithPath: "/a/b.plist")), "plist")
+        XCTAssertEqual(ActionUIContentLoader.format(of: URL(string: "https://x/b.PLIST")!), "plist")
+        XCTAssertEqual(ActionUIContentLoader.format(of: URL(fileURLWithPath: "/a/b.json")), "json")
+        XCTAssertEqual(ActionUIContentLoader.format(of: URL(fileURLWithPath: "/a/b")), "json")
     }
 
     private let root = Data(#"{ "id": 1, "type": "VStack", "children": [ { "id": 100, "type": "LoadableView", "properties": {} } ] }"#.utf8)
     private let panel = Data(#"{ "id": 200, "type": "Text", "properties": { "text": "Panel" } }"#.utf8)
 
     func testLoadAsContentAndAsSubView() throws {
-        let content = try ActionUIDocumentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
+        let content = try ActionUIContentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
         XCTAssertEqual(content.id, 1)
-        let sub = try ActionUIDocumentLoader.load(data: panel, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 100, source: nil)
+        let sub = try ActionUIContentLoader.load(data: panel, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 100, source: nil)
         XCTAssertEqual(sub.id, 200)
         XCTAssertNotNil(ActionUIModel.shared.windowModels[windowUUID]?.viewModels[200])
         XCTAssertNotNil(ActionUIModel.shared.windowModels[windowUUID]?.viewModels[1], "a sub-view keeps the content")
@@ -189,7 +189,7 @@ final class DocumentLoaderTests: XCTestCase {
         let url = URL(string: "https://example.com/root.json")!
         var fetched: [URL] = []
         let data = root
-        let element = try await ActionUIDocumentLoader.loadRemote(
+        let element = try await ActionUIContentLoader.loadRemote(
             url: url, windowUUID: windowUUID, isContentView: true, parentID: 0, logger: logger
         ) { url in
             fetched.append(url)
@@ -202,7 +202,7 @@ final class DocumentLoaderTests: XCTestCase {
     func testLoadRemotePassesTheFetchErrorOn() async {
         struct Offline: Error {}
         do {
-            _ = try await ActionUIDocumentLoader.loadRemote(
+            _ = try await ActionUIContentLoader.loadRemote(
                 url: URL(string: "https://example.com/a.json")!, windowUUID: windowUUID, isContentView: true, parentID: 0, logger: logger
             ) { _ in throw Offline() }
             XCTFail("expected the fetch error")
@@ -247,8 +247,8 @@ final class DocumentLoaderTests: XCTestCase {
         let (root, resources) = try originFolders()
         defer { try? FileManager.default.removeItem(at: root) }
         let folders = [resources.path]
-        func origin(_ source: ActionUIDocumentLoader.Source, inside parent: JSONContentOrigin? = nil) -> JSONContentOrigin {
-            ActionUIDocumentLoader.origin(for: source, inside: parent, parentID: 7, resourceFolders: folders)
+        func origin(_ source: ActionUIContentLoader.Source, inside parent: JSONContentOrigin? = nil) -> JSONContentOrigin {
+            ActionUIContentLoader.origin(for: source, inside: parent, parentID: 7, resourceFolders: folders)
         }
         let remoteURL = URL(string: "https://example.com/a.json")!
         let remote = origin(.remote(remoteURL))
@@ -264,7 +264,7 @@ final class DocumentLoaderTests: XCTestCase {
         XCTAssertEqual(origin(.file(resources.appendingPathComponent("inside.json")), inside: remote).trust, .lessTrusted,
                        "a bundled file a remote document names stays less trusted")
         XCTAssertEqual(origin(.file(resources.appendingPathComponent("inside.json")), inside: .host).trust, .trusted)
-        XCTAssertEqual(ActionUIDocumentLoader.origin(for: .file(resources.appendingPathComponent("inside.json")), inside: nil,
+        XCTAssertEqual(ActionUIContentLoader.origin(for: .file(resources.appendingPathComponent("inside.json")), inside: nil,
                                                      parentID: 7, resourceFolders: []).trust,
                        .lessTrusted, "no resource folders: no file is the app's")
     }
@@ -280,7 +280,7 @@ final class DocumentLoaderTests: XCTestCase {
         ActionUIModel.shared.logger = recording
 
         // The window's root, from a file in the resources: trusted, no parent.
-        _ = try ActionUIDocumentLoader.load(data: self.root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0,
+        _ = try ActionUIContentLoader.load(data: self.root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0,
                                             source: .file(resources.appendingPathComponent("inside.json")))
         let rootOrigin = try XCTUnwrap(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 1))
         XCTAssertEqual(rootOrigin.trust, .trusted)
@@ -290,7 +290,7 @@ final class DocumentLoaderTests: XCTestCase {
         // A remote document in the LoadableView 100, with a LoadableView 300 of its own.
         let remote = Data(#"{ "id": 200, "type": "VStack", "children": [ { "id": 300, "type": "LoadableView", "properties": {} } ] }"#.utf8)
         let remoteURL = URL(string: "https://example.com/panel.json")!
-        _ = try ActionUIDocumentLoader.load(data: remote, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 100,
+        _ = try ActionUIContentLoader.load(data: remote, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 100,
                                             source: .remote(remoteURL))
         XCTAssertEqual(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 200),
                        JSONContentOrigin(source: .remote(remoteURL), trust: .lessTrusted, parentID: 100))
@@ -300,7 +300,7 @@ final class DocumentLoaderTests: XCTestCase {
         // A less-trusted document that reuses a trusted element's id (1, the root's) is refused
         // whole: its element would be drawn with the root's view model and read as trusted.
         let colliding = Data(#"{ "id": 350, "type": "VStack", "children": [ { "id": 1, "type": "LoadableView", "properties": {} } ] }"#.utf8)
-        XCTAssertThrowsError(try ActionUIDocumentLoader.load(data: colliding, format: "json", windowUUID: windowUUID, isContentView: false,
+        XCTAssertThrowsError(try ActionUIContentLoader.load(data: colliding, format: "json", windowUUID: windowUUID, isContentView: false,
                                                              parentID: 300, source: .remote(remoteURL))) { error in
             XCTAssertEqual("\(error)", "id conflict: 1 already in the window")
         }
@@ -310,7 +310,7 @@ final class DocumentLoaderTests: XCTestCase {
 
         // A bundled file the remote document names: less trusted, as the content around it.
         let inner = Data(#"{ "id": 400, "type": "Text", "properties": { "text": "Inner" } }"#.utf8)
-        _ = try ActionUIDocumentLoader.load(data: inner, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 300,
+        _ = try ActionUIContentLoader.load(data: inner, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 300,
                                             source: .file(resources.appendingPathComponent("inside.json")))
         let nested = try XCTUnwrap(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 400))
         XCTAssertEqual(nested.trust, .lessTrusted)
@@ -320,7 +320,7 @@ final class DocumentLoaderTests: XCTestCase {
         // Data the host holds, loaded in place of the remote document: the host's, and the remote
         // document's elements (and what they loaded) are gone with their origins.
         let hostPanel = Data(#"{ "id": 500, "type": "Text", "properties": {} }"#.utf8)
-        _ = try ActionUIDocumentLoader.load(data: hostPanel, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 100, source: nil)
+        _ = try ActionUIContentLoader.load(data: hostPanel, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 100, source: nil)
         XCTAssertTrue(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 500) === JSONContentOrigin.host)
         XCTAssertNil(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 200))
         XCTAssertNil(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 400))
@@ -329,7 +329,7 @@ final class DocumentLoaderTests: XCTestCase {
 
         // A trusted document's conflict is skipped, as before: the rest loads, the id keeps its own.
         let trustedColliding = Data(#"{ "id": 600, "type": "VStack", "children": [ { "id": 1, "type": "Text", "properties": {} } ] }"#.utf8)
-        _ = try ActionUIDocumentLoader.load(data: trustedColliding, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 100,
+        _ = try ActionUIContentLoader.load(data: trustedColliding, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 100,
                                             source: .file(resources.appendingPathComponent("inside.json")))
         XCTAssertEqual(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 600)?.trust, .trusted)
         XCTAssertTrue(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 1) === rootOrigin, "a conflicting id keeps its own origin")
@@ -345,10 +345,10 @@ final class DocumentLoaderTests: XCTestCase {
         // A remote window root whose LoadableView 600 is in a template: a blueprint, with no view
         // model, as a template row's LoadableView loads into.
         let remote = Data(#"{ "id": 1, "type": "VStack", "template": { "id": 600, "type": "LoadableView", "properties": {} } }"#.utf8)
-        _ = try ActionUIDocumentLoader.load(data: remote, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0,
+        _ = try ActionUIContentLoader.load(data: remote, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0,
                                             source: .remote(URL(string: "https://example.com/list.json")!))
         XCTAssertNil(ActionUIModel.shared.windowModels[windowUUID]?.viewModels[600])
-        _ = try ActionUIDocumentLoader.load(data: panel, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 600,
+        _ = try ActionUIContentLoader.load(data: panel, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 600,
                                             source: .file(resources.appendingPathComponent("inside.json")))
         let origin = try XCTUnwrap(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 200))
         XCTAssertEqual(origin.trust, .lessTrusted, "a parent with no known trust is not the host's")
@@ -366,7 +366,7 @@ final class DocumentLoaderTests: XCTestCase {
         ActionUIModel.shared.trustPolicy = policy
 
         // A file outside the resources, as the window's root: the policy raises it.
-        _ = try ActionUIDocumentLoader.load(data: self.root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0,
+        _ = try ActionUIContentLoader.load(data: self.root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0,
                                             source: .file(root.appendingPathComponent("outside.json")))
         XCTAssertEqual(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 1)?.trust, .trusted)
         XCTAssertEqual(policy.asked.count, 1)
@@ -374,7 +374,7 @@ final class DocumentLoaderTests: XCTestCase {
         XCTAssertEqual(policy.asked[0].byDefault, .lessTrusted, "what ActionUI would decide")
 
         // A resource file in the LoadableView 100: the policy lowers it, and is told the parent.
-        _ = try ActionUIDocumentLoader.load(data: panel, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 100,
+        _ = try ActionUIContentLoader.load(data: panel, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 100,
                                             source: .file(resources.appendingPathComponent("inside.json")))
         XCTAssertEqual(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 200)?.trust, .lessTrusted)
         XCTAssertEqual(policy.asked.last?.parent?.trust, .trusted)
@@ -390,7 +390,7 @@ final class DocumentLoaderTests: XCTestCase {
         // A LoadableView with no view model (a template row's, id 999): a less-trusted parent, not
         // none (which means a window's root), and less trusted by default, so a policy that keeps
         // the default, or that trusts "no parent and my file", stays safe.
-        _ = try ActionUIDocumentLoader.load(data: Data(#"{ "id": 700, "type": "Text", "properties": {} }"#.utf8), format: "json",
+        _ = try ActionUIContentLoader.load(data: Data(#"{ "id": 700, "type": "Text", "properties": {} }"#.utf8), format: "json",
                                             windowUUID: windowUUID, isContentView: false, parentID: 999,
                                             source: .remote(URL(string: "https://example.com/row.json")!))
         XCTAssertEqual(policy.asked.last?.parent?.trust, .lessTrusted)
@@ -403,24 +403,24 @@ final class DocumentLoaderTests: XCTestCase {
         let savedFolders = ActionUIRendererHooks.resourceFolders
         defer { ActionUIRendererHooks.resourceFolders = savedFolders }
         ActionUIRendererHooks.resourceFolders = { [resources.path] }
-        _ = try ActionUIDocumentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
-        _ = try ActionUIDocumentLoader.load(data: panel, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 100,
+        _ = try ActionUIContentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
+        _ = try ActionUIContentLoader.load(data: panel, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 100,
                                             source: .remote(URL(string: "https://example.com/panel.json")!))
         // A template row's LoadableView in the remote panel (container 200): the remote content's trust.
         let row = ViewModel()
         row.templateContext = TemplateContext(parentID: 200, rowIndex: 0, row: [])
-        let around = try XCTUnwrap(ActionUIDocumentLoader.templateSurroundings(windowUUID: windowUUID, model: row))
+        let around = try XCTUnwrap(ActionUIContentLoader.templateSurroundings(windowUUID: windowUUID, model: row))
         XCTAssertEqual(around.trust, .lessTrusted)
-        XCTAssertNil(ActionUIDocumentLoader.templateSurroundings(windowUUID: windowUUID, model: ViewModel()), "not in a template row")
+        XCTAssertNil(ActionUIContentLoader.templateSurroundings(windowUUID: windowUUID, model: ViewModel()), "not in a template row")
         let unknownRow = ViewModel()
         unknownRow.templateContext = TemplateContext(parentID: 4242, rowIndex: 0, row: [])
-        XCTAssertEqual(ActionUIDocumentLoader.templateSurroundings(windowUUID: windowUUID, model: unknownRow)?.trust, .lessTrusted,
+        XCTAssertEqual(ActionUIContentLoader.templateSurroundings(windowUUID: windowUUID, model: unknownRow)?.trust, .lessTrusted,
                        "a container the window does not have")
         // Its content is classified inside that, whatever id it carries: a bundled file stays less trusted.
-        let inside = ActionUIDocumentLoader.Source.file(resources.appendingPathComponent("inside.json"))
-        XCTAssertEqual(ActionUIDocumentLoader.resolvedOrigin(for: inside, windowUUID: windowUUID, isContentView: false, parentID: 100).trust,
+        let inside = ActionUIContentLoader.Source.file(resources.appendingPathComponent("inside.json"))
+        XCTAssertEqual(ActionUIContentLoader.resolvedOrigin(for: inside, windowUUID: windowUUID, isContentView: false, parentID: 100).trust,
                        .trusted, "the host's LoadableView 100 would make it trusted")
-        let resourceOrigin = ActionUIDocumentLoader.resolvedOrigin(for: inside, windowUUID: windowUUID,
+        let resourceOrigin = ActionUIContentLoader.resolvedOrigin(for: inside, windowUUID: windowUUID,
                                                                    isContentView: false, parentID: 100, around: around)
         XCTAssertEqual(resourceOrigin.trust, .lessTrusted, "not the host's LoadableView 100's trust")
         // The load capability is asked with that origin too, before the load and about a redirect's address.
@@ -431,12 +431,12 @@ final class DocumentLoaderTests: XCTestCase {
             }
         }
         ActionUIModel.shared.trustPolicy = RefusesLessTrustedLoads()
-        let address = ActionUIDocumentLoader.Source.remote(URL(string: "https://example.com/row.json")!)
-        XCTAssertNil(ActionUIDocumentLoader.loadRefusal(address, windowUUID: windowUUID, parentID: 100, logger: logger))
-        XCTAssertNotNil(ActionUIDocumentLoader.loadRefusal(address, windowUUID: windowUUID, parentID: 100, around: around, logger: logger))
+        let address = ActionUIContentLoader.Source.remote(URL(string: "https://example.com/row.json")!)
+        XCTAssertNil(ActionUIContentLoader.loadRefusal(address, windowUUID: windowUUID, parentID: 100, logger: logger))
+        XCTAssertNotNil(ActionUIContentLoader.loadRefusal(address, windowUUID: windowUUID, parentID: 100, around: around, logger: logger))
         let data = Data(#"{ "id": 700, "type": "Text", "properties": {} }"#.utf8)
         do {
-            _ = try await ActionUIDocumentLoader.loadRemote(url: URL(string: "https://example.com/row.json")!, windowUUID: windowUUID,
+            _ = try await ActionUIContentLoader.loadRemote(url: URL(string: "https://example.com/row.json")!, windowUUID: windowUUID,
                                                             isContentView: false, parentID: 100, around: around, logger: logger) { _ in
                 (data, URL(string: "https://example.com/moved.json")!)
             }
@@ -448,11 +448,11 @@ final class DocumentLoaderTests: XCTestCase {
         // It may not carry the id of an element the window has (100, the host's LoadableView), whose
         // content its own would replace; an id nothing has is fine, and outside a template row the rule
         // does not apply.
-        XCTAssertEqual(ActionUIDocumentLoader.templateIDRefusal(windowUUID: windowUUID, viewID: 100, model: row, logger: logger),
+        XCTAssertEqual(ActionUIContentLoader.templateIDRefusal(windowUUID: windowUUID, viewID: 100, model: row, logger: logger),
                        "id 100 is another element's in the window")
-        XCTAssertNil(ActionUIDocumentLoader.templateIDRefusal(windowUUID: windowUUID, viewID: 9999, model: row, logger: logger))
+        XCTAssertNil(ActionUIContentLoader.templateIDRefusal(windowUUID: windowUUID, viewID: 9999, model: row, logger: logger))
         let registered = try XCTUnwrap(ActionUIModel.shared.windowModels[windowUUID]?.viewModels[100])
-        XCTAssertNil(ActionUIDocumentLoader.templateIDRefusal(windowUUID: windowUUID, viewID: 100, model: registered, logger: logger))
+        XCTAssertNil(ActionUIContentLoader.templateIDRefusal(windowUUID: windowUUID, viewID: 100, model: registered, logger: logger))
     }
 
     func testTheDefaultPolicyLetsLessTrustedLinksOpenOnlyWebAndMail() {
@@ -510,7 +510,7 @@ final class DocumentLoaderTests: XCTestCase {
     func testAnAddressLessTrustedContentNamesIsFetchedPrivately() {
         let remote = JSONContentOrigin(source: .remote(URL(string: "https://example.com/a.json")!), trust: .lessTrusted, parentID: 1)
         func named(_ isContentView: Bool, _ parentID: Int, _ around: JSONContentOrigin?) -> Bool {
-            ActionUIDocumentLoader.isNamedByLessTrustedContent(windowUUID: windowUUID, isContentView: isContentView, parentID: parentID, around: around)
+            ActionUIContentLoader.isNamedByLessTrustedContent(windowUUID: windowUUID, isContentView: isContentView, parentID: parentID, around: around)
         }
         XCTAssertFalse(named(true, 0, nil), "a window's root: the host named it")
         XCTAssertFalse(named(false, 0, nil), "the host's own loader")
@@ -554,15 +554,15 @@ final class DocumentLoaderTests: XCTestCase {
 
     func testTheSessionFollowsTheContentAroundALoadableViewByItsID() throws {
         let remote = Data(#"{ "id": 1, "type": "VStack", "children": [ { "id": 600, "type": "LoadableView", "properties": {} } ] }"#.utf8)
-        _ = try ActionUIDocumentLoader.load(data: remote, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0,
+        _ = try ActionUIContentLoader.load(data: remote, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0,
                                             source: .remote(URL(string: "https://example.com/list.json")!))
-        XCTAssertTrue(ActionUIDocumentLoader.isNamedByLessTrustedContent(windowUUID: windowUUID, isContentView: false, parentID: 600, around: nil),
+        XCTAssertTrue(ActionUIContentLoader.isNamedByLessTrustedContent(windowUUID: windowUUID, isContentView: false, parentID: 600, around: nil),
                       "LoadableView 600 is in remote content")
         let host = Data(#"{ "id": 1, "type": "VStack", "children": [ { "id": 700, "type": "LoadableView", "properties": {} } ] }"#.utf8)
         let hostWindow = UUID().uuidString
         defer { ActionUIModel.shared.windowModels[hostWindow] = nil }
-        _ = try ActionUIDocumentLoader.load(data: host, format: "json", windowUUID: hostWindow, isContentView: true, parentID: 0, source: nil)
-        XCTAssertFalse(ActionUIDocumentLoader.isNamedByLessTrustedContent(windowUUID: hostWindow, isContentView: false, parentID: 700, around: nil),
+        _ = try ActionUIContentLoader.load(data: host, format: "json", windowUUID: hostWindow, isContentView: true, parentID: 0, source: nil)
+        XCTAssertFalse(ActionUIContentLoader.isNamedByLessTrustedContent(windowUUID: hostWindow, isContentView: false, parentID: 700, around: nil),
                        "LoadableView 700 is in the host's own content")
     }
 
@@ -573,14 +573,14 @@ final class DocumentLoaderTests: XCTestCase {
         defer { ActionUIRendererHooks.resourceFolders = savedFolders }
         ActionUIRendererHooks.resourceFolders = { [resources.path] }
         let remote = Data(#"{ "id": 1, "type": "VStack", "children": [ { "id": 600, "type": "LoadableView", "properties": {} } ] }"#.utf8)
-        _ = try ActionUIDocumentLoader.load(data: remote, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0,
+        _ = try ActionUIContentLoader.load(data: remote, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0,
                                             source: .remote(URL(string: "https://example.com/list.json")!))
         let outside = root.appendingPathComponent("outside.json")
-        XCTAssertEqual(ActionUIDocumentLoader.loadRefusal(.file(outside), windowUUID: windowUUID, parentID: 600, logger: ActionUIModel.shared.logger),
+        XCTAssertEqual(ActionUIContentLoader.loadRefusal(.file(outside), windowUUID: windowUUID, parentID: 600, logger: ActionUIModel.shared.logger),
                        "the trust policy refuses it")
-        XCTAssertNil(ActionUIDocumentLoader.loadRefusal(.file(resources.appendingPathComponent("inside.json")), windowUUID: windowUUID,
+        XCTAssertNil(ActionUIContentLoader.loadRefusal(.file(resources.appendingPathComponent("inside.json")), windowUUID: windowUUID,
                                                         parentID: 600, logger: ActionUIModel.shared.logger), "the app's resources load")
-        XCTAssertEqual(ActionUIDocumentLoader.loadRefusal(.file(resources.appendingPathComponent("link.json")), windowUUID: windowUUID,
+        XCTAssertEqual(ActionUIContentLoader.loadRefusal(.file(resources.appendingPathComponent("link.json")), windowUUID: windowUUID,
                                                           parentID: 600, logger: ActionUIModel.shared.logger),
                        "the trust policy refuses it", "a link inside the resources to a file outside them")
     }
@@ -590,27 +590,27 @@ final class DocumentLoaderTests: XCTestCase {
         ActionUIModel.shared.logger = recording
         // A long span while counting, so a slow machine cannot let a load expire in the middle.
         ActionUIConfiguration.updateForTesting { $0.limits.loadBudget = ActionUILoadBudget(loads: 3, seconds: 60) }
-        _ = try ActionUIDocumentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
+        _ = try ActionUIContentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
         for _ in 0..<3 {
-            _ = try ActionUIDocumentLoader.load(data: panel, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 100, source: nil)
+            _ = try ActionUIContentLoader.load(data: panel, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 100, source: nil)
         }
-        XCTAssertThrowsError(try ActionUIDocumentLoader.load(data: panel, format: "json", windowUUID: windowUUID, isContentView: false,
+        XCTAssertThrowsError(try ActionUIContentLoader.load(data: panel, format: "json", windowUUID: windowUUID, isContentView: false,
                                                              parentID: 100, source: nil)) { error in
             XCTAssertEqual("\(error)", "too many loads in this window")
         }
         XCTAssertNotNil(ActionUIModel.shared.windowModels[windowUUID]?.viewModels[200], "the content loaded before stays")
         XCTAssertEqual(recording.errors.count, 1)
         // The window's own reload does not reset the count; another window has its own.
-        _ = try ActionUIDocumentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
-        XCTAssertThrowsError(try ActionUIDocumentLoader.load(data: panel, format: "json", windowUUID: windowUUID, isContentView: false,
+        _ = try ActionUIContentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
+        XCTAssertThrowsError(try ActionUIContentLoader.load(data: panel, format: "json", windowUUID: windowUUID, isContentView: false,
                                                              parentID: 100, source: nil))
         let other = UUID().uuidString
-        _ = try ActionUIDocumentLoader.load(data: root, format: "json", windowUUID: other, isContentView: true, parentID: 0, source: nil)
-        XCTAssertNoThrow(try ActionUIDocumentLoader.load(data: panel, format: "json", windowUUID: other, isContentView: false, parentID: 100, source: nil))
+        _ = try ActionUIContentLoader.load(data: root, format: "json", windowUUID: other, isContentView: true, parentID: 0, source: nil)
+        XCTAssertNoThrow(try ActionUIContentLoader.load(data: panel, format: "json", windowUUID: other, isContentView: false, parentID: 100, source: nil))
         // Once the span has passed, loads go on (the span read at each load, shortened here).
         ActionUIConfiguration.updateForTesting { $0.limits.loadBudget = ActionUILoadBudget(loads: 3, seconds: 0.2) }
         RunLoop.main.run(until: Date().addingTimeInterval(0.3))
-        XCTAssertNoThrow(try ActionUIDocumentLoader.load(data: panel, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 100, source: nil))
+        XCTAssertNoThrow(try ActionUIContentLoader.load(data: panel, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 100, source: nil))
     }
 
     func testJSONLargerThanTheCapIsRefused() throws {
@@ -619,14 +619,14 @@ final class DocumentLoaderTests: XCTestCase {
         let saved = WindowModel.maximumJSONSize
         defer { ActionUIConfiguration.updateForTesting { $0.limits.maximumJSONSize = saved } }
         ActionUIConfiguration.updateForTesting { $0.limits.maximumJSONSize = root.count }
-        _ = try ActionUIDocumentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
+        _ = try ActionUIContentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
         ActionUIConfiguration.updateForTesting { $0.limits.maximumJSONSize = root.count - 1 }
-        XCTAssertThrowsError(try ActionUIDocumentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true,
+        XCTAssertThrowsError(try ActionUIContentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true,
                                                              parentID: 0, source: nil)) { error in
             XCTAssertEqual("\(error)", "the ActionUI JSON is larger than 0 MB")
         }
         ActionUIConfiguration.updateForTesting { $0.limits.maximumJSONSize = panel.count - 1 }
-        XCTAssertThrowsError(try ActionUIDocumentLoader.load(data: panel, format: "json", windowUUID: windowUUID, isContentView: false,
+        XCTAssertThrowsError(try ActionUIContentLoader.load(data: panel, format: "json", windowUUID: windowUUID, isContentView: false,
                                                              parentID: 100, source: nil))
         XCTAssertThrowsError(try ActionUIModel.shared.windowModels[windowUUID]?.loadModalDescription(from: panel, format: "json"))
         XCTAssertEqual(recording.errors.count, 3)
@@ -639,10 +639,10 @@ final class DocumentLoaderTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: folder) }
         let exact = folder.appendingPathComponent("exact.json")
         let over = folder.appendingPathComponent("over.json")
-        try Data(count: ActionUIDocumentLoader.maximumFileSize).write(to: exact)
-        try Data(count: ActionUIDocumentLoader.maximumFileSize + 1).write(to: over)
-        XCTAssertEqual(try ActionUIDocumentLoader.readRegularFile(exact).count, ActionUIDocumentLoader.maximumFileSize)
-        XCTAssertThrowsError(try ActionUIDocumentLoader.readRegularFile(over)) { error in
+        try Data(count: ActionUIContentLoader.maximumFileSize).write(to: exact)
+        try Data(count: ActionUIContentLoader.maximumFileSize + 1).write(to: over)
+        XCTAssertEqual(try ActionUIContentLoader.readRegularFile(exact).count, ActionUIContentLoader.maximumFileSize)
+        XCTAssertThrowsError(try ActionUIContentLoader.readRegularFile(over)) { error in
             XCTAssertEqual("\(error)", "over.json is larger than 16 MB")
         }
     }
@@ -718,14 +718,14 @@ final class DocumentLoaderTests: XCTestCase {
     }
 
     func testViewDidLoadFiresOncePerSource() throws {
-        _ = try ActionUIDocumentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
+        _ = try ActionUIContentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
         var fired: [Int] = []
         ActionUIModel.shared.setDefaultActionHandler { actionID, _, viewID, viewPartID, _ in
             XCTAssertEqual(actionID, "loaded")
             XCTAssertEqual(viewPartID, 0)
             fired.append(viewID)
         }
-        let viewDidLoad = ActionUIDocumentLoader.ViewDidLoad()
+        let viewDidLoad = ActionUIContentLoader.ViewDidLoad()
         viewDidLoad.fire(source: "a", windowUUID: windowUUID, parentID: 100, actionID: "loaded")
         viewDidLoad.fire(source: "a", windowUUID: windowUUID, parentID: 100, actionID: "loaded")
         XCTAssertEqual(fired, [100], "the same source again does not fire")

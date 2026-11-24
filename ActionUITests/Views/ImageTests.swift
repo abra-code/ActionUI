@@ -277,9 +277,9 @@ extension ImageTests {
         let remote = UUID().uuidString
         ActionUIModel.shared.logger = ConsoleLogger(maxLevel: .error)
         defer { ActionUIModel.shared.logger = logger }
-        _ = try ActionUIDocumentLoader.load(data: document, format: "json", windowUUID: remote, isContentView: true, parentID: 0,
+        _ = try ActionUIContentLoader.load(data: document, format: "json", windowUUID: remote, isContentView: true, parentID: 0,
                                             source: .remote(URL(string: "https://example.com/v.json")!))
-        _ = try ActionUIDocumentLoader.load(data: document, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
+        _ = try ActionUIContentLoader.load(data: document, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
         let placeholder = SwiftUI.Image(systemName: ImageSource.placeholderSymbol)
         XCTAssertFalse(ActionUIModel.shared.readsLocalFile(outside.path, windowUUID: remote, viewID: 7))
         XCTAssertTrue(ActionUIModel.shared.readsLocalFile(inside.path, windowUUID: remote, viewID: 7), "the app's own resources")
@@ -310,8 +310,8 @@ extension ImageTests {
         let remote = UUID().uuidString
         ActionUIModel.shared.logger = ConsoleLogger(maxLevel: .error)
         defer { ActionUIModel.shared.logger = logger }
-        let hostStack = try ActionUIDocumentLoader.load(data: document, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
-        let remoteStack = try ActionUIDocumentLoader.load(data: document, format: "json", windowUUID: remote, isContentView: true, parentID: 0,
+        let hostStack = try ActionUIContentLoader.load(data: document, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
+        let remoteStack = try ActionUIContentLoader.load(data: document, format: "json", windowUUID: remote, isContentView: true, parentID: 0,
                                                           source: .remote(URL(string: "https://example.com/v.json")!))
         let placeholder = SwiftUI.Image(systemName: ImageSource.placeholderSymbol)
         // A template row's element has no view model of its own: it asks with its container's id.

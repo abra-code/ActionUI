@@ -1,4 +1,4 @@
-// Core/Common/DocumentLoader.swift
+// Core/Common/ActionUIContentLoader.swift
 /*
  Loading a description into a window, without the views: where a LoadableView's text points (a
  remote URL, a file, a bundled resource), the format of a file or URL, loading the data as the
@@ -340,7 +340,7 @@ enum WebViewTrust {
 }
 
 @MainActor
-enum ActionUIDocumentLoader {
+enum ActionUIContentLoader {
 
     /// Where a LoadableView's text points.
     enum Source: Equatable {
@@ -660,7 +660,7 @@ enum ActionUIDocumentLoader {
 /// localizedDescription. LocalizedError is Foundation's, which Core imports only on Apple. Next to
 /// the type, as ActionUIError's conformance is: a conformance is found only by a cast at run time,
 /// and the linker may drop a file that holds nothing else a host refers to.
-extension ActionUIDocumentLoader.NotARegularFile: LocalizedError {
+extension ActionUIContentLoader.NotARegularFile: LocalizedError {
     var errorDescription: String? { description }
 }
 #endif

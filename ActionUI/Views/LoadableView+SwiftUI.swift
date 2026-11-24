@@ -17,23 +17,23 @@ extension LoadableView: ActionUISwiftUIRenderer {
             return SwiftUI.Text("No valid source provided")
         }
 
-        // Where the text points (Core/Common/DocumentLoader.swift): a remote URL, a file, or a
+        // Where the text points (Core/Common/ActionUIContentLoader.swift): a remote URL, a file, or a
         // resource of the app: in the host's resource folder (ActionUIResourceFolder), then
         // bundled with the program.
-        let source = ActionUIDocumentLoader.source(
+        let source = ActionUIContentLoader.source(
             for: value,
             bundleURL: resourceURL,
             logger: logger
         )
         // In a template row it is judged by its row's container, and may not carry another element's
         // id, whose place in the window its content would take.
-        if let refusal = ActionUIDocumentLoader.templateIDRefusal(windowUUID: windowUUID, viewID: element.id, model: model, logger: logger) {
+        if let refusal = ActionUIContentLoader.templateIDRefusal(windowUUID: windowUUID, viewID: element.id, model: model, logger: logger) {
             return SwiftUI.Text("Failed to load view: \(refusal)").foregroundStyle(.red)
         }
-        let around = ActionUIDocumentLoader.templateSurroundings(windowUUID: windowUUID, model: model)
+        let around = ActionUIContentLoader.templateSurroundings(windowUUID: windowUUID, model: model)
         // The trust policy may refuse the source (ActionUICapability.load), before anything is read.
         if case .success(let found) = source,
-           let refusal = ActionUIDocumentLoader.loadRefusal(found, windowUUID: windowUUID, parentID: element.id, around: around, logger: logger) {
+           let refusal = ActionUIContentLoader.loadRefusal(found, windowUUID: windowUUID, parentID: element.id, around: around, logger: logger) {
             return SwiftUI.Text("Failed to load view: \(refusal)").foregroundStyle(.red)
         }
         switch source {
@@ -42,11 +42,11 @@ extension LoadableView: ActionUISwiftUIRenderer {
         // Each kind behind LoadableNestingGuard (Common/FileLoadableView.swift): a document that
         // loads itself is refused at the repeat, and nesting stops at a fixed depth.
         case .success(.remote(let url)):
-            return LoadableNestingGuard(source: ActionUIDocumentLoader.nestingKey(for: .remote(url)), logger: logger) {
+            return LoadableNestingGuard(source: ActionUIContentLoader.nestingKey(for: .remote(url)), logger: logger) {
                 RemoteLoadableView(url: url, windowUUID: windowUUID, isContentView: isContentView, parentID: element.id, around: around, viewDidLoadActionID: viewDidLoadActionID, logger: logger)
             }
         case .success(.file(let fileURL)):
-            return LoadableNestingGuard(source: ActionUIDocumentLoader.nestingKey(for: .file(fileURL)), logger: logger) {
+            return LoadableNestingGuard(source: ActionUIContentLoader.nestingKey(for: .file(fileURL)), logger: logger) {
                 FileLoadableView(fileURL: fileURL, windowUUID: windowUUID, isContentView: isContentView, parentID: element.id, around: around, viewDidLoadActionID: viewDidLoadActionID, logger: logger)
             }
         }

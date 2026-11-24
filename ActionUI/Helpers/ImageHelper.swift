@@ -23,7 +23,7 @@ extension SwiftUI.Image {
     // the path, and a device such as /dev/zero or a named pipe would never finish (or never begin)
     // reading on the main thread.
     init(contentsOfFile requestedPath: String) {
-        guard let contentsOfFile = ActionUIDocumentLoader.regularFilePath(URL(fileURLWithPath: requestedPath)),
+        guard let contentsOfFile = ActionUIContentLoader.regularFilePath(URL(fileURLWithPath: requestedPath)),
               !ImageHelper.declaresTooManyPixels(contentsOfFile) else {
             self.init(systemName: "photo")
             return

@@ -520,7 +520,7 @@ final class AppCommandsTests: XCTestCase {
         let group = AdwaitaApplication.shared.windowGroup(document, format: "json")
         XCTAssertEqual(group.data, document, "not parsed, so its smaller content cannot slip under the cap")
         XCTAssertNil(group.title)
-        XCTAssertThrowsError(try ActionUIModel.shared.loadWindowDocument(group.data, format: "json", windowUUID: UUID().uuidString)) { error in
+        XCTAssertThrowsError(try ActionUIModel.shared.loadWindowContent(group.data, format: "json", windowUUID: UUID().uuidString)) { error in
             XCTAssertEqual("\(error)", "the ActionUI JSON is larger than 0 MB")
         }
     }

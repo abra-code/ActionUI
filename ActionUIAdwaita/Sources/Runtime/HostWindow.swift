@@ -46,7 +46,7 @@ package enum HostWindow {
         return fill(window, windowUUID: windowUUID, subtitle: subtitle,
                     documentFolder: url.deletingLastPathComponent().path, loadError: nil) {
             // The file's origin, as Apple's actionUILoadHostingControllerFromURL gives it (FileLoadableView).
-            try ActionUIModel.shared.loadWindowDocument(data, format: AppBundle.documentFormat(of: url), windowUUID: windowUUID, from: url)
+            try ActionUIModel.shared.loadWindowContent(data, format: AppBundle.contentFormat(of: url), windowUUID: windowUUID, from: url)
         }
     }
 
@@ -54,7 +54,7 @@ package enum HostWindow {
     package static func load(json: String, into window: UnsafeMutableRawPointer, windowUUID: String,
                              subtitle: String?) -> Bool {
         fill(window, windowUUID: windowUUID, subtitle: subtitle, documentFolder: nil, loadError: nil) {
-            try ActionUIModel.shared.loadWindowDocument(Data(json.utf8), format: "json", windowUUID: windowUUID)
+            try ActionUIModel.shared.loadWindowContent(Data(json.utf8), format: "json", windowUUID: windowUUID)
         }
     }
 

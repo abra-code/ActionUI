@@ -367,7 +367,7 @@ final class LoadableViewTests: XCTestCase {
     }
 
     /// The viewDidLoad tracking FileLoadableView and RemoteLoadableView use, one per test.
-    private let viewDidLoad = ActionUIDocumentLoader.ViewDidLoad()
+    private let viewDidLoad = ActionUIContentLoader.ViewDidLoad()
 
     /// Fires viewDidLoad as FileLoadableView/RemoteLoadableView do after a load, without
     /// instantiating SwiftUI views. An empty actionID stands for a LoadableView without one.
@@ -526,7 +526,7 @@ final class LoadableViewTests: XCTestCase {
         ActionUIConfiguration.updateForTesting { $0.resourceFolder = folder.path }
         XCTAssertEqual(LoadableView.resourceURL("Panel", "json")?.path, file.path)
         XCTAssertNil(LoadableView.resourceURL("Panel", "plist"))
-        let source = ActionUIDocumentLoader.source(for: "Panel", bundleURL: LoadableView.resourceURL, logger: logger)
+        let source = ActionUIContentLoader.source(for: "Panel", bundleURL: LoadableView.resourceURL, logger: logger)
         XCTAssertEqual(try source.get(), .file(URL(fileURLWithPath: file.path)), "a name without an extension finds Panel.json")
     }
 
