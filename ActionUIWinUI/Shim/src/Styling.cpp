@@ -30,9 +30,11 @@ uint8_t channel(double value) {
     return static_cast<uint8_t>(clamped * 255.0 + 0.5);
 }
 
+} // namespace
+
 // The brush for `color`, or for the theme resource `themeBrush`; nullptr for neither (the
-// element's own default). Throws when the theme has no such brush.
-media::Brush brushFor(const ActionUIWinUIColor *color, const char *themeBrush) {
+// element's own default). Throws when the theme has no such brush. Shared (ShimInternal.h).
+media::Brush actionui_winui::brushFor(const ActionUIWinUIColor *color, const char *themeBrush) {
     if (color != nullptr) {
         return media::SolidColorBrush(winrt::Windows::UI::Color{channel(color->alpha), channel(color->red),
                                                                channel(color->green), channel(color->blue)});
@@ -53,6 +55,8 @@ media::Brush brushFor(const ActionUIWinUIColor *color, const char *themeBrush) {
     }
     return brush;
 }
+
+namespace {
 
 // Whether `current` already paints what `wanted` would (the same solid color, or the same brush).
 bool samePaint(media::Brush const &current, media::Brush const &wanted) {

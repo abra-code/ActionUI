@@ -48,9 +48,9 @@ final class RichTextLocalImagesTests: XCTestCase {
         | ![g](file:///allowed/g.png) |
         """
         var asked: [String] = []
-        let document = RichTextDocument(markdown: markdown).keepingLocalImages { path in
-            asked.append(path)
-            return path.hasPrefix("/allowed/")
+        let document = RichTextDocument(markdown: markdown).keepingLocalImages { url in
+            asked.append(url.path)
+            return url.path.hasPrefix("/allowed/")
         }
         XCTAssertEqual(asked, ["/etc/hosts", "/tmp/x y.png", "/allowed/e.png", "/etc/f.png", "/allowed/g.png"])
         let images = document.blocks.flatMap(Self.images)

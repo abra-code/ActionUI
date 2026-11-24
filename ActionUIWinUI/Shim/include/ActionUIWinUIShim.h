@@ -667,6 +667,43 @@ typedef struct ActionUIWinUIColor {
     double alpha;
 } ActionUIWinUIColor;
 
+// MARK: - Rich text (RichText.cpp)
+
+// A new RichTextBlock: read-only text in paragraphs, wrapping, its whole text selectable as one (the
+// pointer, Ctrl+A, Ctrl+C), with no paragraph yet. NULL on failure.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIRichTextBlockCreate(void);
+// Removes every paragraph.
+ACTIONUI_WINUI_API bool actionUIWinUIRichTextBlockClear(ActionUIWinUIObject *block);
+// The size of the block's text, in points; 0 or less: the theme's body size.
+ACTIONUI_WINUI_API bool actionUIWinUIRichTextBlockSetFontSize(ActionUIWinUIObject *block, double fontSize);
+// Starts a paragraph after the others; the runs added next go into it. Its lines start `indent` points
+// from the left, its first line `firstLineIndent` points further (negative: a hanging line, for a list
+// marker), with `spaceBefore` and `spaceAfter` points above and below it.
+ACTIONUI_WINUI_API bool actionUIWinUIRichTextBlockAddParagraph(ActionUIWinUIObject *block, double indent, double firstLineIndent,
+                                                               double spaceBefore, double spaceAfter);
+typedef enum ActionUIWinUIRunStyle {
+    ActionUIWinUIRunBold = 1,
+    ActionUIWinUIRunItalic = 2,
+    ActionUIWinUIRunStrikethrough = 4,
+    // The monospaced face code is shown in (Cascadia Mono, else Consolas).
+    ActionUIWinUIRunMonospace = 8,
+} ActionUIWinUIRunStyle;
+// Adds `text` (UTF-8) to the last paragraph, in `style` (ActionUIWinUIRunStyle flags), at `fontSize`
+// points (0: the block's), in `color`, else the theme brush `themeBrush` (actionUIWinUIElementSetBrush's
+// names), else the block's text color. False when the block has no paragraph.
+ACTIONUI_WINUI_API bool actionUIWinUIRichTextBlockAddRun(ActionUIWinUIObject *block, const char *text, uint32_t style,
+                                                         double fontSize, const ActionUIWinUIColor *color,
+                                                         const char *themeBrush);
+// Adds a line break to the last paragraph: a new line within it. False when the block has no paragraph.
+ACTIONUI_WINUI_API bool actionUIWinUIRichTextBlockAddLineBreak(ActionUIWinUIObject *block);
+// Adds `text` as a link to the last paragraph, in `style` and at `fontSize`, in the theme's link color and
+// underlined: handler(context) runs when the user clicks it or invokes it from the keyboard, and opens
+// nothing itself (the caller judges and opens the address). destroyContext as for the events below.
+// False when the block has no paragraph.
+ACTIONUI_WINUI_API bool actionUIWinUIRichTextBlockAddLink(ActionUIWinUIObject *block, const char *text, uint32_t style,
+                                                          double fontSize, ActionUIWinUICallback handler, void *context,
+                                                          ActionUIWinUICallback destroyContext);
+
 // MARK: - Color button (a ColorPicker)
 
 // A new color button: a Button showing a swatch of its color that opens a flyout with WinUI's

@@ -678,6 +678,11 @@ ADD_ON_PREVIEW_OPTIONS = {
                     "--expect-width", "7", "320", "--expect-height", "7", "180",
                     "--forbid-log", "CachedImage is not available on Windows yet",
                     "--forbid-log", "creating the element CachedImage", "--forbid-log", "CachedImage: "],
+    # The RichText add-on's element: headings, inline styles, a link, nested lists, a quote, a code block, a rule, a
+    # table and an image in one RichTextBlock. It takes the width it is offered; no failure line.
+    "RichText": ["520", "620", "--expect-width", "2", "496",
+                 "--forbid-log", "RichText is not available on Windows yet", "--forbid-log", "creating the element RichText",
+                 "--forbid-log", "RichText: "],
     # A Diff in JSON from a server reads no file on a share or a device, whatever form the path has: the add-on asks
     # the trust policy about the full path Windows opens (two slashes become backslashes, NUL is \\.\NUL), so each
     # refusal names that path. The share (actionui-canary, CANARY_SHARE) is the one check_share_reads shares and

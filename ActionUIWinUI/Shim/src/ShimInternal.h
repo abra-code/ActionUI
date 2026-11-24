@@ -24,6 +24,7 @@
 #include <winrt/Microsoft.UI.Windowing.h>
 #include <winrt/Microsoft.UI.Xaml.h>
 #include <winrt/Microsoft.UI.Xaml.Controls.h>
+#include <winrt/Microsoft.UI.Xaml.Media.h>
 
 #include "ActionUIWinUIShim.h"
 
@@ -167,5 +168,9 @@ using LocationListener = std::function<void(double latitude, double longitude)>;
 int locationListen(LocationListener listener);
 void locationStop(int token);
 std::string locationStatus();
+
+// The brush for `color`, or for the theme resource `themeBrush`; nullptr for neither (the element's own
+// default). Throws when the theme has no such brush. (Styling.cpp)
+winrt::Microsoft::UI::Xaml::Media::Brush brushFor(const ActionUIWinUIColor *color, const char *themeBrush);
 
 } // namespace actionui_winui

@@ -21,6 +21,10 @@
 // On Linux the add-on is the GTK element (RichText+Adwaita.swift) over the same RichText package, and it links
 // ActionUI's ActionUIStatic product: one process has one Swift runtime. It has no Documentation target there:
 // Bundle.module needs full Foundation, and with it ICU's data, which the Linux build leaves out.
+//
+// On Windows the add-on is the WinUI element (RichText+WinUI.swift), drawn through the shim's C functions (ActionUI's
+// CWinUI product) from the RichText package's model, and it links ActionUIStatic as on Linux. ActionUI.dll links it
+// (ActionUIWinUI/Library). No test or Documentation target there yet.
 
 import PackageDescription
 
@@ -56,6 +60,32 @@ let package = Package(
                 .product(name: "RichText", package: "RichText"),
             ],
             path: "Tests"
+        ),
+    ]
+)
+#elseif os(Windows)
+let package = Package(
+    name: "ActionUIRichText",
+    products: [
+        .library(name: "ActionUIRichText", targets: ["ActionUIRichText"]),
+    ],
+    dependencies: [
+        .package(path: "../.."),   // the ActionUI package at the repo root
+        // The first version that builds on Windows (its model, with no renderer) is not tagged yet: Windows CI builds
+        // RichText's working tree in its place (swift package edit). Raised to that version when it is tagged.
+        .package(url: "https://github.com/abra-code/RichText", from: "0.4.2"),
+    ],
+    targets: [
+        .target(
+            name: "ActionUIRichText",
+            dependencies: [
+                .product(name: "ActionUIStatic", package: "ActionUI"),
+                .product(name: "CWinUI", package: "ActionUI"),
+                .product(name: "RichText", package: "RichText"),
+            ],
+            path: "Sources",
+            // The SwiftUI element and the GTK one.
+            exclude: ["RichText.swift", "RichTextElementView.swift", "RichText+Adwaita.swift"]
         ),
     ]
 )

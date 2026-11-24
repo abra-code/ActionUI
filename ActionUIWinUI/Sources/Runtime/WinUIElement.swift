@@ -81,6 +81,22 @@ extension RenderNode {
         return LinkTrust.readsLocalFile(LinkTrust.filePath(of: url), self)
     }
 
+    /// Opens `url` as a Link does, when this node's content may (the trust policy's openLink, refused
+    /// and logged otherwise): the URL the policy was asked about, as Foundation writes it, so Windows
+    /// opens that address (LinkTrust.judgedText). True when it opened. For add-on elements with links
+    /// (a RichText's), after their own checks of the URL.
+    @discardableResult
+    public func openLink(_ url: String) -> Bool {
+        guard let judged = LinkTrust.judgedText(url, self) else { return false }
+        let logger = ActionUIModel.shared.logger
+        logger.log("element \(element.id): opening \(judged)", .debug)
+        guard URLLauncher.launch(judged) else {
+            logger.log("element \(element.id): \(WinUIError.last("opening \(judged)")); it opens nothing", .warning)
+            return false
+        }
+        return true
+    }
+
     /// Whether this node's content may do `capability`, with a refusal logged once per element
     /// (ActionUIModel.allowsLoggingOnce; `what` names it in the log): for add-on elements.
     public func allowsLoggingOnce(_ capability: ActionUICapability, what: String) -> Bool {
