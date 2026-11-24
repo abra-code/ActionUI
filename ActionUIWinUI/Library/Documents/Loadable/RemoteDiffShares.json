@@ -1,0 +1,13 @@
+{
+  "type": "VStack",
+  "id": 900,
+  "properties": { "spacing": 8, "alignment": "leading" },
+  "children": [
+    { "type": "Diff", "id": 901, "properties": { "oldFile": "\\\\localhost\\actionui-canary\\old.txt", "newText": "new\n" } },
+    { "type": "Diff", "id": 902, "properties": { "oldText": "old\n", "newFile": "//localhost/actionui-canary/old.txt" } },
+    { "type": "Diff", "id": 903, "properties": { "oldFile": "\\\\?\\UNC\\localhost\\actionui-canary\\old.txt", "newText": "new\n" } },
+    { "type": "Diff", "id": 904, "properties": { "oldFile": "old.txt", "newText": "new\n" } },
+    { "type": "Diff", "id": 905, "properties": { "oldText": "old\n", "newFile": "\\old.txt" } },
+    { "type": "Diff", "id": 906, "properties": { "oldFile": "NUL", "newText": "new\n" } }
+  ]
+}

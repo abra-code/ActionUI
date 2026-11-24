@@ -395,7 +395,11 @@ def run_step(name, command, results, env, cwd=REPO_DIR, timeout=STEP_TIMEOUT_SEC
                 # A Windows exception code such as 0xC0000409 (fail-fast) reads better in hex.
                 note = f"exit 0x{status & 0xFFFFFFFF:08X}"
         except FileNotFoundError as error:
-            note = f"command not found: {error}"
+            note = f"could not start (the command or its current folder is missing): {error}"
+            log.write(f"\n{note}\n")
+        except OSError as error:
+            # A current folder Windows cannot enter (on a share), for one.
+            note = f"could not start: {error}"
             log.write(f"\n{note}\n")
         except subprocess.TimeoutExpired:
             note = f"timed out after {timeout} s"
@@ -585,6 +589,18 @@ ADD_ON_PREVIEW_OPTIONS = {
              "--expect-width", "3", "496", "--expect-width", "4", "496", "--expect-width", "5", "496",
              "--forbid-log", "Diff is not available on Windows yet", "--forbid-log", "creating the element Diff",
              "--forbid-log", "Diff: "],
+    # A Diff in JSON from a server reads no file on a share or a device, whatever form the path has: the add-on asks
+    # the trust policy about the full path Windows opens (two slashes become backslashes, NUL is \\.\NUL), so each
+    # refusal names that path. The share (actionui-canary, CANARY_SHARE) is the one check_share_reads shares and
+    # watches; 904 and 905 (a relative path and the current drive's root) are judged there with the current folder
+    # on the share.
+    "LessTrustedDiffShares": ["520", "360", "--delay", "4000"]
+                             + [option for element in [901, 902]
+                                for option in ["--expect-log", f"Not reading \\\\localhost\\actionui-canary\\old.txt "
+                                                               f"for element {element}: less-trusted content reads no network"]]
+                             + ["--expect-log", "Not reading \\\\?\\UNC\\localhost\\actionui-canary\\old.txt for element 903: "
+                                                "less-trusted content reads no network",
+                                "--expect-log", "Not reading \\\\.\\NUL for element 906: less-trusted content reads no network"],
 }
 
 
@@ -1640,9 +1656,68 @@ def check_swift_smoke(shim_out, bootstrap, results, summary, msvc, host_build):
         passed = render_previews(bin_path / "ActionUIWinUIAddOnPreview.exe",
                                  REPO_DIR / "ActionUIWinUI" / "Library" / "Documents", ADD_ON_PREVIEW_OPTIONS,
                                  {}, "add-on-preview", bin_path, results, summary, env) and passed
-    passed = check_share_reads(preview, bin_path, results, summary, env) and passed
+        passed = check_diff_files(bin_path / "ActionUIWinUIAddOnPreview.exe", results, summary, env) and passed
+    passed = check_share_reads(preview, bin_path / "ActionUIWinUIAddOnPreview.exe" if library_built else None,
+                               bin_path, results, summary, env) and passed
     passed = check_ambient_identity(preview, bin_path, results, summary, env) and passed
     return passed
+
+
+def check_diff_files(add_on_preview, results, summary, env):
+    """Whether the Diff add-on's element reads files on Windows, in the app's own JSON (trusted): a full path with
+    backslashes, one with forward slashes, a path relative to the program's current folder and "~\\..." (the
+    user's profile folder) each show the file (no failure line); a file it cannot read shows a note, and the
+    message names the full path Windows opens: not UTF-8, a folder, NUL (a device, \\\\.\\NUL), over 4 MB,
+    missing. True when both runs passed."""
+    findings = summary["findings"]
+    folder = Path(os.path.abspath(results / "diff-files"))
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "old.txt").write_text("first\nsecond\nthird\n", encoding="utf-8")
+    (folder / "new.txt").write_text("first\nsecond, café\nthird\n", encoding="utf-8")
+    (folder / "latin1.txt").write_bytes(b"caf\xe9\n")
+    (folder / "folder").mkdir(exist_ok=True)
+    big = folder / "big.txt"
+    profile = os.environ.get("USERPROFILE", "")
+    home_file = Path(profile) / "actionui-diff-check.txt" if profile else None
+    readable = [{"type": "Diff", "id": 2, "properties": {"oldFile": str(folder / "old.txt"),
+                                                          "newFile": str(folder / "new.txt").replace("\\", "/")}},
+                {"type": "Diff", "id": 3, "properties": {"oldFile": "old.txt", "newFile": "new.txt"}}]
+    if home_file is not None:
+        readable.append({"type": "Diff", "id": 4, "properties": {"oldFile": "~\\actionui-diff-check.txt",
+                                                                  "newText": "From the profile, changed\n"}})
+    unreadable = [{"type": "Diff", "id": 2, "properties": {"oldFile": "latin1.txt", "newFile": "folder"}},
+                  {"type": "Diff", "id": 3, "properties": {"oldFile": "NUL", "newFile": "big.txt"}},
+                  {"type": "Diff", "id": 4, "properties": {"oldFile": "missing.txt", "newText": ""}}]
+    expected = [f"Diff old: '{folder / 'latin1.txt'}' is not readable UTF-8",
+                f"Diff new: cannot read '{folder / 'folder'}' (missing",
+                "Diff old: cannot read '\\\\.\\NUL' (missing",
+                f"Diff new: cannot read '{big}' (missing",
+                f"Diff old: cannot read '{folder / 'missing.txt'}' (missing"]
+    steps = []
+    try:
+        big.write_bytes(b"a" * (4 * 1024 * 1024 + 1))
+        if home_file is not None:
+            home_file.write_text("From the profile\n", encoding="utf-8")
+        for name, children, options in [
+                ("diff-files", readable, ["--forbid-log", "Diff old:", "--forbid-log", "Diff new:",
+                                          "--forbid-log", "Diff: ", "--forbid-log", "Not reading",
+                                          "--forbid-log", "Diff is not available on Windows yet",
+                                          "--forbid-log", "creating the element Diff"]),
+                ("diff-files-unreadable", unreadable, [option for text in expected for option in ["--expect-log", text]])]:
+            document = folder / f"{name}.json"
+            document.write_text(json.dumps({"type": "VStack", "id": 1, "properties": {"spacing": 8, "padding": 12},
+                                            "children": children}), encoding="utf-8")
+            steps.append(run_step(name, [add_on_preview, document, results / f"{name}.png", "520", "360"] + options,
+                                  results, env, cwd=folder, timeout=SMOKE_TIMEOUT_SECONDS))
+    finally:
+        big.unlink(missing_ok=True)
+        if home_file is not None:
+            home_file.unlink(missing_ok=True)
+    summary["steps"] += steps
+    failed = [step["step"] for step in steps if step["status"] != 0]
+    findings.append(f"Diff files: FAILED ({', '.join(failed)})" if failed
+                    else "Diff files: passed: read by each path form; each unreadable file named by its full path")
+    return not failed
 
 
 CANARY_SHARE = "actionui-canary"
@@ -1666,17 +1741,24 @@ def canary_connections():
     return int(output)
 
 
-def check_share_reads(preview, bin_path, results, summary, env):
-    """Whether less-trusted content's LoadableView reaches a share before refusing it: a share on this
-    machine (\\\\localhost\\actionui-canary) is named by JSON from a server (LessTrustedShares), then by
-    the app's own JSON (the control, which may load it). The first must open no SMB connection to it,
-    the second one. Not run where the SMB server cannot share a folder; inconclusive when the control
-    opens no connection either."""
+def check_share_reads(preview, add_on_preview, bin_path, results, summary, env):
+    """Whether less-trusted content's LoadableView, or the Diff add-on's element, reaches a share before
+    refusing it: a share on this machine (\\\\localhost\\actionui-canary) is named by JSON from a server
+    (LessTrustedShares, and LessTrustedDiffShares with the add-on preview `add_on_preview` when ActionUI.dll's
+    package was built), then by the app's own JSON (the control, which may load it). The first must open no
+    SMB connection to it, the second one. Not run where the SMB server cannot share a folder; inconclusive
+    when the control opens no connection either. Then, judged by their messages (a program whose current
+    folder is on the share holds a connection to it): the Diff in JSON from a server refuses a relative path
+    and the current drive's root with the current folder on the share, and the Diff in the app's own JSON
+    reads a file on the share."""
     findings = summary["findings"]
     folder = results / "share-canary"
     folder.mkdir(parents=True, exist_ok=True)
     (folder / "view7.json").write_text(json.dumps({"type": "Text", "id": 1, "properties": {"text": "From the share"}}),
                                        encoding="utf-8")
+    (folder / "old.txt").write_text("From the share\n", encoding="utf-8")
+    share = f"\\\\localhost\\{CANARY_SHARE}"
+    diff_steps = []
     status, output = powershell(f"New-SmbShare -Name '{CANARY_SHARE}' -Path '{folder}' -ReadAccess 'Everyone' "
                                 "-ErrorAction Stop | Out-Null")
     if status != 0:
@@ -1688,6 +1770,12 @@ def check_share_reads(preview, bin_path, results, summary, env):
         step = run_step("share-canary-less-trusted", [preview, document, results / "share-canary-less-trusted.png"]
                         + PREVIEW_OPTIONS["LessTrustedShares"], results, env, cwd=bin_path, timeout=SMOKE_TIMEOUT_SECONDS)
         summary["steps"].append(step)
+        diff_document = REPO_DIR / "ActionUIWinUI" / "Library" / "Documents" / "LessTrustedDiffShares.json"
+        if add_on_preview is not None:
+            diff_steps.append(run_step("share-canary-less-trusted-diff",
+                                       [add_on_preview, diff_document, results / "share-canary-less-trusted-diff.png"]
+                                       + ADD_ON_PREVIEW_OPTIONS["LessTrustedDiffShares"], results, env, cwd=bin_path,
+                                       timeout=SMOKE_TIMEOUT_SECONDS))
         less_trusted = canary_connections()
         control = results / "share-canary-control.json"
         control.write_text(json.dumps({"type": "LoadableView", "id": 2, "properties": {
@@ -1697,20 +1785,52 @@ def check_share_reads(preview, bin_path, results, summary, env):
                                 timeout=SMOKE_TIMEOUT_SECONDS)
         summary["steps"].append(control_step)
         trusted = canary_connections()
+        if add_on_preview is not None:
+            # The same JSON from a server, the program's current folder on the share (the preview changes into the
+            # folder of the UI description it is given, so that is read from the share): "old.txt" and "\old.txt"
+            # are read from there, so the add-on must judge the full path Windows makes of each, a path on the share.
+            shutil.copy2(diff_document, folder / diff_document.name)
+            relative = [option for element in [904, 905]
+                        for option in ["--expect-log", f"Not reading {share}\\old.txt for element {element}: "
+                                                       "less-trusted content reads no network"]]
+            diff_steps.append(run_step("share-canary-less-trusted-diff-current-folder",
+                                       [add_on_preview, f"{share}\\{diff_document.name}",
+                                        results / "share-canary-less-trusted-diff-current-folder.png", "520", "360",
+                                        "--delay", "4000"] + relative, results, env, cwd=bin_path,
+                                       timeout=SMOKE_TIMEOUT_SECONDS))
+            # The app's own JSON reads the same file on the share (the refusals above are not a path the add-on
+            # cannot read at all): no failure line, and the Diff shows the file's line.
+            trusted_diff = results / "share-canary-trusted-diff.json"
+            trusted_diff.write_text(json.dumps({"type": "Diff", "id": 2, "properties": {
+                "oldFile": f"{share}\\old.txt", "newText": "From the app\n"}}), encoding="utf-8")
+            diff_steps.append(run_step("share-canary-trusted-diff",
+                                       [add_on_preview, trusted_diff, results / "share-canary-trusted-diff.png", "400",
+                                        "100", "--forbid-log", "Diff old:", "--forbid-log", "Diff new:",
+                                        "--forbid-log", "Not reading", "--forbid-log",
+                                        "Diff is not available on Windows yet", "--forbid-log",
+                                        "creating the element Diff"], results, env, cwd=bin_path,
+                                       timeout=SMOKE_TIMEOUT_SECONDS))
     finally:
         powershell(f"Remove-SmbShare -Name '{CANARY_SHARE}' -Force")
+    summary["steps"] += diff_steps
+    diff_passed = all(diff_step["status"] == 0 for diff_step in diff_steps)
+    if add_on_preview is None:
+        findings.append("share check: the Diff's checks not run: ActionUI.dll's package was not built")
+    elif not diff_passed:
+        failed = ", ".join(diff_step["step"] for diff_step in diff_steps if diff_step["status"] != 0)
+        findings.append(f"share check: FAILED: the Diff's checks ({failed})")
     counts = f"connections before {before}, after JSON from a server {less_trusted}, after the app's own JSON {trusted}"
     if before is None or less_trusted is None or trusted is None:
         findings.append(f"share check: inconclusive: SMB connections could not be listed ({counts})")
-        return step["status"] == 0
+        return step["status"] == 0 and diff_passed
     if less_trusted > before:
         findings.append(f"share check: FAILED: JSON from a server reached the share ({counts})")
         return False
     if trusted <= less_trusted:
         findings.append(f"share check: inconclusive: the app's own JSON opened no connection either ({counts})")
-        return step["status"] == 0
+        return step["status"] == 0 and diff_passed
     findings.append(f"share check: passed: only the app's own JSON reached the share ({counts})")
-    return step["status"] == 0 and control_step["status"] == 0
+    return step["status"] == 0 and control_step["status"] == 0 and diff_passed
 
 
 # The less-trusted LoadableViews' downloads, each of which must come from the private fetch and carry no sign-in or
