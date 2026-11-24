@@ -1712,8 +1712,10 @@ def check_diff_files(add_on_preview, results, summary, env):
     findings = summary["findings"]
     folder = Path(os.path.abspath(results / "diff-files"))
     folder.mkdir(parents=True, exist_ok=True)
-    (folder / "old.txt").write_text("first\nsecond\nthird\n", encoding="utf-8")
-    (folder / "new.txt").write_text("first\nsecond, café\nthird\n", encoding="utf-8")
+    # Windows line endings (CRLF), as Windows editors write them; one copy with LF only.
+    (folder / "old.txt").write_bytes(b"first\r\nsecond\r\nthird\r\n")
+    (folder / "new.txt").write_bytes(b"first\r\nsecond, caf\xc3\xa9\r\nthird\r\n")
+    (folder / "old-lf.txt").write_bytes(b"first\nsecond\nthird\n")
     (folder / "latin1.txt").write_bytes(b"caf\xe9\n")
     (folder / "folder").mkdir(exist_ok=True)
     big = folder / "big.txt"
@@ -1721,7 +1723,8 @@ def check_diff_files(add_on_preview, results, summary, env):
     home_file = Path(profile) / "actionui-diff-check.txt" if profile else None
     readable = [{"type": "Diff", "id": 2, "properties": {"oldFile": str(folder / "old.txt"),
                                                           "newFile": str(folder / "new.txt").replace("\\", "/")}},
-                {"type": "Diff", "id": 3, "properties": {"oldFile": "old.txt", "newFile": "new.txt"}}]
+                {"type": "Diff", "id": 3, "properties": {"oldFile": "old.txt", "newFile": "new.txt"}},
+                {"type": "Diff", "id": 5, "properties": {"oldFile": "old.txt", "newFile": "old-lf.txt"}}]
     if home_file is not None:
         readable.append({"type": "Diff", "id": 4, "properties": {"oldFile": "~\\actionui-diff-check.txt",
                                                                   "newText": "From the profile, changed\n"}})
@@ -1739,7 +1742,11 @@ def check_diff_files(add_on_preview, results, summary, env):
         if home_file is not None:
             home_file.write_text("From the profile\n", encoding="utf-8")
         for name, children, options in [
-                ("diff-files", readable, ["--forbid-log", "Diff old:", "--forbid-log", "Diff new:",
+                # Each CRLF line is a row: 2 and 3 are a line changed among three (4 rows, 64 points, as the
+                # add-on's example measures), and 5, CRLF against LF, has no changes (its note, 24 points).
+                ("diff-files", readable, ["--expect-height", "2", "64", "--expect-height", "3", "64",
+                                          "--expect-height", "5", "24",
+                                          "--forbid-log", "Diff old:", "--forbid-log", "Diff new:",
                                           "--forbid-log", "Diff: ", "--forbid-log", "Not reading",
                                           "--forbid-log", "Diff is not available on Windows yet",
                                           "--forbid-log", "creating the element Diff"]),

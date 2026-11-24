@@ -26,6 +26,7 @@
 //                            wheel DX notches toward the right, as a user does (it moves the pointer)
 //   --expect-width ID W      fails unless element ID (its frame in its parent) is W wide, within half a
 //                            point (a split view's pane after a drag)
+//   --expect-height ID H     the same for its height (a Diff's rows)
 //   --invoke-menu-item ID N  the same as --invoke with the Nth item (from 0) of Menu ID's menu (separators
 //                            and headers count), as a click on it does
 //   --toggle-menu-item ID N  the same with UI Automation's Toggle (a Toggle's check item turns over)
@@ -105,13 +106,13 @@ final class Preview {
 
     enum Operation {
         case invoke(Int), invokeRow(Int, Int), invokePart(Int, Int), selectPart(Int, Int), toggle(Int), setText(Int, String), scroll(Int, Double, Double), scrollRow(Int, Int), expectRowName(Int, Int, String), invokeMenuItem(Int, Int), toggleMenuItem(Int, Int),
-             drag(Int, Double, Double, Double, Double), wheel(Int, Double, Double, Double, Double), expectWidth(Int, Double), delay(Int), expectState(Int, String, String), expectAutomation(Int, String, String),
+             drag(Int, Double, Double, Double, Double), wheel(Int, Double, Double, Double, Double), expectWidth(Int, Double), expectHeight(Int, Double), delay(Int), expectState(Int, String, String), expectAutomation(Int, String, String),
              setProperty(Int, String, String), setValue(Int, String), addRow(Int, String), addRows(Int, Int, String), setPath(Int, [Int]), setState(Int, String, String), wait
 
         var viewID: Int {
             switch self {
             case .invoke(let id), .invokeRow(let id, _), .invokePart(let id, _), .selectPart(let id, _), .toggle(let id), .setText(let id, _), .scroll(let id, _, _), .scrollRow(let id, _), .expectRowName(let id, _, _), .invokeMenuItem(let id, _), .toggleMenuItem(let id, _), .setProperty(let id, _, _), .setValue(let id, _),
-                 .drag(let id, _, _, _, _), .wheel(let id, _, _, _, _), .expectWidth(let id, _), .expectState(let id, _, _), .expectAutomation(let id, _, _),
+                 .drag(let id, _, _, _, _), .wheel(let id, _, _, _, _), .expectWidth(let id, _), .expectHeight(let id, _), .expectState(let id, _, _), .expectAutomation(let id, _, _),
                  .addRow(let id, _), .addRows(let id, _, _), .setPath(let id, _), .setState(let id, _, _):
                 return id
             case .wait, .delay:
@@ -124,7 +125,7 @@ final class Preview {
         var showsLater: Bool {
             switch self {
             case .setProperty, .setValue, .addRow, .addRows, .setPath, .setState, .wait, .drag, .wheel, .delay: true
-            case .invoke, .invokeRow, .invokePart, .selectPart, .toggle, .setText, .scroll, .scrollRow, .expectRowName, .invokeMenuItem, .toggleMenuItem, .expectWidth, .expectState, .expectAutomation: false
+            case .invoke, .invokeRow, .invokePart, .selectPart, .toggle, .setText, .scroll, .scrollRow, .expectRowName, .invokeMenuItem, .toggleMenuItem, .expectWidth, .expectHeight, .expectState, .expectAutomation: false
             }
         }
 
@@ -370,6 +371,15 @@ final class Preview {
                 }
                 worked = true
                 what = "found \(width) wide"
+            case .expectHeight(_, let expected):
+                let height = node.outerView?.layoutFrame.height ?? 0
+                guard abs(height - expected) <= 0.5 else {
+                    say("element \(viewID): \(height) tall, not \(expected)")
+                    invocationsWorked = false
+                    continue
+                }
+                worked = true
+                what = "found \(height) tall"
             case .invokeMenuItem(_, let index), .toggleMenuItem(_, let index):
                 let toggles: Bool
                 if case .toggleMenuItem = operation { toggles = true } else { toggles = false }
@@ -634,7 +644,7 @@ public func runActionUIWinUIPreview(registeringElements registerElements: () -> 
 
     let arguments = CommandLine.arguments
 
-    let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --select-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --scroll-row ID ROW | --expect-row-name ID ROW NAME | --drag ID X1 Y1 X2 Y2 | --wheel ID X Y DX DY | --expect-width ID W | --invoke-menu-item ID N | --toggle-menu-item ID N | --set-value ID VALUE | --set-property ID NAME VALUE | --set-path ID IDS | --add-row ID TEXT | --add-rows ID N TEXT | --set-state ID KEY VALUE | --expect-state ID KEY VALUE | --expect-automation ID FIELD TEXT | --delay MS | --wait]... [--max-instances ID N]... [--expect-action ACTION]... [--expect-log TEXT]... [--forbid-log TEXT]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]... [--no-launch] [--fetch-limit BYTES] [--refuse-remote-loads] [--refuse-media] [--allow-user-scripts] [--configuration JSON]"
+    let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --select-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --scroll-row ID ROW | --expect-row-name ID ROW NAME | --drag ID X1 Y1 X2 Y2 | --wheel ID X Y DX DY | --expect-width ID W | --expect-height ID H | --invoke-menu-item ID N | --toggle-menu-item ID N | --set-value ID VALUE | --set-property ID NAME VALUE | --set-path ID IDS | --add-row ID TEXT | --add-rows ID N TEXT | --set-state ID KEY VALUE | --expect-state ID KEY VALUE | --expect-automation ID FIELD TEXT | --delay MS | --wait]... [--max-instances ID N]... [--expect-action ACTION]... [--expect-log TEXT]... [--forbid-log TEXT]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]... [--no-launch] [--fetch-limit BYTES] [--refuse-remote-loads] [--refuse-media] [--allow-user-scripts] [--configuration JSON]"
     guard arguments.count >= 3 else {
         print(usage)
         exit(64)
@@ -706,6 +716,10 @@ public func runActionUIWinUIPreview(registeringElements registerElements: () -> 
         } else if option == "--expect-width", index + 2 < arguments.count, let viewID = Int(arguments[index + 1]),
                   let width = Double(arguments[index + 2]) {
             preview.invocations.append(.expectWidth(viewID, width))
+            index += 3
+        } else if option == "--expect-height", index + 2 < arguments.count, let viewID = Int(arguments[index + 1]),
+                  let height = Double(arguments[index + 2]) {
+            preview.invocations.append(.expectHeight(viewID, height))
             index += 3
         } else if option == "--invoke-menu-item", index + 2 < arguments.count, let viewID = Int(arguments[index + 1]),
                   let item = Int(arguments[index + 2]) {

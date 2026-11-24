@@ -19,7 +19,7 @@
 // leaves out.
 //
 // On Windows the add-on is the WinUI element (Diff+WinUI.swift), drawn through the shim's C functions (ActionUI's
-// CWinUI product) from DiffView's model and presentation (DiffView 0.3.1 builds them alone there), and it links
+// CWinUI product) from DiffView's model and presentation (DiffView 0.3.2 builds them alone there), and it links
 // ActionUIStatic as on Linux. ActionUI.dll links it (ActionUIWinUI/Library). No test or Documentation target there
 // yet.
 
@@ -68,8 +68,9 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../.."),   // the ActionUI package at the repo root
-        // 0.3.1 is its first version that builds on Windows with DiffPresentation public, which this element draws from.
-        .package(url: "https://github.com/abra-code/DiffView", from: "0.3.1"),
+        // 0.3.1 is its first version that builds on Windows with DiffPresentation public, which this element draws from;
+        // 0.3.2 splits a text with Windows line endings (CRLF) into its lines there.
+        .package(url: "https://github.com/abra-code/DiffView", from: "0.3.2"),
     ],
     targets: [
         .target(
