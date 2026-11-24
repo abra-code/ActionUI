@@ -86,11 +86,11 @@ final class AppKitPlatform: NSObject, NSWindowDelegate, WindowPlatform {
         NSApp.terminate(nil)
     }
 
-    /// Edit and Window menus, so text fields get copy, paste, undo and select all, and Cmd-W closes a
-    /// window. The Window menu is the application's windows menu, where AppKit lists the open
-    /// windows, and the Services submenu its services menu. No Quit item in the server: quitting
-    /// would end the client's server; closing windows is enough. The keeper serves no one and gets
-    /// one.
+    /// The app menu (About, Services, Hide), and Edit and Window menus, so text fields get copy,
+    /// paste, undo and select all, and Cmd-W closes a window. The Window menu is the application's
+    /// windows menu, where AppKit lists the open windows, and the Services submenu its services menu.
+    /// No Quit item in the server: quitting would end the client's server; closing windows is
+    /// enough. The keeper serves no one and gets one.
     private static func makeMainMenu(quitItem: Bool) -> NSMenu {
         let mainMenu = NSMenu()
         @discardableResult
@@ -112,7 +112,9 @@ final class AppKitPlatform: NSObject, NSWindowDelegate, WindowPlatform {
         let services = NSMenu(title: "Services")
         let servicesItem = NSMenuItem(title: "Services", action: nil, keyEquivalent: "")
         servicesItem.submenu = services
-        submenu("ActionUI", [servicesItem, .separator(), item("Hide", #selector(NSApplication.hide(_:)), "h")]
+        let about = NSMenuItem(title: "About ActionUI MCP", action: #selector(AboutPanel.show(_:)), keyEquivalent: "")
+        about.target = AboutPanel.shared
+        submenu("ActionUI", [about, .separator(), servicesItem, .separator(), item("Hide", #selector(NSApplication.hide(_:)), "h")]
                             + (quitItem ? [.separator(), item("Quit", #selector(NSApplication.terminate(_:)), "q")] : []))
         NSApplication.shared.servicesMenu = services
         submenu("Edit", [
@@ -246,6 +248,23 @@ final class AppKitPlatform: NSObject, NSWindowDelegate, WindowPlatform {
                                        frame: [frame.origin.x, frame.origin.y, frame.size.width, frame.size.height],
                                        styleMask: entry.window.styleMask.rawValue)
             }
+    }
+}
+
+/// The About panel. The standard panel takes the name and the copyright line from the Info.plist
+/// linked into the executable (Info.plist, Package.swift); the icon and version, which a bare
+/// executable has nowhere else, are given here: the Dock icon and the server's version.
+@MainActor
+final class AboutPanel: NSObject {
+    static let shared = AboutPanel()
+
+    @objc func show(_ sender: Any?) {
+        var options: [NSApplication.AboutPanelOptionKey: Any] = [.applicationVersion: serverVersion, .version: ""]
+        if let icon = AppKitPlatform.dockIcon {
+            options[.applicationIcon] = icon
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.orderFrontStandardAboutPanel(options: options)
     }
 }
 

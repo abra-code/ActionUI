@@ -2,12 +2,15 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
   Linked into the macOS executable as its __TEXT,__info_plist section (Package.swift): the menu bar
-  shows the server as "ActionUI MCP" instead of its file name. Only the name: a bundle identifier
-  would change where the server's settings and privacy permissions are kept.
+  shows the server as "ActionUI MCP" instead of its file name, and the About panel takes the name and
+  the copyright line from here. No bundle identifier: it would change where the server's settings and
+  privacy permissions are kept. No version: the About panel gets the server's own (AboutPanel).
 -->
 <plist version="1.0">
 <dict>
 	<key>CFBundleName</key>
 	<string>ActionUI MCP</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>Copyright © 2026 Abracode. All rights reserved.</string>
 </dict>
 </plist>
