@@ -8,8 +8,8 @@ which receives:
   fonts/MaterialSymbols.ttf
       Every glyph of Material Symbols Rounded (Tools/material_symbols/font), still a variable font on its
       weight (wght) and fill (FILL) axes, with its grade (GRAD) pinned at 0 and its optical size (opsz) at
-      24, as Linux and Windows draw it: about a quarter of the whole font's size, and each glyph still takes
-      any weight and fill. Its code points are Material's own.
+      24 (MATERIAL_PINNED_AXES), as Linux and Windows draw it: about a quarter of the whole font's size,
+      and each glyph still takes any weight and fill. Its code points are Material's own.
   fonts/FluentSymbols.ttf
       The Fluent System Icons glyphs (the Resizable font in Tools/fluent_symbols/font) that
       Tools/fluent_symbols/sf_to_fluent.map names, at their own code points. A regular-face glyph is
@@ -83,6 +83,16 @@ FLUENT_FAMILY = "ActionUI Fluent Symbols"
 # What a regular Fluent glyph's strokes gain: 6 of Fluent's 500 units (11.5 of Material's 960), as on Linux
 # (Tools/material_symbols/generate-symbol-icons.c), where HarfBuzz rounds the strength to whole font units.
 FLUENT_EMBOLDEN_UNITS = 6
+
+# The Material axes fixed in MaterialSymbols.ttf, which drops them; wght and FILL stay variable.
+#   GRAD (grade) is stripped: no ActionUI JSON uses the Android-only materialGrade property, and keeping the
+#   axis doubles the font (8.7 MB instead of 4.2 MB, about 2 MB more compressed in an app). The Android
+#   library still reads materialGrade and sends the grade, so to make that property work again, delete
+#   "GRAD" here and rebuild, and list materialGrade again in the element schemas that leave it out (see
+#   the "bundled fonts" doc in ActionUIAndroid's Helpers/MaterialSymbolFont.kt); no library code changes.
+#   opsz (optical size) is fixed at 24, as Linux and Windows draw Material.
+MATERIAL_PINNED_AXES = {"GRAD": 0, "opsz": 24}
+AXIS_NAMES = {"GRAD": "grade", "opsz": "optical size"}
 
 # Material Symbols Rounded's line box, in its 960 units (hhea and OS/2): mode "web" gives the Fluent font these
 # proportions without reading the Material font; mode "android" reads them from the font it instances.
@@ -305,14 +315,19 @@ def build_material(commit):
     axes = {axis.axisTag for axis in font["fvar"].axes}
     if not {"FILL", "wght", "GRAD", "opsz"} <= axes:
         raise ValueError(f"{MATERIAL_FONT} lacks an axis of FILL, wght, GRAD, opsz (it has {sorted(axes)})")
-    font = instancer.instantiateVariableFont(font, {"GRAD": 0, "opsz": 24})
+    font = instancer.instantiateVariableFont(font, MATERIAL_PINNED_AXES)
     # No glyph names (post format 3, 0.1 MB less): the library looks glyphs up by code point. GSUB stays: it
     # swaps in the filled glyphs at FILL 1, besides the name ligatures.
     font["post"].formatType = 3.0
     set_names(font, MATERIAL_FAMILY, "ActionUIMaterialSymbols",
-              f"Material Symbols Rounded by Google (Apache License 2.0), commit {commit}, instanced at grade 0 "
-              "and optical size 24 by ActionUI's make_symbol_fonts.py.")
+              f"Material Symbols Rounded by Google (Apache License 2.0), commit {commit}, instanced at "
+              f"{pinned_axes_text()} by ActionUI's make_symbol_fonts.py.")
     return font
+
+
+def pinned_axes_text():
+    """MATERIAL_PINNED_AXES in words, as in "grade 0 and optical size 24"."""
+    return " and ".join(f"{AXIS_NAMES[tag]} {value}" for tag, value in MATERIAL_PINNED_AXES.items())
 
 
 def line_box_of(material):
@@ -447,7 +462,7 @@ def make_android(out, fluent_commit):
         "Material Symbols",
         "The symbol icons of this library, other than the Fluent System Icons ones, are glyphs of the "
         "Material Symbols Rounded font by Google\n(https://github.com/google/material-design-icons, commit "
-        f"{material_commit}),\ninstanced at grade 0 and optical size 24 into fonts/MaterialSymbols.ttf, a "
+        f"{material_commit}),\ninstanced at {pinned_axes_text()} into fonts/MaterialSymbols.ttf, a "
         "changed version named \"ActionUI Material Symbols\".\nThe Apache License 2.0 below permits such "
         "derivative works (sections 2 and 4); they are used under it:",
         MATERIAL_FOLDER / "LICENSE"), encoding="utf-8")

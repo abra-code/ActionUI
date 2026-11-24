@@ -38,7 +38,15 @@ import kotlin.math.roundToInt
  *   variable on `wght` and `FILL`, with `GRAD` pinned at 0 and `opsz` at 24 (as
  *   Linux and Windows draw it; the whole font is ~15 MB, this one ~4.3 MB). The
  *   `GRAD` and `opsz` values below are still sent; a font without those axes
- *   ignores them, so `materialGrade` has no effect.
+ *   ignores them, so `materialGrade` has no effect; it is still read, but no
+ *   longer documented (the element schemas leave it out). To make it work again:
+ *   keep the grade axis in the font by deleting "GRAD" from
+ *   `MATERIAL_PINNED_AXES` in make_symbol_fonts.py (the font grows from ~4.2 MB
+ *   to ~8.7 MB, about 2 MB compressed), and list `materialGrade` again in the
+ *   ActionUIVerifier schemas of Image, Label, Button, NavigationLink, Tab and
+ *   ContentUnavailableView ("(Android only) Material Symbols 'GRAD' axis,
+ *   -50..200; defaults to 0"). Nothing in this library changes: the grade read
+ *   from `materialGrade` already reaches [materialVariationSettings].
  * - `assets/fonts/FluentSymbols.ttf`: the Fluent System Icons glyphs that stand
  *   in for the SF names Material has no glyph for ([SymbolFont.FLUENT] rows of the
  *   SF map), at their own code points, static (weight and fill do not apply).

@@ -69,9 +69,9 @@ import kotlinx.serialization.json.put
  * still wins as the explicit Android escape hatch.
  *
  * **Axis overrides (Material symbols, `:android`).** `materialWeight` (100..700),
- * `materialFill` (0..1 or boolean), `materialGrade` (-50..200). Defaults reproduce
- * a regular, unfilled icon; per-symbol tuning is intended to live in the
- * SF->Material map so shared JSON needs no overrides.
+ * `materialFill` (0..1 or boolean). Defaults reproduce a regular, unfilled icon;
+ * per-symbol tuning is intended to live in the SF->Material map so shared JSON
+ * needs no overrides.
  *
  * **Accessibility.** `accessibilityLabel` (and the other universal
  * accessibility properties) arrive on [modifier] via the shared pipeline

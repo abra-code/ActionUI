@@ -35,9 +35,8 @@ import com.abracode.actionui.Helpers.stringProperty
  *     cross-platform JSON needs nothing else.
  *   * `materialName:android` -> an explicit Material Symbol (the Android escape
  *     hatch), winning over `systemImage` when both are present.
- *   * Axis overrides `materialWeight` / `materialFill` / `materialGrade` /
- *     `materialSize` (`:android`) and `imageScale` tune the glyph, exactly as on
- *     `Image`.
+ *   * Axis overrides `materialWeight` / `materialFill` / `materialSize`
+ *     (`:android`) and `imageScale` tune the glyph, exactly as on `Image`.
  *
  * **Deferred vs. Apple** (warn-and-skip, not silent): `imageName` (asset-catalog
  * image) maps to an Android `res/drawable` resource, pending the same
