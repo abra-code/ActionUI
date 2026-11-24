@@ -2,8 +2,8 @@
 /*
  Tests for elements whose type is given only for other platforms: after PlatformFilter such an
  element has no type, and loading skips it (in a child list, a grid row and a single subview)
- instead of failing the document, from JSON, a property list and a dictionary, and in an inserted
- element (which itself still needs a type). A document whose root has no type still fails.
+ instead of failing the whole load, from JSON, a property list and a dictionary, and in an inserted
+ element (which itself still needs a type). ActionUI JSON whose root has no type still fails.
 */
 
 import XCTest

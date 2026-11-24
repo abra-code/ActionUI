@@ -1,7 +1,7 @@
 // Tests/Runtime/AppBundleTests.swift
 /*
  Tests for resource lookup on Linux (AppBundle): the running program's folder as the bundle,
- whatever its name; a LoadableView name found beside the window's document, beside the file an
+ whatever its name; a LoadableView name found beside the window's ActionUI JSON, beside the file an
  enclosing LoadableView loaded, and in the bundle; Image resourceName and assetName found in the
  bundle; the bundle's Info.plist read (flat, or in the macOS Contents layout), with its icon found in the resources,
  its version and its copyright line.
@@ -68,19 +68,19 @@ final class AppBundleTests: XCTestCase {
     }
 
     func testALoadableViewNameIsFoundBesideTheWindowsDocument() throws {
-        let documents = try folder()
-        try write(#"{"type": "Text", "id": 10, "properties": {"text": "Beside"}}"#, "Inner.json", in: documents)
-        AppBundle.setContentFolder(documents, window: windowUUID)
+        let windowFolder = try folder()
+        try write(#"{"type": "Text", "id": 10, "properties": {"text": "Beside"}}"#, "Inner.json", in: windowFolder)
+        AppBundle.setContentFolder(windowFolder, window: windowUUID)
         let node = try render(#"{"type": "LoadableView", "id": 1, "properties": {"name": "Inner.json"}}"#)
         XCTAssertEqual(node.childNodes[10].map { Gtk.Label($0.widget).text }, "Beside")
     }
 
     func testANestedLoadableViewLooksBesideTheFileThatHoldsIt() throws {
-        let documents = try folder()
+        let windowFolder = try folder()
         let other = try folder()
         try write(#"{"type": "LoadableView", "id": 20, "properties": {"name": "Leaf"}}"#, "Middle.json", in: other)
         try write(#"{"type": "Text", "id": 30, "properties": {"text": "Leaf"}}"#, "Leaf.json", in: other)
-        AppBundle.setContentFolder(documents, window: windowUUID)
+        AppBundle.setContentFolder(windowFolder, window: windowUUID)
         // Middle.json is the app's own: content from a file elsewhere loads no local files.
         let savedFolders = ActionUIRendererHooks.resourceFolders
         defer { ActionUIRendererHooks.resourceFolders = savedFolders }

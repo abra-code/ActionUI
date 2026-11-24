@@ -2,7 +2,7 @@
 /*
  Test images for the URL loading tests: PNG bytes and files of a given size, and an http server on
  the loopback address (libsoup's SoupServer, on the main loop) that serves the PNG at
- /image.png (and after a second at /slow.png), text at /text.txt, a document at /view.json, and 404
+ /image.png (and after a second at /slow.png), text at /text.txt, ActionUI JSON at /view.json, and 404
  for anything else. It counts
  the requests it answers. Redirects: /redirect-stalled to /image.png (relative) with a body that
  never ends, /loop to itself, /to-file to a file URL, /to-never to /never.json.

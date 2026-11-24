@@ -49,7 +49,7 @@ final class WindowPresenterTests: XCTestCase {
 
     private static let json = #"{"type": "VStack", "id": 1, "properties": {"frame": {"width": 480, "height": 360}}, "children": [{"type": "Text", "id": 2, "properties": {"text": "Window"}}]}"#
 
-    /// The document in a window on screen, its presentations shown.
+    /// The content of a window on screen, its presentations shown.
     private func present() throws -> WindowPresenter {
         _ = try ActionUIModel.shared.loadDescription(from: Data(Self.json.utf8), format: "json", windowUUID: windowUUID)
         let tree = AdwaitaWindow(windowModel: try XCTUnwrap(ActionUIModel.shared.windowModels[windowUUID]))
