@@ -126,7 +126,7 @@ MainActor.assumeIsolated {
     // When the window appears, which an http or https document makes later than the launch.
     app.handlers.windowWillPresent = { _ in
         // A document that could not be loaded shows its error in the window; the run still fails.
-        if !app.showsDocument(windowUUID) {
+        if !app.showsContent(windowUUID) {
             print("ActionUIViewer: \(jsonPath) could not be loaded")
             status = 65
         }

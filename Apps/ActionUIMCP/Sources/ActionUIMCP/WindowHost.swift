@@ -172,10 +172,10 @@ final class WindowHost {
             throw MCPToolError("could not stage the window's ActionUI JSON: \(error.displayText)")
         }
         defer {
-            // ACTIONUI_MCP_KEEP_DOCUMENTS=1 leaves the staged files in place, to inspect or render
+            // ACTIONUI_MCP_KEEP_JSON_FILES=1 leaves the staged files in place, to inspect or render
             // them with ActionUIViewer. A kept window's file stays for the keeper process and is
             // removed when the window closes.
-            if ProcessInfo.processInfo.environment["ACTIONUI_MCP_KEEP_DOCUMENTS"] == "1" {
+            if ProcessInfo.processInfo.environment["ACTIONUI_MCP_KEEP_JSON_FILES"] == "1" {
                 HostSupport.logLine("[actionui-mcp] kept the ActionUI JSON file \(fileURL.path)")
             } else if !retainFile {
                 try? FileManager.default.removeItem(at: fileURL)

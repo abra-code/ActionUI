@@ -157,7 +157,7 @@ MainActor.assumeIsolated {
             }
         }
         // A document that could not be loaded shows its error in its window; the run fails.
-        if windowUUID == openName, !app.showsDocument(windowUUID) {
+        if windowUUID == openName, !app.showsContent(windowUUID) {
             print("ActionUIDemo: \(windowUUID).json could not be loaded")
             status = 65
         }

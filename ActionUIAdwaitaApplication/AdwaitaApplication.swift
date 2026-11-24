@@ -276,7 +276,7 @@ public final class AdwaitaApplication {
 
     /// Whether the window showing `windowUUID` holds its JSON, false when it shows why the
     /// JSON could not be loaded (or is not on screen).
-    public func showsDocument(_ windowUUID: String) -> Bool {
+    public func showsContent(_ windowUUID: String) -> Bool {
         windows[windowUUID]?.renderTree?.root != nil
     }
 

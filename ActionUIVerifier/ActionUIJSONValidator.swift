@@ -4,7 +4,7 @@
 // Licensed under the PolyForm Small Business License 1.0.0
 // https://polyformproject.org/licenses/small-business/1.0.0
 
-// DocumentValidator.swift - the Swift twin of the Python ActionUI JSON verifier (Tools/verifier),
+// ActionUIJSONValidator.swift - the Swift twin of the Python ActionUI JSON verifier (Tools/verifier),
 // driven by the same schema files (ActionUIVerifier/Schemas), so the two cannot drift on content.
 // It catches what ActionUI's loader accepts silently: unknown property names (typos), wrong value
 // types, unknown enum values, unexpected top-level keys, missing required properties, unknown
@@ -248,7 +248,7 @@ func pyList(_ strings: [String]) -> String {
 
 // MARK: - Validator
 
-public struct DocumentValidator: Sendable {
+public struct ActionUIJSONValidator: Sendable {
     /// Every platform token a key suffix or `targetPlatform` may name.
     public static var knownPlatforms: Set<String> { Platforms.all }
 

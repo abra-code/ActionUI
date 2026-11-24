@@ -22,7 +22,7 @@ import ActionUIVerifier
 
 enum Verifier {
     /// Set up once, on first use. nil when no schemas were found or they failed to load.
-    static let validator: DocumentValidator? = {
+    static let validator: ActionUIJSONValidator? = {
         guard let schemas = schemasDirectory() else {
             HostSupport.logLine("[actionui-mcp] verifier schemas not found; property checks are skipped")
             return nil
@@ -30,7 +30,7 @@ enum Verifier {
         do {
             let extra = SchemaSet.discoverAddOnDirectories(schemasDirectory: schemas, includeCheckout: !isPackaged(schemas))
             let set = try SchemaSet(primary: schemas, extra: extra)
-            return DocumentValidator(schemas: set, targetPlatform: HostPlatform.verifierPlatform)
+            return ActionUIJSONValidator(schemas: set, targetPlatform: HostPlatform.verifierPlatform)
         } catch {
             HostSupport.logLine("[actionui-mcp] could not load verifier schemas from \(schemas.path): \(error.displayText)")
             return nil

@@ -168,7 +168,7 @@ func report(path: String, issues: [ValidationIssue]) -> (Int, Int) {
     return (issues.filter { $0.severity == .error }.count, issues.filter { $0.severity == .warning }.count)
 }
 
-func validateFile(_ path: String, validator: DocumentValidator) -> (Int, Int) {
+func validateFile(_ path: String, validator: ActionUIJSONValidator) -> (Int, Int) {
     let data: Data
     do {
         data = try Data(contentsOf: URL(fileURLWithPath: path))
@@ -191,7 +191,7 @@ func validateFile(_ path: String, validator: DocumentValidator) -> (Int, Int) {
     return report(path: path, issues: issues)
 }
 
-func validatePath(_ argument: String, validator: DocumentValidator, recursive: Bool) -> (Int, Int) {
+func validatePath(_ argument: String, validator: ActionUIJSONValidator, recursive: Bool) -> (Int, Int) {
     let path = normalizedPath(argument)
     var errors = 0
     var warnings = 0
@@ -269,8 +269,8 @@ guard !paths.isEmpty else {
     exit(2)
 }
 
-if let targetPlatform, !DocumentValidator.knownPlatforms.contains(targetPlatform) {
-    printError("[ERROR] unknown platform '\(targetPlatform)'. Known platforms: \(DocumentValidator.knownPlatforms.sorted().joined(separator: ", "))")
+if let targetPlatform, !ActionUIJSONValidator.knownPlatforms.contains(targetPlatform) {
+    printError("[ERROR] unknown platform '\(targetPlatform)'. Known platforms: \(ActionUIJSONValidator.knownPlatforms.sorted().joined(separator: ", "))")
     exit(2)
 }
 
@@ -319,7 +319,7 @@ do {
     printError("[ERROR] could not load the schemas: \(describe(error))")
     exit(1)
 }
-let validator = DocumentValidator(schemas: schemas, targetPlatform: targetPlatform)
+let validator = ActionUIJSONValidator(schemas: schemas, targetPlatform: targetPlatform)
 
 // MARK: - Run
 

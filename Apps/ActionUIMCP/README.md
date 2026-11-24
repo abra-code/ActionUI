@@ -199,7 +199,7 @@ Most clients take a JSON entry of this shape, in a file of their own:
 
 - `ACTIONUI_MCP_LABEL` - text shown after the client name in every title bar.
 - `ACTIONUI_MCP_LOG_LEVEL` - `error`, `warning` (default), `info`, or `debug`; the log goes to stderr.
-- `ACTIONUI_MCP_KEEP_DOCUMENTS=1` - keep each window's generated ActionUI JSON file in the temporary folder (the path is logged), so it can be inspected or rendered with ActionUIViewer, and keep the folder when the session ends. Without it the session folder, screenshots included, is removed at the end of the session.
+- `ACTIONUI_MCP_KEEP_JSON_FILES=1` - keep each window's generated ActionUI JSON file in the temporary folder (the path is logged), so it can be inspected or rendered with ActionUIViewer, and keep the folder when the session ends. Without it the session folder, screenshots included, is removed at the end of the session.
 - `ACTIONUI_MCP_SCHEMA_DIR` - another element schemas directory to validate against. By default the server uses the schemas in `ActionUI_ActionUIVerifier.bundle` next to the executable (on Linux, `share/actionui/schemas/` in its package, else the checkout's), plus add-on schemas from that folder's `add-ons/<AddOn>/` or the ActionUI checkout. A Linux package reads only the add-on schemas it ships. Without schemas, only the property checks are skipped.
 - `ACTIONUI_MCP_ALLOW_SECURE_FIELDS=1` - lets `show_ui` use SecureField. Off by default, because everything the user enters is sent to the agent.
 - `ACTIONUI_MCP_TEST_PRESS=<button title>` and `ACTIONUI_MCP_TEST_ACTION=<actionID>@<viewID>` - debug builds only: 1.5 seconds after a window opens, press that dialog button or fire that action. For the live test.

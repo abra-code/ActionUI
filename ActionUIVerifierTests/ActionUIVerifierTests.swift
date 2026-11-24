@@ -15,10 +15,10 @@ import Foundation
 import Testing
 @testable import ActionUIVerifier
 
-private func makeValidator(platform: String?) throws -> DocumentValidator {
+private func makeValidator(platform: String?) throws -> ActionUIJSONValidator {
     let primary = try #require(SchemaSet.bundledSchemasDirectory)
     let schemas = try SchemaSet(primary: primary, extra: SchemaSet.discoverAddOnDirectories(schemasDirectory: primary))
-    return DocumentValidator(schemas: schemas, targetPlatform: platform)
+    return ActionUIJSONValidator(schemas: schemas, targetPlatform: platform)
 }
 
 private func issues(_ document: JSONValue, platform: String? = "macos") throws -> [String] {

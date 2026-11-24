@@ -163,7 +163,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         let app = AdwaitaApplication()
         var shown: WidgetPointer?
         var title: String?
-        var showsDocument = false
+        var showsContent = false
         var subtitle: WidgetPointer?
         var presentedBefore: [String] = []
         app.handlers.didFinishLaunching = {
@@ -173,7 +173,7 @@ final class AdwaitaApplicationTests: XCTestCase {
             presentedBefore = app.windowUUIDs
             app.presentWindow(prepared: prepared, title: "Prepared", options: AdwaitaApplication.WindowOptions(subtitle: "Requested by a test"))
             shown = app.contentWidget("app-w1")
-            showsDocument = app.showsDocument("app-w1")
+            showsContent = app.showsContent("app-w1")
             if let window = app.gtkWindow("app-w1") {
                 title = swiftString(gtk_window_get_title(window))
                 subtitle = self.label(showing: "Requested by a test", in: typed(window))
@@ -184,7 +184,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         XCTAssertEqual(app.run(), 0)
         XCTAssertEqual(presentedBefore, [], "preparing shows nothing")
         XCTAssertNotNil(shown)
-        XCTAssertTrue(showsDocument)
+        XCTAssertTrue(showsContent)
         XCTAssertEqual(title, "Prepared")
         XCTAssertNotNil(subtitle, "the options apply")
     }
@@ -217,7 +217,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         let app = AdwaitaApplication()
         var error: String?
         var shownError: String?
-        var showsDocument: Bool?
+        var showsContent: Bool?
         app.handlers.didFinishLaunching = {
             let prepared = app.prepareWindow(json: Data("not json".utf8), windowUUID: "app-bad")
             error = prepared.error
@@ -225,14 +225,14 @@ final class AdwaitaApplicationTests: XCTestCase {
             if let window = app.gtkWindow("app-bad"), let label = self.content(window) {
                 shownError = swiftString(gtk_label_get_text(opaque(label)))
             }
-            showsDocument = app.showsDocument("app-bad")
+            showsContent = app.showsContent("app-bad")
             app.closeWindow("app-bad")
             app.terminate()
         }
         XCTAssertEqual(app.run(), 0)
         XCTAssertTrue(error?.contains("could not be loaded") ?? false, "\(error ?? "nil")")
         XCTAssertEqual(shownError, error, "as JSON that cannot be loaded does through presentWindow")
-        XCTAssertEqual(showsDocument, false)
+        XCTAssertEqual(showsContent, false)
     }
 
     func testAPreparedWindowShowsOnce() throws {
@@ -376,7 +376,7 @@ final class AdwaitaApplicationTests: XCTestCase {
     func testAClosedWindowsModelRemovalSparesADocumentPreparedUnderItsUUID() throws {
         let app = AdwaitaApplication()
         var hadModel = false
-        var showsDocument = false
+        var showsContent = false
         app.handlers.didFinishLaunching = {
             app.closeWindow("app-w1")
             let prepared = app.prepareWindow(json: Data(Self.json.utf8), windowUUID: "app-w1")
@@ -384,7 +384,7 @@ final class AdwaitaApplicationTests: XCTestCase {
             _ = runAfter(milliseconds: 50) {
                 hadModel = ActionUIModel.shared.hasWindow("app-w1")
                 app.presentWindow(prepared: prepared, title: nil)
-                showsDocument = app.showsDocument("app-w1")
+                showsContent = app.showsContent("app-w1")
                 app.closeWindow("app-w1")
                 app.terminate()
             }
@@ -392,7 +392,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil)
         XCTAssertEqual(app.run(), 0)
         XCTAssertTrue(hadModel, "the host reopened the window: its model stays")
-        XCTAssertTrue(showsDocument)
+        XCTAssertTrue(showsContent)
     }
 
     func testPreparingUnderTheUUIDOfAnOpenWindowClosesIt() throws {
@@ -1019,7 +1019,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         let app = AdwaitaApplication()
         var events: [String] = []
         var title: String?
-        var replacedShowsDocument = false
+        var replacedShowsContent = false
         var errorText: String?
         app.handlers.windowWillPresent = { uuid in
             events.append("present \(uuid)")
@@ -1043,7 +1043,7 @@ final class AdwaitaApplicationTests: XCTestCase {
                         return
                     }
                     _ = runAfter(milliseconds: 300) {
-                        replacedShowsDocument = app.showsDocument("app-big")
+                        replacedShowsContent = app.showsContent("app-big")
                         if let window = app.gtkWindow("app-bad"), let label = self.content(window) {
                             errorText = swiftString(gtk_label_get_text(opaque(label)))
                         }
@@ -1066,7 +1066,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         XCTAssertEqual(app.run(), 0)
         XCTAssertEqual(events, ["present app-w1", "present app-w2", "present app-big", "present app-bad"])
         XCTAssertEqual(title, "view", "titled by the URL's file name")
-        XCTAssertTrue(replacedShowsDocument, "a replaced load does not replace the newer window")
+        XCTAssertTrue(replacedShowsContent, "a replaced load does not replace the newer window")
         XCTAssertEqual(errorText, server.base + "/missing.json could not be loaded")
     }
 
@@ -1105,7 +1105,7 @@ final class AdwaitaApplicationTests: XCTestCase {
                 for (uuid, _) in windowsJSON {
                     let line = app.gtkWindow(uuid).flatMap { self.label(showing: subtitle, in: typed($0)) }
                     mapped[uuid] = line.map { gtk_widget_get_mapped($0) != 0 } ?? false
-                    if app.showsDocument(uuid) { loaded.append(uuid) }
+                    if app.showsContent(uuid) { loaded.append(uuid) }
                     app.closeWindow(uuid)
                 }
                 app.terminate()

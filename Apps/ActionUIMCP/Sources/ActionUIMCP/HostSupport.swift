@@ -85,9 +85,9 @@ enum HostSupport {
 
     /// Removes the session folder and what is left in it (screenshots, kept windows' JSON files
     /// that were not handed to a keeper). Called once, at shutdown, after the hand-off has moved
-    /// the kept windows' JSON files out. ACTIONUI_MCP_KEEP_DOCUMENTS=1 leaves it, for inspection.
+    /// the kept windows' JSON files out. ACTIONUI_MCP_KEEP_JSON_FILES=1 leaves it, for inspection.
     static func removeSessionFolder() {
-        guard ProcessInfo.processInfo.environment["ACTIONUI_MCP_KEEP_DOCUMENTS"] != "1" else { return }
+        guard ProcessInfo.processInfo.environment["ACTIONUI_MCP_KEEP_JSON_FILES"] != "1" else { return }
         try? FileManager.default.removeItem(at: sessionFolder)
     }
 
