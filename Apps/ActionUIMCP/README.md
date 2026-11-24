@@ -1,6 +1,6 @@
-# actionui-mcp (proof of concept)
+# actionui-mcp
 
-A local MCP (Model Context Protocol) server that lets an AI agent open native windows through ActionUI, on macOS and on Linux (GTK 4 and libadwaita; see Linux for what differs there). The client starts it and talks JSON-RPC over stdin and stdout; windows live as long as the client session, except those opened with `keep: true` (see Kept windows).
+A local MCP (Model Context Protocol) server that lets an AI agent open native windows through ActionUI, on macOS and on Linux (GTK 4 and libadwaita; see Linux for what differs there). The client starts it and talks JSON-RPC over stdin and stdout; windows live as long as the client session, except those opened with `keep: true` (see Kept windows). On macOS it installs from an installer package into `/usr/local/libexec/actionui-mcp/` (see Build), on Linux from a tarball (see Install on Linux); Configure a client shows how to add it to Claude Code, Codex, opencode and others.
 
 Tools:
 

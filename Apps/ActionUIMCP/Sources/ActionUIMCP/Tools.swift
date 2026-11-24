@@ -4,9 +4,10 @@
 // Licensed under the PolyForm Small Business License 1.0.0
 // https://polyformproject.org/licenses/small-business/1.0.0
 
-// Tools.swift - the tool surface of the proof of concept: ask_user (blocking), show and
-// close_window (non-blocking). Definitions and handlers side by side; handlers parse arguments off
-// the main actor and hop to it for anything that touches a window.
+// Tools.swift - the canned tools: ask_user (blocking), notify, show and close_window. Definitions
+// and handlers side by side (the tools for agent-written ActionUI JSON, live windows and panels are
+// in ToolsDocuments.swift); handlers parse arguments off the main actor and hop to it for anything
+// that touches a window.
 
 #if canImport(FoundationEssentials)
 import FoundationEssentials
