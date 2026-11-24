@@ -674,6 +674,87 @@ ACTIONUI_WINUI_API bool actionUIWinUIElementOnPointerInput(ActionUIWinUIObject *
                                                            ActionUIWinUIPointerInputCallback handler, void *context,
                                                            ActionUIWinUICallback destroyContext);
 
+typedef enum ActionUIWinUIPointerEventType {
+    // The pointer came over the element, and left it.
+    ActionUIWinUIPointerEventEntered = 0,
+    ActionUIWinUIPointerEventExited = 1,
+    // A button went down or up (`button`), a finger or a pen touched or lifted. A second button pressed while
+    // one is held comes as a press too (WinUI reports it as a move).
+    ActionUIWinUIPointerEventPressed = 2,
+    ActionUIWinUIPointerEventMoved = 3,
+    ActionUIWinUIPointerEventReleased = 4,
+    // The element lost a pointer it held (another took it, the input was canceled). Not after a release.
+    ActionUIWinUIPointerEventCanceled = 5,
+    // The wheel or a touchpad scrolled over the element: `wheelX` and `wheelY`.
+    ActionUIWinUIPointerEventWheel = 6,
+} ActionUIWinUIPointerEventType;
+
+typedef enum ActionUIWinUIPointerDevice {
+    ActionUIWinUIPointerDeviceMouse = 0,     // a mouse or a touchpad
+    ActionUIWinUIPointerDeviceTouch = 1,     // a finger on a touchscreen
+    ActionUIWinUIPointerDevicePen = 2,
+} ActionUIWinUIPointerDevice;
+
+// Bits of ActionUIWinUIPointerEvent.buttons.
+enum {
+    ActionUIWinUIPointerButtonLeft = 1,
+    ActionUIWinUIPointerButtonRight = 2,
+    ActionUIWinUIPointerButtonMiddle = 4,
+    ActionUIWinUIPointerButtonBack = 8,      // XButton1
+    ActionUIWinUIPointerButtonForward = 16,  // XButton2
+};
+
+// Bits of ActionUIWinUIPointerEvent.modifiers (the keys held).
+enum {
+    ActionUIWinUIModifierShift = 1,
+    ActionUIWinUIModifierControl = 2,
+    ActionUIWinUIModifierAlt = 4,
+    ActionUIWinUIModifierWindows = 8,
+    ActionUIWinUIModifierCapsLock = 16,      // Caps Lock on
+};
+
+typedef struct ActionUIWinUIPointerEvent {
+    ActionUIWinUIPointerEventType type;
+    ActionUIWinUIPointerDevice device;
+    // Windows' pointer ID: the same for one finger or pen from touch to lift.
+    uint32_t pointerID;
+    // Pressed and Released: the button that went down or up, 0 left (a finger, a pen's tip), 1 right, 2 middle,
+    // 3 back, 4 forward; -1 for the other events.
+    int32_t button;
+    // The buttons held after the event (ActionUIWinUIPointerButton bits); a finger or a pen's tip down holds Left.
+    uint32_t buttons;
+    uint32_t modifiers;
+    // The pointer's position in the element's coordinates (0, 0 for a cancel).
+    double x;
+    double y;
+    // A pen's pressure, 0 to 1; 1 for a mouse button or a finger held, 0 when none is.
+    double pressure;
+    // A pen's tilt in degrees, -90 to 90, to the right and toward the user; 0 for other devices.
+    double tiltX;
+    double tiltY;
+    // Wheel only: in wheel notches (WHEEL_DELTA each, a touchpad's in parts of one), x toward the right,
+    // y toward the bottom (a wheel turned toward the user).
+    double wheelX;
+    double wheelY;
+    // When the input happened: microseconds since Windows started (0 for a cancel).
+    uint64_t timestampMicroseconds;
+} ActionUIWinUIPointerEvent;
+
+// Called on the UI thread; returns whether the element takes the event. A press it takes captures that
+// pointer, so the moves and the release that follow come to it wherever the pointer goes, until no button
+// of it is held; a wheel it takes does not reach what is around it (a scroll view), one it leaves does.
+typedef bool (*ActionUIWinUIPointerEventCallback)(void *context, const ActionUIWinUIPointerEvent *event);
+
+// Reports all of `element`'s pointer input to `handler`, every button and device, until the element is gone
+// (destroyContext then, on the UI thread; at once when this fails). A panel with no background gets a
+// transparent one, so its whole area takes the input.
+ACTIONUI_WINUI_API bool actionUIWinUIElementOnPointerEvents(ActionUIWinUIObject *element, ActionUIWinUIPointerEventCallback handler,
+                                                            void *context, ActionUIWinUICallback destroyContext);
+
+// Windows' limits for a double click: the most milliseconds between the clicks, and how far apart in pixels
+// they may be, across and down.
+ACTIONUI_WINUI_API void actionUIWinUIDoubleClickLimits(uint32_t *milliseconds, double *widthPixels, double *heightPixels);
+
 // MARK: - Styling
 
 // A color: red, green, blue and alpha, each from 0 to 1 (sRGB).

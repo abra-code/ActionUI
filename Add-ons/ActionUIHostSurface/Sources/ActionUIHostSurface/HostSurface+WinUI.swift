@@ -45,6 +45,7 @@ struct HostSurface: ActionUIWinUIElement {
 
     static func update(_ view: OpaquePointer, _ node: RenderNode) {
         guard let surface = node.state as? HostSurfaceView else { return }
+        surface.isDisabled = node.isDisabled
         surface.update(HostSurfaceProperties(node.properties, logger: ActionUIModel.shared.logger))
     }
 

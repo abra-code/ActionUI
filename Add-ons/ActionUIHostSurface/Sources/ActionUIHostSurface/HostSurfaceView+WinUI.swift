@@ -25,7 +25,9 @@
 // "destroyed". Windows has no hand for grabbing, so the open and closed hands show the move cursor; hidden is a blank
 // cursor from the shim's resources.
 //
-// Not yet on Windows: input and focus.
+// Pointer input (the mouse, touch, the pen, the wheel) is in HostSurfaceView+WinUIInput.swift.
+//
+// Not yet on Windows: keys and keyboard focus.
 
 #if os(Windows)
 
@@ -66,7 +68,7 @@ final class HostSurfaceView {
     private(set) var properties = HostSurfaceProperties()
     private var loaded = false
     private weak var model: ViewModel?
-    private let logger: any ActionUILogger
+    let logger: any ActionUILogger
 
     /// The element's object: a panel laid out here, holding the image the frames show in (or the placeholder).
     let panel: HostShimObject
@@ -79,7 +81,7 @@ final class HostSurfaceView {
     /// The client that got "created"; "destroyed" goes to it even after the name was rebound.
     private(set) var announcedBinding: HostSurfaceBinding?
     private(set) var suspendedSent = false
-    private var lastGeometry: Geometry?
+    private(set) var lastGeometry: Geometry?
     /// The size the panel was last arranged at, in points.
     private var arrangedWidth = 0.0
     private var arrangedHeight = 0.0
@@ -96,6 +98,12 @@ final class HostSurfaceView {
     private var warnedFixedProperties = false
     private var warnedFrame = false
     private var warnedCursor = false
+    /// The element is disabled (its own "disabled" or an ancestor's): no input reaches the client.
+    var isDisabled = false
+    /// The presses of a multiple click.
+    var clickCounter = HostSurfaceClickCounter()
+    /// The pointers (the shim's IDs) whose press the client got: their drags, releases and cancels go to it.
+    var pressedPointers: Set<UInt32> = []
     /// The cursor over the surface (AUIHostCursor), set by the client.
     private(set) var cursor = Int32(AUIHostCursorArrow.rawValue)
     private var warnedTick = false
@@ -120,6 +128,7 @@ final class HostSurfaceView {
         Unmanaged<WeakHostSurfaceView>.fromOpaque(box).takeUnretainedValue().view = self
         observe(actionUIWinUIElementOnLoaded, "being shown")
         observe(actionUIWinUIElementOnUnloaded, "being taken out of its window")
+        installInput()
     }
 
     private typealias Observer = (OpaquePointer?, ActionUIWinUICallback?, UnsafeMutableRawPointer?, ActionUIWinUICallback?) -> Bool
@@ -161,11 +170,12 @@ final class HostSurfaceView {
         // the surface.
         _ = actionUIWinUIElementSetOpacity(panel.pointer, new.hidden ? 0 : 1)
         _ = actionUIWinUIElementSetHitTestVisible(panel.pointer, !new.hidden)
-        // Black behind the frames when "opaque" (until the first frame, and through its transparent pixels).
-        var black = ActionUIWinUIColor(red: 0, green: 0, blue: 0, alpha: 1)
+        // Black behind the frames when "opaque" (until the first frame, and through its transparent pixels). Not
+        // opaque, a transparent paint, not none: a panel without a background takes pointer input only over its
+        // children (installInput).
+        var paint = ActionUIWinUIColor(red: 0, green: 0, blue: 0, alpha: new.opaque ? 1 : 0)
         if !isPlaceholder {
-            _ = new.opaque ? actionUIWinUIElementSetBrush(panel.pointer, ActionUIWinUIBrushBackground, &black, nil)
-                : actionUIWinUIElementSetBrush(panel.pointer, ActionUIWinUIBrushBackground, nil, nil)
+            _ = actionUIWinUIElementSetBrush(panel.pointer, ActionUIWinUIBrushBackground, &paint, nil)
         }
         if sizeChanged {
             _ = actionUIWinUIElementInvalidateMeasure(panel.pointer)
@@ -385,6 +395,7 @@ final class HostSurfaceView {
         lastGeometry = nil
         framePending = false
         continuousOverride = nil
+        pressedPointers = []
         // The client's cursor lasts until "destroyed" (the header): a hidden one must not outlive it.
         if cursor != Int32(AUIHostCursorArrow.rawValue) {
             setCursor(Int32(AUIHostCursorArrow.rawValue))
@@ -496,6 +507,44 @@ final class HostSurfaceView {
         }
         if event == .created || event == .changed {
             publishSize(geometry)
+        }
+    }
+
+    /// Delivers one input event to the client that got "created". The handlers decide whether input is allowed
+    /// (HostSurfaceView+WinUIInput.swift).
+    func deliverInput(_ event: AUIHostInputEvent, code: String = "", text: String? = nil) {
+        guard surfaceID != 0, let binding = announcedBinding else {
+            return
+        }
+        var event = event
+        event.structSize = UInt32(MemoryLayout<AUIHostInputEvent>.size)
+        let surfaceID = surfaceID
+        HostSurfaceRegistry.shared.deliver {
+            switch binding.client {
+            case .c(let delegate, let userData):
+                guard let callback = delegate.input else {
+                    return
+                }
+                windowUUID.withCString { uuid in
+                    code.withCString { codePointer in
+                        event.code = codePointer
+                        if let text {
+                            text.withCString { textPointer in
+                                event.text = textPointer
+                                callback(surfaceID, uuid, Int64(viewID), &event, userData)
+                            }
+                        } else {
+                            event.text = nil
+                            callback(surfaceID, uuid, Int64(viewID), &event, userData)
+                        }
+                    }
+                }
+            case .swift(let delegate):
+                event.code = nil
+                event.text = nil
+                delegate.hostSurfaceInput(swiftInfo(lastGeometry ?? geometry),
+                                          event: HostSurfaceInput(event: event, code: code, text: text))
+            }
         }
     }
 
@@ -611,7 +660,7 @@ final class HostSurfaceView {
 
 /// A callback's context: the view, not kept alive by it.
 @MainActor
-private final class WeakHostSurfaceView {
+final class WeakHostSurfaceView {
     weak var view: HostSurfaceView?
 
     init(_ view: HostSurfaceView? = nil) {
@@ -623,7 +672,7 @@ private func weakView(_ context: UnsafeMutableRawPointer?) -> WeakHostSurfaceVie
     context.map { Unmanaged<WeakHostSurfaceView>.fromOpaque($0).takeUnretainedValue() }
 }
 
-private let releaseWeakHostSurfaceView: ActionUIWinUICallback = { context in
+let releaseWeakHostSurfaceView: ActionUIWinUICallback = { context in
     guard let context else { return }
     Unmanaged<WeakHostSurfaceView>.fromOpaque(context).release()
 }

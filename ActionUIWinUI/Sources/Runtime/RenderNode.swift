@@ -51,7 +51,8 @@ public final class RenderNode {
     /// Inherited states, as SwiftUI's environment passes them down: disabled by the element's own
     /// modifier or an ancestor's; hidden likewise (the box of the element that is hidden draws
     /// nothing, ModifierBox); skipped by accessibility tools when hidden or accessibilityHidden.
-    private(set) var isDisabled = false
+    /// isDisabled is public for add-on elements whose object is no control (WinUI disables only controls).
+    public private(set) var isDisabled = false
     private(set) var isHidden = false
     private(set) var isAccessibilityHidden = false
     /// labelsHidden, as SwiftUI's environment passes it down: a container's hides its controls' titles.

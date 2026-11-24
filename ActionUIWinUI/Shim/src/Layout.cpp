@@ -10,8 +10,10 @@
 #include <memory>
 #include <mutex>
 #include <unordered_map>
+#include <unordered_set>
 
 #include <winrt/Windows.Foundation.Numerics.h>
+#include <winrt/Windows.System.h>
 #include <winrt/Microsoft.UI.Input.h>  // InputSystemCursor
 #include <winrt/Microsoft.UI.Xaml.Input.h>
 #include <winrt/Microsoft.UI.Xaml.Media.h>  // RectangleGeometry, SolidColorBrush
@@ -148,6 +150,170 @@ struct PointerInputHandler {
     ActionUIWinUICallback destroyContext;
     dispatching::DispatcherQueue queue;
 };
+
+// What a pointer event registration holds (actionUIWinUIElementOnPointerEvents), as PointerHandler, and the
+// pointers the element holds captured: the capture's end that Windows reports after the element released one
+// is no cancel.
+struct PointerEventHandler {
+    PointerEventHandler(ActionUIWinUIPointerEventCallback handler, void *context, ActionUIWinUICallback destroyContext,
+                        dispatching::DispatcherQueue queue)
+        : handler(handler), context(context), destroyContext(destroyContext), queue(std::move(queue)) {}
+    PointerEventHandler(PointerEventHandler const &) = delete;
+    PointerEventHandler &operator=(PointerEventHandler const &) = delete;
+    ~PointerEventHandler() {
+        if (destroyContext != nullptr) {
+            callOnUIThread(queue, destroyContext, context);
+        }
+    }
+
+    ActionUIWinUIPointerEventCallback handler;
+    void *context;
+    ActionUIWinUICallback destroyContext;
+    dispatching::DispatcherQueue queue;
+    std::unordered_set<uint32_t> captured;
+};
+
+// The buttons a pointer holds, as ActionUIWinUIPointerButton bits.
+uint32_t heldButtons(winrt::Microsoft::UI::Input::PointerPointProperties const &properties) {
+    uint32_t buttons = 0;
+    if (properties.IsLeftButtonPressed()) {
+        buttons |= ActionUIWinUIPointerButtonLeft;
+    }
+    if (properties.IsRightButtonPressed()) {
+        buttons |= ActionUIWinUIPointerButtonRight;
+    }
+    if (properties.IsMiddleButtonPressed()) {
+        buttons |= ActionUIWinUIPointerButtonMiddle;
+    }
+    if (properties.IsXButton1Pressed()) {
+        buttons |= ActionUIWinUIPointerButtonBack;
+    }
+    if (properties.IsXButton2Pressed()) {
+        buttons |= ActionUIWinUIPointerButtonForward;
+    }
+    return buttons;
+}
+
+// The keys held, as ActionUIWinUIModifier bits; Caps Lock from the keyboard's state.
+uint32_t modifierBits(winrt::Windows::System::VirtualKeyModifiers keys) {
+    using winrt::Windows::System::VirtualKeyModifiers;
+    uint32_t held = static_cast<uint32_t>(keys);
+    uint32_t bits = 0;
+    if ((held & static_cast<uint32_t>(VirtualKeyModifiers::Shift)) != 0) {
+        bits |= ActionUIWinUIModifierShift;
+    }
+    if ((held & static_cast<uint32_t>(VirtualKeyModifiers::Control)) != 0) {
+        bits |= ActionUIWinUIModifierControl;
+    }
+    if ((held & static_cast<uint32_t>(VirtualKeyModifiers::Menu)) != 0) {
+        bits |= ActionUIWinUIModifierAlt;
+    }
+    if ((held & static_cast<uint32_t>(VirtualKeyModifiers::Windows)) != 0) {
+        bits |= ActionUIWinUIModifierWindows;
+    }
+    if ((GetKeyState(VK_CAPITAL) & 1) != 0) {
+        bits |= ActionUIWinUIModifierCapsLock;
+    }
+    return bits;
+}
+
+// A pointer event as actionUIWinUIElementOnPointerEvents reports it, at `element`. For a press, a move or a
+// release, the type and button come from what changed (PointerUpdateKind): WinUI reports a second button's
+// press and release as moves, and the first one's in PointerPressed and PointerReleased.
+ActionUIWinUIPointerEvent pointerEventOf(ActionUIWinUIPointerEventType type, mux::UIElement const &element,
+                                         mux::Input::PointerRoutedEventArgs const &arguments) {
+    namespace input = winrt::Microsoft::UI::Input;
+    ActionUIWinUIPointerEvent event{};
+    event.type = type;
+    event.button = -1;
+    input::PointerPoint point = arguments.GetCurrentPoint(element);
+    input::PointerPointProperties properties = point.Properties();
+    switch (arguments.Pointer().PointerDeviceType()) {
+    case input::PointerDeviceType::Touch:
+        event.device = ActionUIWinUIPointerDeviceTouch;
+        break;
+    case input::PointerDeviceType::Pen:
+        event.device = ActionUIWinUIPointerDevicePen;
+        break;
+    default:
+        event.device = ActionUIWinUIPointerDeviceMouse;
+        break;
+    }
+    event.pointerID = arguments.Pointer().PointerId();
+    event.buttons = heldButtons(properties);
+    event.modifiers = modifierBits(arguments.KeyModifiers());
+    event.x = point.Position().X;
+    event.y = point.Position().Y;
+    if (event.device == ActionUIWinUIPointerDevicePen) {
+        event.pressure = properties.Pressure();
+        event.tiltX = properties.XTilt();
+        event.tiltY = properties.YTilt();
+    } else {
+        event.pressure = event.buttons != 0 ? 1 : 0;
+    }
+    event.timestampMicroseconds = point.Timestamp();
+    if (type == ActionUIWinUIPointerEventWheel) {
+        // A notch is 120 (WHEEL_DELTA); a turn away from the user is positive, toward the top.
+        double notches = properties.MouseWheelDelta() / 120.0;
+        if (properties.IsHorizontalMouseWheel()) {
+            event.wheelX = notches;
+        } else {
+            event.wheelY = -notches;
+        }
+        return event;
+    }
+    if (type != ActionUIWinUIPointerEventPressed && type != ActionUIWinUIPointerEventMoved &&
+        type != ActionUIWinUIPointerEventReleased) {
+        return event;
+    }
+    switch (properties.PointerUpdateKind()) {
+    case input::PointerUpdateKind::LeftButtonPressed:
+        event.type = ActionUIWinUIPointerEventPressed;
+        event.button = 0;
+        break;
+    case input::PointerUpdateKind::RightButtonPressed:
+        event.type = ActionUIWinUIPointerEventPressed;
+        event.button = 1;
+        break;
+    case input::PointerUpdateKind::MiddleButtonPressed:
+        event.type = ActionUIWinUIPointerEventPressed;
+        event.button = 2;
+        break;
+    case input::PointerUpdateKind::XButton1Pressed:
+        event.type = ActionUIWinUIPointerEventPressed;
+        event.button = 3;
+        break;
+    case input::PointerUpdateKind::XButton2Pressed:
+        event.type = ActionUIWinUIPointerEventPressed;
+        event.button = 4;
+        break;
+    case input::PointerUpdateKind::LeftButtonReleased:
+        event.type = ActionUIWinUIPointerEventReleased;
+        event.button = 0;
+        break;
+    case input::PointerUpdateKind::RightButtonReleased:
+        event.type = ActionUIWinUIPointerEventReleased;
+        event.button = 1;
+        break;
+    case input::PointerUpdateKind::MiddleButtonReleased:
+        event.type = ActionUIWinUIPointerEventReleased;
+        event.button = 2;
+        break;
+    case input::PointerUpdateKind::XButton1Released:
+        event.type = ActionUIWinUIPointerEventReleased;
+        event.button = 3;
+        break;
+    case input::PointerUpdateKind::XButton2Released:
+        event.type = ActionUIWinUIPointerEventReleased;
+        event.button = 4;
+        break;
+    default:
+        // No button changed: a move, whatever the event WinUI raised.
+        event.type = ActionUIWinUIPointerEventMoved;
+        break;
+    }
+    return event;
+}
 
 mux::UIElement elementFrom(ActionUIWinUIObject *element) {
     return objectAs<mux::UIElement>(element, L"UIElement");
@@ -519,6 +685,114 @@ bool actionUIWinUIElementOnPointerInput(ActionUIWinUIObject *element, ActionUIWi
         destroyContext(context);
     }
     return registered;
+}
+
+bool actionUIWinUIElementOnPointerEvents(ActionUIWinUIObject *element, ActionUIWinUIPointerEventCallback handler, void *context,
+                                         ActionUIWinUICallback destroyContext) {
+    std::shared_ptr<PointerEventHandler> holder;
+    bool registered = guarded("element on pointer events", [&]() {
+        if (handler == nullptr) {
+            return fail("element on pointer events", "the handler is NULL");
+        }
+        holder = std::make_shared<PointerEventHandler>(handler, context, destroyContext, currentQueue());
+        mux::UIElement target = elementFrom(element);
+        // A panel hit-tests only what is drawn in it unless it has a background: its whole area takes the input.
+        if (muxc::Panel panel = target.try_as<muxc::Panel>(); panel != nullptr && panel.Background() == nullptr) {
+            panel.Background(mux::Media::SolidColorBrush(winrt::Windows::UI::Color{0, 0, 0, 0}));
+        }
+        auto report = [holder](ActionUIWinUIPointerEvent const &event) {
+            std::shared_ptr<PointerEventHandler> keep = holder;
+            return keep->handler(keep->context, &event);
+        };
+        // A pointer the element no longer holds, for a cancel.
+        auto canceled = [report](mux::Input::PointerRoutedEventArgs const &arguments) {
+            ActionUIWinUIPointerEvent event{};
+            event.type = ActionUIWinUIPointerEventCanceled;
+            event.button = -1;
+            event.pointerID = arguments.Pointer().PointerId();
+            switch (arguments.Pointer().PointerDeviceType()) {
+            case winrt::Microsoft::UI::Input::PointerDeviceType::Touch:
+                event.device = ActionUIWinUIPointerDeviceTouch;
+                break;
+            case winrt::Microsoft::UI::Input::PointerDeviceType::Pen:
+                event.device = ActionUIWinUIPointerDevicePen;
+                break;
+            default:
+                event.device = ActionUIWinUIPointerDeviceMouse;
+                break;
+            }
+            report(event);
+        };
+        // Presses, moves and releases: any of them may carry a button's change.
+        auto changed = [holder, report, canceled](wf::IInspectable const &sender, mux::Input::PointerRoutedEventArgs const &arguments,
+                                                  ActionUIWinUIPointerEventType type) {
+            mux::UIElement self = sender.as<mux::UIElement>();
+            ActionUIWinUIPointerEvent event = pointerEventOf(type, self, arguments);
+            bool taken = report(event);
+            if (taken) {
+                arguments.Handled(true);
+            }
+            if (event.type == ActionUIWinUIPointerEventPressed && taken && holder->captured.count(event.pointerID) == 0) {
+                // Without the capture the moves and the release would not follow the press out of the element.
+                if (self.CapturePointer(arguments.Pointer())) {
+                    holder->captured.insert(event.pointerID);
+                } else {
+                    canceled(arguments);
+                }
+            } else if (event.type == ActionUIWinUIPointerEventReleased && event.buttons == 0 &&
+                       holder->captured.erase(event.pointerID) > 0) {
+                self.ReleasePointerCapture(arguments.Pointer());
+            }
+        };
+        target.PointerPressed([changed](wf::IInspectable const &sender, mux::Input::PointerRoutedEventArgs const &arguments) {
+            changed(sender, arguments, ActionUIWinUIPointerEventPressed);
+        });
+        target.PointerMoved([changed](wf::IInspectable const &sender, mux::Input::PointerRoutedEventArgs const &arguments) {
+            changed(sender, arguments, ActionUIWinUIPointerEventMoved);
+        });
+        target.PointerReleased([changed](wf::IInspectable const &sender, mux::Input::PointerRoutedEventArgs const &arguments) {
+            changed(sender, arguments, ActionUIWinUIPointerEventReleased);
+        });
+        target.PointerEntered([report](wf::IInspectable const &sender, mux::Input::PointerRoutedEventArgs const &arguments) {
+            report(pointerEventOf(ActionUIWinUIPointerEventEntered, sender.as<mux::UIElement>(), arguments));
+        });
+        target.PointerExited([report](wf::IInspectable const &sender, mux::Input::PointerRoutedEventArgs const &arguments) {
+            report(pointerEventOf(ActionUIWinUIPointerEventExited, sender.as<mux::UIElement>(), arguments));
+        });
+        target.PointerWheelChanged([report](wf::IInspectable const &sender, mux::Input::PointerRoutedEventArgs const &arguments) {
+            if (report(pointerEventOf(ActionUIWinUIPointerEventWheel, sender.as<mux::UIElement>(), arguments))) {
+                arguments.Handled(true);
+            }
+        });
+        // The capture's end after the element released the pointer itself is no cancel; any other is.
+        target.PointerCaptureLost([holder, canceled](wf::IInspectable const &, mux::Input::PointerRoutedEventArgs const &arguments) {
+            if (holder->captured.erase(arguments.Pointer().PointerId()) > 0) {
+                canceled(arguments);
+            }
+        });
+        target.PointerCanceled([holder, canceled](wf::IInspectable const &, mux::Input::PointerRoutedEventArgs const &arguments) {
+            if (holder->captured.erase(arguments.Pointer().PointerId()) > 0) {
+                canceled(arguments);
+            }
+        });
+        return true;
+    });
+    if (!registered && holder == nullptr && destroyContext != nullptr) {
+        destroyContext(context);
+    }
+    return registered;
+}
+
+void actionUIWinUIDoubleClickLimits(uint32_t *milliseconds, double *widthPixels, double *heightPixels) {
+    if (milliseconds != nullptr) {
+        *milliseconds = GetDoubleClickTime();
+    }
+    if (widthPixels != nullptr) {
+        *widthPixels = GetSystemMetrics(SM_CXDOUBLECLK);
+    }
+    if (heightPixels != nullptr) {
+        *heightPixels = GetSystemMetrics(SM_CYDOUBLECLK);
+    }
 }
 
 } // extern "C"
