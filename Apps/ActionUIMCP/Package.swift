@@ -52,6 +52,16 @@ let macOSSDKVersion: String? = {
     return (text?.isEmpty == false) ? text : nil
 }()
 
+// The name the menu bar shows for the server: "ActionUI MCP", not the executable's file name. A bare
+// executable has no bundle, but AppKit reads the bundle name from an Info.plist section linked into
+// it. The Dock still names the process after its file; only a private LaunchServices call or an app
+// bundle would change that.
+let infoPlistLinkerSettings: [LinkerSetting] = [
+    .unsafeFlags(["-Xlinker", "-sectcreate", "-Xlinker", "__TEXT", "-Xlinker", "__info_plist",
+                  "-Xlinker", URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Info.plist").path],
+                 .when(platforms: [.macOS])),
+]
+
 // unsafeFlags keeps a package from being used as a versioned dependency. That is fine here: this is a
 // root package that builds a tool, never a dependency. Do not copy this into the ActionUI core package.
 let sdkStampLinkerSettings: [LinkerSetting] = macOSSDKVersion.map { sdkVersion in
@@ -109,7 +119,7 @@ Package(
             // The Dock icon (AppKitPlatform), in ActionUIMCP_ActionUIMCP.bundle next to the
             // executable, found by name as the documentation bundles are.
             resources: [.copy("Resources/ActionUIMCP.icns")],
-            linkerSettings: sdkStampLinkerSettings
+            linkerSettings: sdkStampLinkerSettings + infoPlistLinkerSettings
         ),
         .testTarget(
             name: "MCPStdioTests",

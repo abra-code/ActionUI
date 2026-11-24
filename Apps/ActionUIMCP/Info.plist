@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Linked into the macOS executable as its __TEXT,__info_plist section (Package.swift): the menu bar
+  shows the server as "ActionUI MCP" instead of its file name. Only the name: a bundle identifier
+  would change where the server's settings and privacy permissions are kept.
+-->
+<plist version="1.0">
+<dict>
+	<key>CFBundleName</key>
+	<string>ActionUI MCP</string>
+</dict>
+</plist>
