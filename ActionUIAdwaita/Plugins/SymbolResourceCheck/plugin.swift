@@ -1,7 +1,7 @@
 // Plugins/SymbolResourceCheck/plugin.swift
 /*
- Warns, on every Linux build of the ActionUI target, when the Material Symbols icon resource is
- missing or older than the map or the font it is made from. The icons are generated before the
+ Warns, on every Linux build of the ActionUI target, when the symbol icon resource is missing or
+ older than the maps or the fonts it is made from. The icons are generated before the
  build by Scripts/prepare-linux-symbols.sh (a build plugin cannot add C code to a target, and the
  icons go into the library as a C section, see CSymbolResource). Without them the build still
  succeeds and SF Symbols show the missing-icon picture, so the warning names the script. It runs
@@ -23,12 +23,14 @@ struct SymbolResourceCheckPlugin: BuildToolPlugin {
         let inputs = [
             package.appending(path: "ActionUIAndroid/library/src/main/assets/symbols/sf_to_material.map"),
             package.appending(path: "Tools/material_symbols/font/MaterialSymbolsRounded.ttf"),
+            package.appending(path: "Tools/fluent_symbols/sf_to_fluent.map"),
+            package.appending(path: "Tools/fluent_symbols/font/FluentSystemIcons-Resizable.ttf"),
             package.appending(path: "Tools/material_symbols/generate-symbol-icons.c"),
         ]
         let script = package.appending(path: "Scripts/prepare-linux-symbols.sh").path
         guard let resourceDate = modificationDate(generated) else {
             Diagnostics.warning("""
-                ActionUI: NO SYMBOL ICONS. This build of ActionUI has no Material Symbols icons, so every SF Symbol \
+                ActionUI: NO SYMBOL ICONS. This build of ActionUI has no symbol icons, so every SF Symbol \
                 shows the missing-icon picture. Run first: bash \(script)
                 """)
             return []

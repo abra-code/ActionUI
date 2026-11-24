@@ -10,7 +10,7 @@
 #     Orb.png ...         the test app's asset images, named after their assets (Image assetName)
 #     Info.plist          the app's ID, name and icon (ActionUIAdwaita/DemoBundle, copied)
 #     ActionUIDemo.svg    the app's icon (ActionUIAdwaita/DemoBundle)
-#     LICENSE.txt, LICENSE-MaterialSymbols.txt   ActionUI's license, and its symbol icons'
+#     LICENSE.txt, LICENSE-MaterialSymbols.txt, LICENSE-FluentSystemIcons.txt   ActionUI's license, and its symbol icons'
 #     LICENSE-RichText.txt, LICENSE-AsyncImageCache.txt, LICENSE-DiffView.txt   the packages the add-ons link
 #
 # The program finds its documents in the folder it runs from. The bundle is self-contained: the
@@ -205,6 +205,10 @@ fi
 status=$?
 if [ "$status" -eq 0 ]; then
     /bin/bash "$repo/Tools/material_symbols/write-material-symbols-license.sh" "$bundle/LICENSE-MaterialSymbols.txt"
+    status=$?
+fi
+if [ "$status" -eq 0 ]; then
+    /bin/bash "$repo/Tools/fluent_symbols/write-fluent-icons-license.sh" "$bundle/LICENSE-FluentSystemIcons.txt"
     status=$?
 fi
 if [ "$status" -ne 0 ]; then

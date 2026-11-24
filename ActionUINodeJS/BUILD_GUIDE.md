@@ -159,6 +159,7 @@ libadwaita and libsoup 3.
 The build copies `libActionUI.so` into `build/Release/` beside `actionui.node`, which finds it
 through its `$ORIGIN` rpath, with the library's licenses: `LICENSE.txt`,
 `LICENSE-MaterialSymbols.txt` (the Material Symbols icons compiled into the library, Apache 2.0),
+`LICENSE-FluentSystemIcons.txt` (the Fluent System Icons ones for the SF Symbols Material lacks, MIT),
 `LICENSE-RichText.txt`, `LICENSE-AsyncImageCache.txt` and `LICENSE-DiffView.txt` (the packages
 linked into it, Apache 2.0). A copy of the addon for others to use should keep them.
 

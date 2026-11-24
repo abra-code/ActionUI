@@ -1,8 +1,9 @@
 // Tests/Styling/SymbolNamesTests.swift
 /*
  Tests for SymbolNames: an SF Symbol name is the Material Symbols icon of its map row, which the icon
- theme has; the lookup is the exact name, as on Android and Web, with no fallback to a shorter name;
- an icon theme name passes through; an unknown name shows image-missing.
+ theme has, or the Fluent System Icons one for a name the Material map lacks; the lookup is the exact
+ name, as on Android and Web, with no fallback to a shorter name; an icon theme name passes through;
+ an unknown name shows image-missing.
 */
 
 import XCTest
@@ -22,7 +23,7 @@ final class SymbolNamesTests: XCTestCase {
                       "chevron.right", "square.and.arrow.up", "doc.on.doc", "person.crop.circle", "photo"]
         for symbol in common {
             let icon = SymbolNames.lookup(symbol)
-            XCTAssertEqual(icon, MaterialSymbols.iconName(symbol), symbol)
+            XCTAssertEqual(icon, SymbolIcons.iconName(symbol), symbol)
             XCTAssertTrue(icon?.hasPrefix("actionui-material-") ?? false, "\(symbol) -> \(icon ?? "nil")")
             XCTAssertTrue(icon.map { Image.hasThemeIcon($0) } ?? false, "\(symbol): not in the icon theme")
         }
@@ -30,8 +31,16 @@ final class SymbolNamesTests: XCTestCase {
         XCTAssertNotEqual(SymbolNames.lookup("star"), SymbolNames.lookup("star.fill"))
     }
 
+    func testSymbolsMaterialLacksAreFluentIconsOfTheTheme() {
+        for symbol in ["barometer", "cube.transparent", "ring.dashed", "key.card.fill"] {
+            let icon = SymbolNames.lookup(symbol)
+            XCTAssertTrue(icon?.hasPrefix("actionui-fluent-") ?? false, "\(symbol) -> \(icon ?? "nil")")
+            XCTAssertTrue(icon.map { Image.hasThemeIcon($0) } ?? false, "\(symbol): not in the icon theme")
+        }
+    }
+
     func testTheLookupIsTheExactName() {
-        // The map has star.fill and star, but not star.square.fill: no shorter name is tried.
+        // The maps have star.fill and star, but not star.square.fill: no shorter name is tried.
         XCTAssertNil(SymbolNames.lookup("star.square.fill"))
         XCTAssertNil(SymbolNames.lookup("a.circle"))
     }
