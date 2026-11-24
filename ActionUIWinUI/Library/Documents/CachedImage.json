@@ -1,0 +1,42 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 10, "padding": 12, "alignment": "leading" },
+  "children": [
+    {
+      "type": "Text",
+      "id": 2,
+      "properties": { "text": "CachedImage (add-on element): data, a file twice, an empty box", "font": "headline" }
+    },
+    {
+      "type": "HStack",
+      "id": 3,
+      "properties": { "spacing": 10, "alignment": "top" },
+      "children": [
+        {
+          "type": "CachedImage",
+          "id": 4,
+          "properties": {
+            "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAeCAYAAABe3VzdAAAAOklEQVR42u3OMQ0AMAgAMCQhYVImeRLmBGxA0qN/45+syUJQUFBQUFBQcHcw76vJBAUFBQUFBQV3BxtFXfhn5h4u5wAAAABJRU5ErkJggg==",
+            "frame": { "width": 120 }
+          }
+        },
+        {
+          "type": "CachedImage",
+          "id": 5,
+          "properties": { "cornerRadius": 16, "frame": { "width": 160 } }
+        },
+        {
+          "type": "CachedImage",
+          "id": 6,
+          "properties": { "contentMode": "fit", "frame": { "width": 160 } }
+        }
+      ]
+    },
+    {
+      "type": "CachedImage",
+      "id": 7,
+      "properties": { "intrinsicSize": { "width": 320, "height": 180 }, "cornerRadius": 8, "frame": { "width": 320 } }
+    }
+  ]
+}

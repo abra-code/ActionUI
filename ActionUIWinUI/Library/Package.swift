@@ -30,6 +30,7 @@ let package = Package(
     dependencies: [
         .package(path: "../.."),   // the ActionUI package at the repo root
         .package(path: "../../Add-ons/ActionUIDiff"),
+        .package(path: "../../Add-ons/ActionUICachedImage"),
     ],
     targets: [
         // ActionUI.dll: ActionUI with the add-ons, the C adapter and the application functions, exporting the C
@@ -51,6 +52,7 @@ let package = Package(
             dependencies: [
                 .product(name: "ActionUIStatic", package: "ActionUI"),
                 .product(name: "ActionUIDiff", package: "ActionUIDiff"),
+                .product(name: "ActionUICachedImage", package: "ActionUICachedImage"),
             ]
         ),
         // The preview tool with the same add-ons as ActionUI.dll.

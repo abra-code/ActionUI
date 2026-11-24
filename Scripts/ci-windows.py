@@ -570,6 +570,41 @@ def overlay_packages():
     return sorted(folder for folder in OVERLAY_DIR.iterdir() if (folder / "Package.swift").is_file())
 
 
+def dependency_identities(node):
+    """The identities of a `swift package show-dependencies --format json` tree, lowercased, the root's own included."""
+    identities = {str(node.get("identity", node.get("name", ""))).lower()}
+    for child in node.get("dependencies", []):
+        identities |= dependency_identities(child)
+    return identities
+
+
+def edit_overlay_dependencies(package_arguments, results, summary, env):
+    """Puts each overlay package the package of `package_arguments` (--package-path, --scratch-path) depends on in edit
+    mode on its working tree (swift package edit), so the build uses it in place of its release. True when there was
+    none, or each was put in edit mode."""
+    overlays = overlay_packages()
+    if not overlays:
+        return True
+    shown = subprocess.run(["swift", "package"] + package_arguments + ["show-dependencies", "--format", "json"],
+                           capture_output=True, text=True, env=env)
+    try:
+        identities = dependency_identities(json.loads(shown.stdout))
+    except (json.JSONDecodeError, AttributeError):
+        summary["findings"].append(f"overlays: the dependencies could not be listed: {shown.stderr.strip()[-300:]}")
+        return False
+    for folder in overlays:
+        if folder.name.lower() not in identities:
+            continue
+        step = run_step(f"overlay-{folder.name}-edit", ["swift", "package"] + package_arguments
+                        + ["edit", folder.name.lower(), "--path", str(folder)], results, env)
+        summary["steps"].append(step)
+        if step["status"] != 0:
+            summary["findings"].append(f"{folder.name} (working tree): FAILED to put it in edit mode")
+            return False
+        summary["findings"].append(f"{folder.name} (working tree): built in place of its release")
+    return True
+
+
 def check_overlay_packages(results, summary):
     """Builds each overlay package and runs its tests. True when each built and passed its tests (with at least
     one test run), or when there are none."""
@@ -629,6 +664,20 @@ ADD_ON_PREVIEW_OPTIONS = {
              "--expect-width", "3", "496", "--expect-width", "4", "496", "--expect-width", "5", "496",
              "--forbid-log", "Diff is not available on Windows yet", "--forbid-log", "creating the element Diff",
              "--forbid-log", "Diff: "],
+    # The CachedImage add-on's element over AsyncImageCache's Windows engine: a data: image (40 x 30), the preview's
+    # sample image (160 x 100) by file URL in two elements (one load, one shared WinUI source), and an empty box with
+    # a size hint. Each box takes its frame's width and the image's aspect for its height; WinUI shows every image
+    # (no failure line).
+    "CachedImage": ["520", "360",
+                    "--set-value", "5", "{documents_url}/../../Apps/Preview/Documents/Images/sample_image.png",
+                    "--set-value", "6", "{documents_url}/../../Apps/Preview/Documents/Images/sample_image.png",
+                    "--delay", "3000",
+                    "--expect-width", "4", "120", "--expect-height", "4", "90",
+                    "--expect-width", "5", "160", "--expect-height", "5", "100",
+                    "--expect-width", "6", "160", "--expect-height", "6", "100",
+                    "--expect-width", "7", "320", "--expect-height", "7", "180",
+                    "--forbid-log", "CachedImage is not available on Windows yet",
+                    "--forbid-log", "creating the element CachedImage", "--forbid-log", "CachedImage: "],
     # A Diff in JSON from a server reads no file on a share or a device, whatever form the path has: the add-on asks
     # the trust policy about the full path Windows opens (two slashes become backslashes, NUL is \\.\NUL), so each
     # refusal names that path. The share (actionui-canary, CANARY_SHARE) is the one check_share_reads shares and
@@ -1597,6 +1646,8 @@ def build_library(shim_out, bin_path, results, summary, msvc, env):
     shown = capture(["swift", "build"] + scratch + ["--show-bin-path"]).splitlines()
     if shown:
         Path(shown[-1].strip(), "ActionUI.dll").unlink(missing_ok=True)
+    if not edit_overlay_dependencies(scratch, results, summary, env):
+        return False
     step = run_step("library-build", ["swift", "build"] + scratch + ["-Xswiftc", f"-L{shim_out}"], results, env)
     summary["steps"].append(step)
     if step["status"] != 0:

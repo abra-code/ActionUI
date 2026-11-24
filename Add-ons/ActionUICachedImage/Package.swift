@@ -22,6 +22,10 @@
 // On Linux the add-on is the GTK element (CachedImage+Adwaita.swift) over the same AsyncImageCache package, and
 // it links ActionUI's ActionUIStatic product: one process has one Swift runtime. It has no Documentation target
 // there: Bundle.module needs full Foundation, and with it ICU's data, which the Linux build leaves out.
+//
+// On Windows the add-on is the WinUI element (CachedImage+WinUI.swift), drawn through the shim's C functions
+// (ActionUI's CWinUI product) from AsyncImageCache's Windows engine, and it links ActionUIStatic as on Linux.
+// ActionUI.dll links it (ActionUIWinUI/Library). No test or Documentation target there yet.
 
 import PackageDescription
 
@@ -59,6 +63,32 @@ let package = Package(
                 .product(name: "AsyncImageCache", package: "AsyncImageCache"),
             ],
             path: "Tests"
+        ),
+    ]
+)
+#elseif os(Windows)
+let package = Package(
+    name: "ActionUICachedImage",
+    products: [
+        .library(name: "ActionUICachedImage", targets: ["ActionUICachedImage"]),
+    ],
+    dependencies: [
+        .package(path: "../.."),   // the ActionUI package at the repo root
+        // 0.2.7 is its first version with the Windows engine (WIC, WinHTTP, and a WinUI image source shared by every
+        // element that shows the image).
+        .package(url: "https://github.com/abra-code/AsyncImageCache", from: "0.2.7"),
+    ],
+    targets: [
+        .target(
+            name: "ActionUICachedImage",
+            dependencies: [
+                .product(name: "ActionUIStatic", package: "ActionUI"),
+                .product(name: "CWinUI", package: "ActionUI"),
+                .product(name: "AsyncImageCache", package: "AsyncImageCache"),
+            ],
+            path: "Sources",
+            // The SwiftUI element and the GTK one.
+            exclude: ["CachedImage.swift", "CachedImage+Adwaita.swift"]
         ),
     ]
 )
