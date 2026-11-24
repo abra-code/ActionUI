@@ -11,8 +11,8 @@ import java.io.IOException
  * name lookup the system does for SF Symbols. [MaterialSymbolGlyph] then renders
  * the codepoint.
  *
- * The table ships under `assets/symbols/` (committed; the `fetchMaterialSymbols`
- * Gradle task downloads a font that keeps every line of it), next to the
+ * The table ships under `assets/symbols/` (committed; the build makes the bundled
+ * fonts/MaterialSymbols.ttf from an upstream font that keeps every line of it), next to the
  * SF->Material map - both are name-lookup tables, while
  * the font binary itself lives under `assets/fonts/`. Its format is one entry per
  * line, `"<name> <hexcodepoint>"`, with lowercase hex and no `0x` prefix:

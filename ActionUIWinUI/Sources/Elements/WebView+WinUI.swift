@@ -294,7 +294,7 @@ extension WebView: ActionUIWinUIRenderer {
         // Only a regular file: a device or a named pipe the document names would block the window.
         func read(_ path: String) -> String? {
             guard readsFile(path) else { return nil }
-            return (try? ActionUIDocumentLoader.readRegularFile(URL(fileURLWithPath: path))).map { String(decoding: $0, as: UTF8.self) }
+            return (try? ActionUIContentLoader.readRegularFile(URL(fileURLWithPath: path))).map { String(decoding: $0, as: UTF8.self) }
         }
         if let source = script.source {
             return source

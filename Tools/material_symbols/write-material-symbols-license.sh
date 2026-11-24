@@ -34,7 +34,8 @@ esac
 
 {
     printf 'Material Symbols\n\n'
-    printf 'The symbol icons in this software are glyphs of the Material Symbols Rounded font by Google\n'
+    printf 'The symbol icons in this software, other than the Fluent System Icons ones, are glyphs of the\n'
+    printf 'Material Symbols Rounded font by Google\n'
     printf '(https://github.com/google/material-design-icons, commit %s),\n' "$commit"
     printf 'converted to SVG icons when the software was built. They are used under the Apache License 2.0:\n\n'
     /bin/cat "$font_folder/LICENSE"

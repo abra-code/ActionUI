@@ -241,7 +241,8 @@ The HostSurface element is part of `libActionUI.so`, and the package has its hea
 The build copies `libActionUI.so` beside `_actionui.*.so`, which finds it through its `$ORIGIN`
 rpath, so the installed module carries its own copy of the library. The library's licenses go
 with it, as `libActionUI-LICENSE.txt`, `libActionUI-LICENSE-MaterialSymbols.txt` (the Material
-Symbols icons compiled into the library, Apache 2.0), `libActionUI-LICENSE-RichText.txt`,
+Symbols icons compiled into the library, Apache 2.0), `libActionUI-LICENSE-FluentSystemIcons.txt`
+(the Fluent System Icons ones for the SF Symbols Material lacks, MIT), `libActionUI-LICENSE-RichText.txt`,
 `libActionUI-LICENSE-AsyncImageCache.txt` and `libActionUI-LICENSE-DiffView.txt` (the packages
 linked into it, Apache 2.0); a wheel or a copy of the module for others to use should keep them.
 

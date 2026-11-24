@@ -1,27 +1,39 @@
 /*
  generate-symbol-icons - writes the symbolic SVG icons that stand in for SF Symbols on Linux: one
  per distinct (codepoint, fill, weight) of sf_to_material.map, drawn from the Material Symbols
- Rounded variable font (Tools/material_symbols/fetch-material-symbols-font.sh), and a
- glib-compile-resources manifest of the icons and the map. Scripts/prepare-linux-symbols.sh builds
- it (C and HarfBuzz only), runs it, and compiles the folder into the C source ActionUI includes.
+ Rounded variable font (Tools/material_symbols/fetch-material-symbols-font.sh); then, for each SF
+ name of sf_to_fluent.map that the Material map has no row for, the Fluent System Icons glyph
+ (Tools/fluent_symbols/fetch-fluent-icons-font.sh); and a glib-compile-resources manifest of the
+ icons and the table of names. Scripts/prepare-linux-symbols.sh builds it (C and HarfBuzz only),
+ runs it, and compiles the folder into the C source ActionUI includes.
 
-   generate-symbol-icons <sf_to_material.map> <MaterialSymbolsRounded.ttf> <output folder>
+   generate-symbol-icons <sf_to_material.map> <MaterialSymbolsRounded.ttf>
+                         <sf_to_fluent.map> <FluentSystemIcons-Resizable.ttf> <output folder>
 
  In the output folder:
    scalable/actions/actionui-material-<hex codepoint>-f<0|1>-w<weight>-symbolic.svg
-   sf_to_material.map       a copy of the map, which the library reads at run time
+   scalable/actions/actionui-fluent-<hex codepoint>-symbolic.svg
+   symbols.map              "<sf_name> <icon name>" per line, Material's rows then Fluent's; the
+                            library reads it at run time
    symbols.gresource.xml    the manifest, prefix /com/abracode/actionui/symbols; written last, so
                             it is there only when every icon was written
 
- Map rows: <sf_name> <hex codepoint> [1: fill] [100..700: weight]; no fill means 0, no weight 400
- (the map's weights are a per-symbol calibration against SF Symbols at regular weight). Every icon
- has optical size 24 and grade 0. Each SVG is the font's em box (the glyph's baseline at the
- bottom), so all icons share one size and position, as Google's own SVG downloads do; GTK recolors
- it with the text color as a symbolic icon. Coordinates keep one decimal: at most 0.05 font units
- (of 960) from the outline.
+ Material map rows: <sf_name> <hex codepoint> [1: fill] [100..700: weight]; no fill means 0, no
+ weight 400 (the map's weights are a per-symbol calibration against SF Symbols at regular weight).
+ Every Material icon has optical size 24 and grade 0. Each SVG is Material's em box (the glyph's
+ baseline at the bottom), so all icons share one size and position, as Google's own SVG downloads
+ do; GTK recolors it with the text color as a symbolic icon. Coordinates keep one decimal: at most
+ 0.05 units (of Material's 960) from the outline.
 
- Stops (exit 1) when the font lacks an axis or a codepoint the map needs, as with a map made for
- another font release.
+ Fluent map rows: <sf_name> <hex codepoint>, the glyph of the face the row chose (regular or
+ filled). A Fluent glyph's em box is scaled to fill Material's, where it has about its Material
+ counterpart's ink size. Fluent has no weight axis, and its regular strokes (median 48 of 960) are
+ thinner than Material's at the map's weights (median 60), so a regular glyph is emboldened by about
+ the difference, FLUENT_EMBOLDEN; a filled glyph is drawn as it is, since emboldening would close its
+ cut lines and it already matches Material's filled glyphs.
+
+ Stops (exit 1) when a font lacks an axis or a codepoint a map needs, as with a map made for
+ another font release, or when a Fluent glyph has no name (its face is read from the name).
 */
 
 #include <hb.h>
@@ -37,19 +49,33 @@
 #include <sys/stat.h>
 
 #if !HB_VERSION_ATLEAST(7, 0, 0)
-#error "HarfBuzz 7.0 or newer is needed (hb_font_draw_glyph)"
+#error "HarfBuzz 7.0 or newer is needed (hb_font_draw_glyph, hb_font_set_synthetic_bold)"
 #endif
 
-#define ICON_PREFIX "actionui-material-"
+#define ICON_PREFIX "actionui-"
 #define ICON_SUFFIX "-symbolic.svg"
 #define RESOURCE_PREFIX "/com/abracode/actionui/symbols"
 #define DEFAULT_WEIGHT 400
+/* What a regular Fluent glyph's strokes gain, as a fraction of the em: 6 of Fluent's 500 units (11.5
+   of Material's 960), from Fluent's median stroke (48 of 960) to Material's at the map's weights (60),
+   both measured as twice the ink area over the outline length on the map's glyphs. Whole font units,
+   since HarfBuzz rounds the strength to them. HarfBuzz also raises the glyph by half the strength, so
+   its bottom stays where it was. */
+#define FLUENT_EMBOLDEN (6.0f / 500.0f)
+
+enum { MATERIAL = 0, FLUENT = 1 };
 
 typedef struct {
+    int font;
     unsigned int codepoint;
-    int fill;
-    int weight;
+    int fill;   /* Material only */
+    int weight; /* Material only */
 } Icon;
+
+typedef struct {
+    const char *name;
+    Icon icon;
+} Row;
 
 /* ---------- a growing text buffer ---------- */
 
@@ -99,6 +125,17 @@ static void buffer_append_number(Buffer *buffer, float value)
     } else {
         buffer_append(buffer, "%s%ld.%ld", sign, magnitude / 10, magnitude % 10);
     }
+}
+
+static void *grow(void *items, size_t *capacity, size_t size)
+{
+    *capacity = *capacity != 0 ? *capacity * 2 : 1024;
+    void *grown = realloc(items, *capacity * size);
+    if (grown == NULL) {
+        fprintf(stderr, "error: out of memory\n");
+        exit(1);
+    }
+    return grown;
 }
 
 /* ---------- files ---------- */
@@ -193,24 +230,30 @@ static bool remove_old_icons(const char *folder)
     return ok;
 }
 
-/* ---------- the map ---------- */
+/* ---------- the maps ---------- */
 
 static int compare_icons(const void *a, const void *b)
 {
     const Icon *x = a, *y = b;
+    if (x->font != y->font) return x->font < y->font ? -1 : 1;
     if (x->codepoint != y->codepoint) return x->codepoint < y->codepoint ? -1 : 1;
     if (x->fill != y->fill) return x->fill < y->fill ? -1 : 1;
     if (x->weight != y->weight) return x->weight < y->weight ? -1 : 1;
     return 0;
 }
 
-/* The distinct icons of the map's rows, sorted; NULL with a message for a malformed row. */
-static Icon *parse_map(char *text, size_t *count, size_t *rows)
+static int compare_names(const void *a, const void *b)
 {
-    Icon *icons = NULL;
-    size_t used = 0, capacity = 0;
-    *rows = 0;
+    return strcmp(*(const char *const *)a, *(const char *const *)b);
+}
+
+/* Appends the rows of a map's text (modified in place: the rows' names point into it) to `rows`;
+   false with a message for a malformed row. A Material row may name a fill and a weight, a Fluent
+   row only its codepoint. */
+static bool parse_map(char *text, int font, const char *label, Row **rows, size_t *count, size_t *capacity)
+{
     unsigned int line_number = 0;
+    size_t first = *count;
     for (char *line = text; line != NULL && *line != '\0';) {
         char *next = strchr(line, '\n');
         if (next != NULL) *next++ = '\0';
@@ -222,65 +265,77 @@ static Icon *parse_map(char *text, size_t *count, size_t *rows)
             char *end = NULL;
             unsigned long codepoint = hex != NULL ? strtoul(hex, &end, 16) : 0;
             if (name == NULL || hex == NULL || *end != '\0' || codepoint == 0 || codepoint > 0x10FFFF) {
-                fprintf(stderr, "error: map line %u: expected <name> <hex codepoint>\n", line_number);
-                free(icons);
-                return NULL;
+                fprintf(stderr, "error: %s line %u: expected <name> <hex codepoint>\n", label, line_number);
+                return false;
             }
-            Icon icon = { (unsigned int)codepoint, 0, DEFAULT_WEIGHT };
+            Icon icon = { font, (unsigned int)codepoint, 0, font == MATERIAL ? DEFAULT_WEIGHT : 0 };
             for (char *token; (token = strtok_r(NULL, " \t\r", &save)) != NULL;) {
                 long value = strtol(token, &end, 10);
-                if (*end == '\0' && value == 1) {
+                if (font == MATERIAL && *end == '\0' && value == 1) {
                     icon.fill = 1;
-                } else if (*end == '\0' && value >= 100 && value <= 700) {
+                } else if (font == MATERIAL && *end == '\0' && value >= 100 && value <= 700) {
                     icon.weight = (int)value;
                 } else {
-                    fprintf(stderr, "error: map line %u: unknown value \"%s\"\n", line_number, token);
-                    free(icons);
-                    return NULL;
+                    fprintf(stderr, "error: %s line %u: unknown value \"%s\"\n", label, line_number, token);
+                    return false;
                 }
             }
-            if (used == capacity) {
-                capacity = capacity != 0 ? capacity * 2 : 1024;
-                Icon *grown = realloc(icons, capacity * sizeof *icons);
-                if (grown == NULL) {
-                    fprintf(stderr, "error: out of memory\n");
-                    exit(1);
-                }
-                icons = grown;
-            }
-            icons[used++] = icon;
-            (*rows)++;
+            if (*count == *capacity) *rows = grow(*rows, capacity, sizeof **rows);
+            (*rows)[(*count)++] = (Row){ name, icon };
         }
         line = next;
     }
-    if (used == 0) {
-        fprintf(stderr, "error: the map has no rows\n");
-        free(icons);
-        return NULL;
+    if (*count == first) {
+        fprintf(stderr, "error: the %s has no rows\n", label);
+        return false;
     }
-    qsort(icons, used, sizeof *icons, compare_icons);
+    return true;
+}
+
+/* The distinct icons of the rows, sorted. */
+static Icon *distinct_icons(const Row *rows, size_t row_count, size_t *count)
+{
+    Icon *icons = malloc(row_count * sizeof *icons);
+    if (icons == NULL) {
+        fprintf(stderr, "error: out of memory\n");
+        exit(1);
+    }
+    for (size_t i = 0; i < row_count; i++) icons[i] = rows[i].icon;
+    qsort(icons, row_count, sizeof *icons, compare_icons);
     size_t distinct = 1;
-    for (size_t i = 1; i < used; i++) {
+    for (size_t i = 1; i < row_count; i++) {
         if (compare_icons(&icons[i], &icons[distinct - 1]) != 0) icons[distinct++] = icons[i];
     }
     *count = distinct;
     return icons;
 }
 
+/* An icon's theme name, without the file's ".svg". */
+static void append_icon_name(Buffer *buffer, const Icon *icon)
+{
+    if (icon->font == MATERIAL) {
+        buffer_append(buffer, ICON_PREFIX "material-%x-f%d-w%d-symbolic", icon->codepoint, icon->fill, icon->weight);
+    } else {
+        buffer_append(buffer, ICON_PREFIX "fluent-%x-symbolic", icon->codepoint);
+    }
+}
+
 /* ---------- outlines to SVG path data ---------- */
 
-/* Font units with y flipped: the em box's top is 0 and the baseline is at upem. */
+/* Font units scaled to Material's em box, with y flipped: the box's top is 0 and the baseline is at
+   `box`. */
 typedef struct {
     Buffer *path;
-    float upem;
+    float scale;
+    float box;
     int commands;
 } Outline;
 
 static void point(Outline *outline, float x, float y)
 {
-    buffer_append_number(outline->path, x);
+    buffer_append_number(outline->path, x * outline->scale);
     buffer_append(outline->path, " ");
-    buffer_append_number(outline->path, outline->upem - y);
+    buffer_append_number(outline->path, outline->box - y * outline->scale);
 }
 
 static void move_to(hb_draw_funcs_t *funcs, void *data, hb_draw_state_t *state, float x, float y, void *user)
@@ -341,7 +396,23 @@ static hb_draw_funcs_t *draw_funcs(void)
     return funcs;
 }
 
-/* ---------- the font ---------- */
+/* ---------- the fonts ---------- */
+
+/* The font at `path`; NULL with a message when it cannot be read. */
+static hb_font_t *open_font(const char *path, unsigned int *upem)
+{
+    hb_blob_t *blob = hb_blob_create_from_file_or_fail(path);
+    if (blob == NULL) {
+        fprintf(stderr, "error: cannot read the font %s\n", path);
+        return NULL;
+    }
+    hb_face_t *face = hb_face_create(blob, 0);
+    hb_blob_destroy(blob);
+    *upem = hb_face_get_upem(face);
+    hb_font_t *font = hb_font_create(face);
+    hb_face_destroy(face);
+    return font;
+}
 
 static bool check_axes(hb_face_t *face)
 {
@@ -369,77 +440,153 @@ static void set_axes(hb_font_t *font, const Icon *icon)
     hb_font_set_variations(font, variations, sizeof variations / sizeof variations[0]);
 }
 
-/* ---------- the icons ---------- */
-
-/* Writes the icons, the map copy and the manifest into `output`. */
-static bool generate(const char *map_path, const char *font_path, const char *output)
+/* Whether the Fluent glyph is of the filled face, from its name ("ic_fluent_<name>_20_filled");
+   -1 with a message when the font names no glyphs. */
+static int is_filled(hb_font_t *font, hb_codepoint_t glyph, unsigned int codepoint)
 {
-    size_t map_length = 0;
-    char *map_text = read_file(map_path, &map_length);
-    if (map_text == NULL) return false;
-    char *map_copy = malloc(map_length + 1);
-    if (map_copy == NULL) {
-        fprintf(stderr, "error: out of memory\n");
-        return false;
+    char name[256];
+    bool named = hb_font_get_glyph_name(font, glyph, name, sizeof name) != 0;
+    if (!named) {
+        fprintf(stderr, "error: the Fluent glyph for U+%04X has no name, so its face is not known\n", codepoint);
+        return -1;
     }
-    memcpy(map_copy, map_text, map_length + 1);
-    size_t icon_count = 0, rows = 0;
-    Icon *icons = parse_map(map_copy, &icon_count, &rows);
-    if (icons == NULL) return false;
+    size_t length = strlen(name);
+    static const char suffix[] = "_filled";
+    return length >= sizeof suffix - 1 && strcmp(name + length - (sizeof suffix - 1), suffix) == 0;
+}
 
-    hb_blob_t *blob = hb_blob_create_from_file_or_fail(font_path);
-    if (blob == NULL) {
-        fprintf(stderr, "error: cannot read the font %s\n", font_path);
-        return false;
-    }
-    hb_face_t *face = hb_face_create(blob, 0);
-    hb_blob_destroy(blob);
-    if (!check_axes(face)) return false;
-    unsigned int upem = hb_face_get_upem(face);
-    hb_font_t *font = hb_font_create(face);
-
+/* The number of icons of `font_kind` whose codepoint `font` lacks, each reported. */
+static int count_missing(hb_font_t *font, const Icon *icons, size_t count, int font_kind, const char *label)
+{
     int missing = 0;
-    for (size_t i = 0; i < icon_count; i++) {
+    for (size_t i = 0; i < count; i++) {
+        if (icons[i].font != font_kind) continue;
         hb_codepoint_t glyph;
         bool found = hb_font_get_nominal_glyph(font, icons[i].codepoint, &glyph) != 0;
         if (!found) {
-            fprintf(stderr, "error: the font has no glyph for U+%04X (the map needs it)\n", icons[i].codepoint);
+            fprintf(stderr, "error: the %s font has no glyph for U+%04X (the map needs it)\n", label, icons[i].codepoint);
             missing++;
         }
     }
-    if (missing > 0) {
-        fprintf(stderr, "error: %d codepoints missing: is the map made for this font release?\n", missing);
+    return missing;
+}
+
+/* ---------- the icons ---------- */
+
+/* Writes the icons, the table of names and the manifest into `output`. */
+static bool generate(const char *material_map_path, const char *material_font_path, const char *fluent_map_path,
+                     const char *fluent_font_path, const char *output)
+{
+    size_t length = 0;
+    char *material_text = read_file(material_map_path, &length);
+    if (material_text == NULL) return false;
+    char *fluent_text = read_file(fluent_map_path, &length);
+    if (fluent_text == NULL) return false;
+
+    Row *rows = NULL;
+    size_t row_count = 0, row_capacity = 0;
+    if (!parse_map(material_text, MATERIAL, "Material map", &rows, &row_count, &row_capacity)) return false;
+    size_t material_rows = row_count;
+
+    /* The Material map's names, sorted, to find the Fluent rows it has no row for. */
+    const char **material_names = malloc(material_rows * sizeof *material_names);
+    if (material_names == NULL) {
+        fprintf(stderr, "error: out of memory\n");
+        exit(1);
+    }
+    for (size_t i = 0; i < material_rows; i++) material_names[i] = rows[i].name;
+    qsort(material_names, material_rows, sizeof *material_names, compare_names);
+
+    Row *fluent_rows = NULL;
+    size_t fluent_count = 0, fluent_capacity = 0;
+    if (!parse_map(fluent_text, FLUENT, "Fluent map", &fluent_rows, &fluent_count, &fluent_capacity)) return false;
+    size_t fluent_used = 0;
+    for (size_t i = 0; i < fluent_count; i++) {
+        bool in_material = bsearch(&fluent_rows[i].name, material_names, material_rows, sizeof *material_names,
+                                   compare_names) != NULL;
+        if (in_material) continue;
+        if (row_count == row_capacity) rows = grow(rows, &row_capacity, sizeof *rows);
+        rows[row_count++] = fluent_rows[i];
+        fluent_used++;
+    }
+    free(material_names);
+    free(fluent_rows);
+
+    size_t icon_count = 0;
+    Icon *icons = distinct_icons(rows, row_count, &icon_count);
+
+    unsigned int material_upem = 0, fluent_upem = 0;
+    hb_font_t *material_font = open_font(material_font_path, &material_upem);
+    if (material_font == NULL) return false;
+    if (!check_axes(hb_font_get_face(material_font))) return false;
+    hb_font_t *fluent_font = open_font(fluent_font_path, &fluent_upem);
+    if (fluent_font == NULL) return false;
+    if (material_upem == 0 || fluent_upem == 0) {
+        fprintf(stderr, "error: a font has no units per em\n");
         return false;
     }
 
-    Buffer manifest_path = { 0 }, icon_folder = { 0 }, scalable = { 0 }, map_out = { 0 };
+    int missing = count_missing(material_font, icons, icon_count, MATERIAL, "Material Symbols")
+                + count_missing(fluent_font, icons, icon_count, FLUENT, "Fluent System Icons");
+    if (missing > 0) {
+        fprintf(stderr, "error: %d codepoints missing: are the maps made for these font releases?\n", missing);
+        return false;
+    }
+
+    Buffer manifest_path = { 0 }, icon_folder = { 0 }, scalable = { 0 }, table_path = { 0 }, old_map = { 0 };
     buffer_append(&manifest_path, "%s/symbols.gresource.xml", output);
     buffer_append(&scalable, "%s/scalable", output);
     buffer_append(&icon_folder, "%s/scalable/actions", output);
-    buffer_append(&map_out, "%s/sf_to_material.map", output);
+    buffer_append(&table_path, "%s/symbols.map", output);
+    buffer_append(&old_map, "%s/sf_to_material.map", output);
     if (remove(manifest_path.text) != 0 && errno != ENOENT) {
         fprintf(stderr, "error: cannot remove %s: %s\n", manifest_path.text, strerror(errno));
         return false;
     }
+    /* What an earlier version of this tool put in the resource. */
+    if (remove(old_map.text) != 0 && errno != ENOENT) {
+        fprintf(stderr, "error: cannot remove %s: %s\n", old_map.text, strerror(errno));
+        return false;
+    }
     if (!make_folder(output) || !make_folder(scalable.text) || !make_folder(icon_folder.text)) return false;
     if (!remove_old_icons(icon_folder.text)) return false;
-    if (!write_file(map_out.text, map_text, map_length)) return false;
+
+    Buffer table = { 0 };
+    buffer_append(&table, "# SF Symbol name -> icon name; written by generate-symbol-icons\n");
+    for (size_t i = 0; i < row_count; i++) {
+        buffer_append(&table, "%s ", rows[i].name);
+        append_icon_name(&table, &rows[i].icon);
+        buffer_append(&table, "\n");
+    }
+    if (!write_file(table_path.text, table.text, table.length)) return false;
 
     Buffer manifest = { 0 };
     buffer_append(&manifest,
                   "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
                   "<gresources>\n"
                   "  <gresource prefix=\"" RESOURCE_PREFIX "\">\n"
-                  "    <file compressed=\"true\">sf_to_material.map</file>\n");
+                  "    <file compressed=\"true\">symbols.map</file>\n");
     hb_draw_funcs_t *funcs = draw_funcs();
-    size_t svg_bytes = 0;
+    size_t svg_bytes = 0, fluent_icons = 0, emboldened = 0;
     for (size_t i = 0; i < icon_count; i++) {
         const Icon *icon = &icons[i];
+        hb_font_t *font = icon->font == MATERIAL ? material_font : fluent_font;
         hb_codepoint_t glyph = 0;
         hb_font_get_nominal_glyph(font, icon->codepoint, &glyph);
-        set_axes(font, icon);
+        float scale = 1.0f;
+        if (icon->font == MATERIAL) {
+            set_axes(font, icon);
+        } else {
+            int filled = is_filled(font, glyph, icon->codepoint);
+            if (filled < 0) return false;
+            float strength = filled ? 0.0f : FLUENT_EMBOLDEN;
+            hb_font_set_synthetic_bold(font, strength, strength, true);
+            scale = (float)material_upem / (float)fluent_upem;
+            fluent_icons++;
+            if (!filled) emboldened++;
+        }
         Buffer path = { 0 };
-        Outline outline = { &path, (float)upem, 0 };
+        Outline outline = { &path, scale, (float)material_upem, 0 };
         hb_font_draw_glyph(font, glyph, funcs, &outline);
         if (outline.commands == 0) {
             fprintf(stderr, "error: the glyph for U+%04X has no outline\n", icon->codepoint);
@@ -449,12 +596,12 @@ static bool generate(const char *map_path, const char *font_path, const char *ou
         buffer_append(&svg,
                       "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"%u\" height=\"%u\" viewBox=\"0 0 %u %u\">"
                       "<path d=\"%s\"/></svg>\n",
-                      upem, upem, upem, upem, path.text);
+                      material_upem, material_upem, material_upem, material_upem, path.text);
         Buffer name = { 0 }, file = { 0 };
-        buffer_append(&name, ICON_PREFIX "%x-f%d-w%d" ICON_SUFFIX, icon->codepoint, icon->fill, icon->weight);
-        buffer_append(&file, "%s/%s", icon_folder.text, name.text);
+        append_icon_name(&name, icon);
+        buffer_append(&file, "%s/%s.svg", icon_folder.text, name.text);
         if (!write_file(file.text, svg.text, svg.length)) return false;
-        buffer_append(&manifest, "    <file compressed=\"true\">scalable/actions/%s</file>\n", name.text);
+        buffer_append(&manifest, "    <file compressed=\"true\">scalable/actions/%s.svg</file>\n", name.text);
         svg_bytes += svg.length;
         free(path.text);
         free(svg.text);
@@ -464,10 +611,23 @@ static bool generate(const char *map_path, const char *font_path, const char *ou
     buffer_append(&manifest, "  </gresource>\n</gresources>\n");
     if (!write_file(manifest_path.text, manifest.text, manifest.length)) return false;
 
-    printf("%zu map rows, %zu icons (%zu bytes of SVG) in %s\n", rows, icon_count, svg_bytes, output);
+    printf("%zu Material rows and %zu Fluent rows (of %zu; the rest Material has), %zu icons (%zu Fluent, %zu of them "
+           "emboldened; %zu bytes of SVG) in %s\n",
+           material_rows, fluent_used, fluent_count, icon_count, fluent_icons, emboldened, svg_bytes, output);
     hb_draw_funcs_destroy(funcs);
-    hb_font_destroy(font);
-    hb_face_destroy(face);
+    hb_font_destroy(material_font);
+    hb_font_destroy(fluent_font);
+    free(icons);
+    free(rows);
+    free(material_text);
+    free(fluent_text);
+    free(table.text);
+    free(manifest.text);
+    free(manifest_path.text);
+    free(icon_folder.text);
+    free(scalable.text);
+    free(table_path.text);
+    free(old_map.text);
     return true;
 }
 
@@ -475,10 +635,13 @@ static bool generate(const char *map_path, const char *font_path, const char *ou
 
 int main(int argc, char **argv)
 {
-    if (argc != 4) {
-        fprintf(stderr, "usage: %s <sf_to_material.map> <MaterialSymbolsRounded.ttf> <output folder>\n", argv[0]);
+    if (argc != 6) {
+        fprintf(stderr,
+                "usage: %s <sf_to_material.map> <MaterialSymbolsRounded.ttf> <sf_to_fluent.map> "
+                "<FluentSystemIcons-Resizable.ttf> <output folder>\n",
+                argv[0]);
         return 1;
     }
-    bool ok = generate(argv[1], argv[2], argv[3]);
+    bool ok = generate(argv[1], argv[2], argv[3], argv[4], argv[5]);
     return ok ? 0 : 1;
 }

@@ -47,3 +47,7 @@ Tools/material_symbols/build/
 Tools/fluent_symbols/font/
 ActionUIAdwaita/CSymbolResource/generated/
 ActionUIWinUI/Shim/src/generated/
+# Made by ActionUIWeb/scripts/make-symbol-fonts.sh
+ActionUIWeb/assets/fonts/
+ActionUIWeb/assets/licenses/
+ActionUIWeb/assets/symbols/sf_to_fluent.map

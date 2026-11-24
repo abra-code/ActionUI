@@ -19,7 +19,7 @@ import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Helpers.ImageSource
 import com.abracode.actionui.Helpers.MaterialNameIcon
-import com.abracode.actionui.Helpers.SystemSymbolIcon
+import com.abracode.actionui.Helpers.SFSymbolIcon
 import com.abracode.actionui.Helpers.loadImagePainter
 import com.abracode.actionui.Helpers.resolveContentScale
 import com.abracode.actionui.Helpers.resolveResizableGlyphFrameDp
@@ -69,9 +69,9 @@ import kotlinx.serialization.json.put
  * still wins as the explicit Android escape hatch.
  *
  * **Axis overrides (Material symbols, `:android`).** `materialWeight` (100..700),
- * `materialFill` (0..1 or boolean), `materialGrade` (-50..200). Defaults reproduce
- * a regular, unfilled icon; per-symbol tuning is intended to live in the
- * SF->Material map so shared JSON needs no overrides.
+ * `materialFill` (0..1 or boolean). Defaults reproduce a regular, unfilled icon;
+ * per-symbol tuning is intended to live in the SF->Material map so shared JSON
+ * needs no overrides.
  *
  * **Accessibility.** `accessibilityLabel` (and the other universal
  * accessibility properties) arrive on [modifier] via the shared pipeline
@@ -176,10 +176,10 @@ object Image : ActionUIViewConstruction {
                 }
             }
 
-            is ImageSource.SystemSymbol -> {
+            is ImageSource.SFSymbol -> {
                 // systemName -> SF->Material map -> glyph via the shared SymbolIcon
                 // helper. Explicit :android knobs override the map's per-row tuning.
-                val rendered = SystemSymbolIcon(
+                val rendered = SFSymbolIcon(
                     name = source.name,
                     explicitWeight = source.explicitWeight,
                     explicitFill = source.explicitFill,
@@ -193,8 +193,8 @@ object Image : ActionUIViewConstruction {
                 if (!rendered) {
                     remember(source) {
                         logger?.log(
-                            "Image systemName '${source.name}' has no SF->Material mapping " +
-                                "(or the map asset is absent). Nothing rendered; add " +
+                            "Image systemName '${source.name}' has no Material or Fluent glyph in the " +
+                                "SF maps (or the map assets are absent). Nothing rendered; add " +
                                 "'materialName:android' for an explicit Android glyph.",
                             LoggerLevel.warning
                         )

@@ -12,6 +12,7 @@
 #     include/ActionUIHostSurface/ActionUIHostSurface.h  the HostSurface add-on's functions (linked in)
 #     LICENSE.txt
 #     LICENSE-MaterialSymbols.txt                the license of the symbol icons in the library
+#     LICENSE-FluentSystemIcons.txt              the license of the Fluent ones among them
 #     LICENSE-RichText.txt, LICENSE-AsyncImageCache.txt, LICENSE-DiffView.txt   the licenses of the packages linked into it
 #   actionui-<version>-linux-<arch>.tar.gz       the folder, packed
 #
@@ -182,11 +183,19 @@ for dependency in RichText AsyncImageCache DiffView; do
     copy_into_package "$checkouts/$dependency/LICENSE" "$package/LICENSE-$dependency.txt" || exit 1
 done
 
-# The library carries the Material Symbols icons (Apache 2.0), whose license goes with it.
+# The library carries the Material Symbols icons (Apache 2.0) and Fluent System Icons ones (MIT),
+# whose licenses go with it.
 /bin/bash "$repo/Tools/material_symbols/write-material-symbols-license.sh" "$package/LICENSE-MaterialSymbols.txt"
 status=$?
 if [ "$status" -ne 0 ]; then
     printf 'make-linux-library-package: could not write the Material Symbols license notice\n' >&2
+    discard_package
+    exit 1
+fi
+/bin/bash "$repo/Tools/fluent_symbols/write-fluent-icons-license.sh" "$package/LICENSE-FluentSystemIcons.txt"
+status=$?
+if [ "$status" -ne 0 ]; then
+    printf 'make-linux-library-package: could not write the Fluent System Icons license notice\n' >&2
     discard_package
     exit 1
 fi

@@ -61,10 +61,10 @@ extension AsyncImage: ActionUISwiftUIRenderer {
     }
 
     /// Whether SwiftUI.AsyncImage may load `url`: any but a file: URL, which must name a regular file
-    /// (symbolic links followed). A document names the address, and URLSession would read a device
+    /// (symbolic links followed). The JSON names the address, and URLSession would read a device
     /// such as /dev/zero until memory runs out, or hold a thread on a named pipe for good. A missing
     /// file is refused too; it would only fail to load. Also for List and Table asyncImage cells.
     nonisolated static func isLoadable(_ url: URL) -> Bool {
-        !url.isFileURL || ActionUIDocumentLoader.regularFilePath(url) != nil
+        !url.isFileURL || ActionUIContentLoader.regularFilePath(url) != nil
     }
 }

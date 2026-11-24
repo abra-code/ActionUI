@@ -45,7 +45,7 @@ final class TabViewRendererTests: XCTestCase {
         swiftString(adw_view_stack_get_visible_child_name(parts.stack))
     }
 
-    private static let document = #"""
+    private static let json = #"""
         {"type": "TabView", "id": 1, "properties": {"selection": 1, "actionID": "test.tab"}, "children": [
             {"type": "Tab", "id": 2, "properties": {"title": "Home", "systemImage": "house.fill"},
              "content": {"type": "Text", "id": 20, "properties": {"text": "Home page"}}},
@@ -57,7 +57,7 @@ final class TabViewRendererTests: XCTestCase {
         """#
 
     func testEachTabIsAPageWithItsTitleSymbolAndBadge() throws {
-        let node = try render(Self.document)
+        let node = try render(Self.json)
         let parts = try parts(node)
         XCTAssertEqual(parts.contentIDs, [20, 30, 40])
         let home = try XCTUnwrap(parts.pages[20])
@@ -94,7 +94,7 @@ final class TabViewRendererTests: XCTestCase {
     }
 
     func testTabsWithASymbolGetTheSymbolSwitcher() throws {
-        let parts = try parts(render(Self.document))
+        let parts = try parts(render(Self.json))
         XCTAssertTrue(parts.showsSymbols)
         XCTAssertTrue(isA(parts.switcher, adw_view_switcher_get_type()))
     }
@@ -127,7 +127,7 @@ final class TabViewRendererTests: XCTestCase {
     }
 
     func testTheSelectionPicksThePageAndAHostsWriteSwitchesIt() throws {
-        let node = try render(Self.document)
+        let node = try render(Self.json)
         let parts = try parts(node)
         XCTAssertEqual(visible(parts), TabView.pageName(1), "the selection property")
         ActionUIModel.shared.setElementValue(windowUUID: windowUUID, viewID: 1, value: 2)
@@ -144,7 +144,7 @@ final class TabViewRendererTests: XCTestCase {
             MainActor.assumeIsolated { fired.append(context as? Int ?? -1) }
         }
         defer { ActionUIModel.shared.unregisterActionHandler(for: "test.tab") }
-        let node = try render(Self.document)
+        let node = try render(Self.json)
         let parts = try parts(node)
         // As the switcher's button does.
         adw_view_stack_set_visible_child_name(parts.stack, TabView.pageName(0))
@@ -153,7 +153,7 @@ final class TabViewRendererTests: XCTestCase {
     }
 
     func testATabsChangedPropertiesRelabelItsButton() throws {
-        let node = try render(Self.document)
+        let node = try render(Self.json)
         let settings = try XCTUnwrap(parts(node).pages[30])
         ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 3, propertyName: "title", value: "Prefs")
         ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 3, propertyName: "systemImage", value: "star")
@@ -171,7 +171,7 @@ final class TabViewRendererTests: XCTestCase {
             MainActor.assumeIsolated { fired.append(context as? Int ?? -1) }
         }
         defer { ActionUIModel.shared.unregisterActionHandler(for: "test.tab") }
-        let node = try render(Self.document)
+        let node = try render(Self.json)
         let parts = try parts(node)
         _ = try ActionUIModel.shared.insertElement(windowUUID: windowUUID, parentID: 1, json: #"""
             {"type": "Tab", "id": 5, "properties": {"title": "New"},
@@ -186,7 +186,7 @@ final class TabViewRendererTests: XCTestCase {
     }
 
     func testAChangedListOfTabsRebuildsThePages() throws {
-        let node = try render(Self.document)
+        let node = try render(Self.json)
         let parts = try parts(node)
         XCTAssertNoThrow(try ActionUIModel.shared.removeElement(windowUUID: windowUUID, viewID: 2))
         AdwaitaTestHost.drainMainLoop()

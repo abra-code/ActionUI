@@ -2,7 +2,7 @@
 /*
  LoadableView on GTK: the description its source names (the runtime value, else url, filePath or
  name, as on Apple), loaded into the window as the LoadableView's sub-view (Core's
- ActionUIDocumentLoader) and shown as its one child, as a one-child ZStack holds it (SwiftUI shows
+ ActionUIContentLoader) and shown as its one child, as a one-child ZStack holds it (SwiftUI shows
  the loaded view in its place, which a one-child ZStack lays out the same).
 
  - A file (a path, or a file URL) loads while the LoadableView updates, as SwiftUI's
@@ -14,15 +14,15 @@
    color for a file or URL that did not load or parse.
  - A new source loads again, replacing the sub-view and its view models (WindowModel drops the old
    ones); the same source is not loaded again.
- - name is a file of that name in the folder of the document holding the LoadableView (the file an
-   enclosing LoadableView loaded, else the window's document), then in the app's bundle (AppBundle);
+ - name is a file of that name in the folder of the JSON holding the LoadableView (the file an
+   enclosing LoadableView loaded, else the window's JSON), then in the app's bundle (AppBundle);
    found nowhere, it shows Core's "not found" message.
- - A source that a LoadableView around this one already shows (a document that loads itself,
+ - A source that a LoadableView around this one already shows (JSON that loads itself,
    directly or through others), or one nested more than 16 deep, is refused with "Failed to load
-   view: ..." in the error color, by Core's nesting rule (ActionUIDocumentLoader.nestingRefusal), as
+   view: ..." in the error color, by Core's nesting rule (ActionUIContentLoader.nestingRefusal), as
    SwiftUI's LoadableNestingGuard refuses it. Siblings showing the same source stay allowed.
- - A file is read only when it is a regular file (ActionUIDocumentLoader.readRegularFile), so a
-   document cannot name a device or a named pipe and hang the window.
+ - A file is read only when it is a regular file (ActionUIContentLoader.readRegularFile), so a
+   JSON cannot name a device or a named pipe and hang the window.
 */
 
 #if canImport(FoundationEssentials)
@@ -46,14 +46,14 @@ private let loadableStateKey = AttachKey<LoadableState>("actionui-loadable-state
     var generation = 0
     /// The folder of the file loaded, where a LoadableView inside it finds its `name`.
     var loadedFolder: String?
-    /// The source being shown, as Core's nesting rule knows it (ActionUIDocumentLoader.nestingKey):
+    /// The source being shown, as Core's nesting rule knows it (ActionUIContentLoader.nestingKey):
     /// a LoadableView inside this one may not load it again.
     var nestingKey: String?
 }
 
 extension LoadableView: ActionUIAdwaitaRenderer {
     /// viewDidLoadActionID once per source, for every LoadableView on GTK.
-    private static let viewDidLoad = ActionUIDocumentLoader.ViewDidLoad()
+    private static let viewDidLoad = ActionUIContentLoader.ViewDidLoad()
 
     static func makeWidget(_ node: RenderNode) -> WidgetPointer {
         let widget = ZStackLayout.makeStack()
@@ -81,27 +81,27 @@ extension LoadableView: ActionUIAdwaitaRenderer {
             logger.log("No valid source for LoadableView, displaying error text", .warning)
             return showStatus(message("No valid source provided", error: false), widget, state)
         }
-        let documentFolder = documentFolder(of: node)
-        let source = ActionUIDocumentLoader.source(for: value, bundleURL: { name, ext in
+        let contentFolder = contentFolder(of: node)
+        let source = ActionUIContentLoader.source(for: value, bundleURL: { name, ext in
             let file = "\(name).\(ext)"
-            return (AppBundle.file(file, in: documentFolder) ?? AppBundle.resource(file)).map { URL(fileURLWithPath: $0) }
+            return (AppBundle.file(file, in: contentFolder) ?? AppBundle.resource(file)).map { URL(fileURLWithPath: $0) }
         }, logger: logger)
         let windowUUID = node.windowUUID
         let parentID = node.element.id
         let actionID = Props(node.properties).viewDidLoadActionID
         // In a template row it is judged by its row's container, and may not carry another element's
         // id, whose place in the window its content would take.
-        if let refusal = ActionUIDocumentLoader.templateIDRefusal(windowUUID: windowUUID, viewID: parentID, model: node.model, logger: logger) {
+        if let refusal = ActionUIContentLoader.templateIDRefusal(windowUUID: windowUUID, viewID: parentID, model: node.model, logger: logger) {
             return showStatus(message("Failed to load view: \(refusal)", error: true), widget, state)
         }
         let around: JSONContentOrigin? = node.model.templateContext != nil ? LinkTrust.origin(node) : nil
         if case .success(let found) = source {
             // The trust policy may refuse the source (ActionUICapability.load), before anything is read.
-            if let refusal = ActionUIDocumentLoader.loadRefusal(found, windowUUID: windowUUID, parentID: parentID, around: around, logger: logger) {
+            if let refusal = ActionUIContentLoader.loadRefusal(found, windowUUID: windowUUID, parentID: parentID, around: around, logger: logger) {
                 return showStatus(message("Failed to load view: \(refusal)", error: true), widget, state)
             }
-            let key = ActionUIDocumentLoader.nestingKey(for: found)
-            if let refusal = ActionUIDocumentLoader.nestingRefusal(key, inside: enclosingNestingKeys(of: node)) {
+            let key = ActionUIContentLoader.nestingKey(for: found)
+            if let refusal = ActionUIContentLoader.nestingRefusal(key, inside: enclosingNestingKeys(of: node)) {
                 logger.log("LoadableView: not loading \(key): \(refusal)", .error)
                 return showStatus(message("Failed to load view: \(refusal)", error: true), widget, state)
             }
@@ -111,10 +111,10 @@ extension LoadableView: ActionUIAdwaitaRenderer {
         case .failure(let error):
             showStatus(message(error.message, error: false), widget, state)
         case .success(.file(let url)):
-            let format = ActionUIDocumentLoader.format(of: url)
+            let format = ActionUIContentLoader.format(of: url)
             do {
-                let data = try ActionUIDocumentLoader.readRegularFile(url)
-                state.element = try ActionUIDocumentLoader.load(data: data, format: format, windowUUID: windowUUID,
+                let data = try ActionUIContentLoader.readRegularFile(url)
+                state.element = try ActionUIContentLoader.load(data: data, format: format, windowUUID: windowUUID,
                                                                isContentView: false, parentID: parentID, source: .file(url),
                                                                around: around)
                 state.loadedFolder = url.deletingLastPathComponent().path
@@ -139,7 +139,7 @@ extension LoadableView: ActionUIAdwaitaRenderer {
                 let isCurrent = { node?.isAttached == true && state?.generation == generation }
                 let result: Result<ActionUIElement, Error>
                 do {
-                    result = .success(try await ActionUIDocumentLoader.loadRemote(
+                    result = .success(try await ActionUIContentLoader.loadRemote(
                         url: url, windowUUID: windowUUID, isContentView: false, parentID: parentID, around: around, logger: logger,
                         fetch: { url in
                             let fetched = try await URLLoader.data(url, maximumSize: URLLoader.maximumJSONFetchSize)
@@ -208,9 +208,9 @@ extension LoadableView: ActionUIAdwaitaRenderer {
 }
 
 extension LoadableView {
-    /// The folder of the document holding `node`: the file the nearest enclosing LoadableView
-    /// loaded, else the window's document's folder.
-    fileprivate static func documentFolder(of node: RenderNode) -> String? {
+    /// The folder of the JSON holding `node`: the file the nearest enclosing LoadableView
+    /// loaded, else the folder of the window's JSON.
+    fileprivate static func contentFolder(of node: RenderNode) -> String? {
         var ancestor = node.parent
         while let current = ancestor {
             if let widget = current.widget, let state = attached(on: widget, key: loadableStateKey) {
@@ -218,7 +218,7 @@ extension LoadableView {
             }
             ancestor = current.parent
         }
-        return AppBundle.documentFolder(window: node.windowUUID)
+        return AppBundle.contentFolder(window: node.windowUUID)
     }
 
     /// The sources the LoadableViews around `node` show, the outermost first. Only a LoadableView

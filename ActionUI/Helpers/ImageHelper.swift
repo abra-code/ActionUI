@@ -19,11 +19,11 @@ extension SwiftUI.Image {
     // - contentsOfFile: The file path to the image resource
     // Returns: SwiftUI.Image using UIImage (UIKit) or NSImage (AppKit), or a fallback system image
     // Design decision: Uses canImport for platform portability, with fallback to "photo" SF Symbol
-    // Only a regular file is opened (Image and Canvas filePath, resource files): a document names
+    // Only a regular file is opened (Image and Canvas filePath, resource files): the JSON names
     // the path, and a device such as /dev/zero or a named pipe would never finish (or never begin)
     // reading on the main thread.
     init(contentsOfFile requestedPath: String) {
-        guard let contentsOfFile = ActionUIDocumentLoader.regularFilePath(URL(fileURLWithPath: requestedPath)),
+        guard let contentsOfFile = ActionUIContentLoader.regularFilePath(URL(fileURLWithPath: requestedPath)),
               !ImageHelper.declaresTooManyPixels(contentsOfFile) else {
             self.init(systemName: "photo")
             return

@@ -26,13 +26,13 @@ import com.abracode.actionui.Common.LoggerLevel
  *   * [SymbolGlyph] - the low-level draw, given an already-resolved codepoint and
  *     axes. Sizes the glyph relative to the ambient font (scaled by `imageScale`)
  *     or an explicit sp size, and tints it with the inherited [LocalContentColor].
- *   * [SystemSymbolIcon] / [MaterialNameIcon] - resolve a name (SF or Material) to
+ *   * [SFSymbolIcon] / [MaterialNameIcon] - resolve a name (SF or Material) to
  *     a codepoint + axes and draw via [SymbolGlyph], returning `false` (drawing
  *     nothing) when the name has no mapping so the caller can warn/skip.
  *
  * Axis resolution and sizing are the pure helpers in `ImageResolver.kt`
  * ([resolveSymbolWeight], [resolveSymbolFill], [resolveSymbolGrade],
- * [resolveSymbolSizeSp]); the actual glyph draw is [MaterialSymbolGlyph].
+ * [resolveSymbolSizeSp]); the actual glyph draw is [SymbolFontGlyph].
  */
 
 /**
@@ -40,7 +40,8 @@ import com.abracode.actionui.Common.LoggerLevel
  * branch. Size mirrors SF Symbol image sizing - relative to the ambient font,
  * scaled by `imageScale` (cross-platform), or the explicit `materialSize` size in
  * sp; [tint] defaults to the inherited `foregroundStyle` ([LocalContentColor]).
- * The codepoint and axes are already resolved by the caller.
+ * The codepoint, its [font] and the axes are already resolved by the caller; the
+ * axes apply to the Material font only.
  */
 @Composable
 internal fun SymbolGlyph(
@@ -53,6 +54,7 @@ internal fun SymbolGlyph(
     contentDescription: String?,
     tint: Color = LocalContentColor.current,
     modifier: Modifier = Modifier,
+    font: SymbolFont = SymbolFont.MATERIAL,
 ) {
     val ambientFontSizeSp = LocalTextStyle.current.fontSize
         .let { if (it.type == TextUnitType.Sp) it.value else null }
@@ -61,8 +63,9 @@ internal fun SymbolGlyph(
         imageScale = imageScale,
         inheritedFontSizeSp = ambientFontSizeSp,
     )
-    MaterialSymbolGlyph(
+    SymbolFontGlyph(
         codepoint = codepoint,
+        font = font,
         sizeSp = sizeSp.sp,
         tint = tint,
         weight = weight,
@@ -75,13 +78,13 @@ internal fun SymbolGlyph(
 
 /**
  * Resolves an SF Symbol [name] to a Material glyph via the bundled SF->Material
- * map ([systemSymbol]) and draws it, applying the precedence **explicit override
+ * map ([sfSymbol]) and draws it, applying the precedence **explicit override
  * > per-row map tuning > default** for each axis. Returns `false` (drawing
  * nothing) when [name] has no mapping or the map asset is absent, so the caller
  * can warn/skip. The codepoint lookup is `remember`ed per name.
  */
 @Composable
-internal fun SystemSymbolIcon(
+internal fun SFSymbolIcon(
     name: String,
     explicitWeight: Int?,
     explicitFill: Float?,
@@ -94,7 +97,7 @@ internal fun SystemSymbolIcon(
     logger: com.abracode.actionui.Common.ActionUILogger? = null,
 ): Boolean {
     val assets = LocalContext.current.assets
-    val entry = remember(name, assets) { systemSymbol(name, assets, logger) } ?: return false
+    val entry = remember(name, assets) { sfSymbol(name, assets, logger) } ?: return false
     SymbolGlyph(
         codepoint = entry.codepoint,
         weight = resolveSymbolWeight(explicitWeight, entry.weight),
@@ -105,6 +108,7 @@ internal fun SystemSymbolIcon(
         contentDescription = contentDescription,
         tint = tint,
         modifier = modifier,
+        font = entry.font,
     )
     return true
 }
@@ -235,8 +239,8 @@ internal fun LabelIcon(
             return rendered
         }
 
-        is ImageSource.SystemSymbol -> {
-            val rendered = SystemSymbolIcon(
+        is ImageSource.SFSymbol -> {
+            val rendered = SFSymbolIcon(
                 name = source.name,
                 explicitWeight = source.explicitWeight,
                 explicitFill = source.explicitFill,

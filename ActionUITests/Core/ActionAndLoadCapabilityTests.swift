@@ -50,7 +50,7 @@ final class ActionAndLoadCapabilityTests: XCTestCase {
     private var recording: RecordingLogger!
 
     override func setUp() async throws {
-        // No super.setUp(): see DocumentLoaderTests.
+        // No super.setUp(): see ActionUIContentLoaderTests.
         recording = RecordingLogger()
         ActionUIModel.shared.logger = recording
         ActionUIRegistry.shared.resetForTesting()
@@ -72,9 +72,9 @@ final class ActionAndLoadCapabilityTests: XCTestCase {
 
     /// The window's root from the host, and less-trusted remote content in LoadableView 100.
     private func loadWindow() async throws {
-        _ = try ActionUIDocumentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
+        _ = try ActionUIContentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
         let data = panel
-        _ = try await ActionUIDocumentLoader.loadRemote(url: URL(string: "https://example.com/panel.json")!, windowUUID: windowUUID,
+        _ = try await ActionUIContentLoader.loadRemote(url: URL(string: "https://example.com/panel.json")!, windowUUID: windowUUID,
                                                         isContentView: false, parentID: 100, logger: recording) { url in (data, url) }
     }
 
@@ -117,9 +117,9 @@ final class ActionAndLoadCapabilityTests: XCTestCase {
     }
 
     func testContentWithElementIDZeroIsNotTakenForTheHost() async throws {
-        _ = try ActionUIDocumentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
+        _ = try ActionUIContentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
         let data = Data(#"{"id": 0, "type": "Button", "properties": {"title": "Run", "actionID": "test.run"}}"#.utf8)
-        let element = try await ActionUIDocumentLoader.loadRemote(url: URL(string: "https://example.com/zero.json")!, windowUUID: windowUUID,
+        let element = try await ActionUIContentLoader.loadRemote(url: URL(string: "https://example.com/zero.json")!, windowUUID: windowUUID,
                                                                   isContentView: false, parentID: 100, logger: recording) { url in (data, url) }
         XCTAssertLessThan(element.id, -1, "the id 0 is replaced by a generated one")
         XCTAssertNil(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 0), "no element is known by the id 0")
@@ -133,13 +133,13 @@ final class ActionAndLoadCapabilityTests: XCTestCase {
     }
 
     func testAPolicyIsAskedAgainAboutTheAddressARedirectReaches() async throws {
-        _ = try ActionUIDocumentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
+        _ = try ActionUIContentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
         ActionUIModel.shared.trustPolicy = RefusesHost(host: "elsewhere.example.com")
         let data = panel
         let asked = URL(string: "https://example.com/panel.json")!
-        XCTAssertNil(ActionUIDocumentLoader.loadRefusal(.remote(asked), windowUUID: windowUUID, parentID: 100, logger: recording))
+        XCTAssertNil(ActionUIContentLoader.loadRefusal(.remote(asked), windowUUID: windowUUID, parentID: 100, logger: recording))
         do {
-            _ = try await ActionUIDocumentLoader.loadRemote(url: asked, windowUUID: windowUUID, isContentView: false, parentID: 100,
+            _ = try await ActionUIContentLoader.loadRemote(url: asked, windowUUID: windowUUID, isContentView: false, parentID: 100,
                                                             logger: recording) { _ in (data, URL(string: "https://elsewhere.example.com/panel.json")!) }
             XCTFail("the redirect's address is refused")
         } catch {
@@ -183,14 +183,14 @@ final class ActionAndLoadCapabilityTests: XCTestCase {
     }
 
     func testAPolicyThatRefusesALoadHasItsWay() throws {
-        _ = try ActionUIDocumentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
-        XCTAssertNil(ActionUIDocumentLoader.loadRefusal(.remote(URL(string: "https://example.com/a.json")!), windowUUID: windowUUID,
+        _ = try ActionUIContentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
+        XCTAssertNil(ActionUIContentLoader.loadRefusal(.remote(URL(string: "https://example.com/a.json")!), windowUUID: windowUUID,
                                                         parentID: 100, logger: recording), "the default policy allows it")
         let policy = StrictPolicy()
         ActionUIModel.shared.trustPolicy = policy
-        XCTAssertEqual(ActionUIDocumentLoader.loadRefusal(.remote(URL(string: "https://example.com/a.json")!), windowUUID: windowUUID,
+        XCTAssertEqual(ActionUIContentLoader.loadRefusal(.remote(URL(string: "https://example.com/a.json")!), windowUUID: windowUUID,
                                                           parentID: 100, logger: recording), "the trust policy refuses it")
-        XCTAssertNil(ActionUIDocumentLoader.loadRefusal(.file(URL(fileURLWithPath: "/tmp/a.json")), windowUUID: windowUUID,
+        XCTAssertNil(ActionUIContentLoader.loadRefusal(.file(URL(fileURLWithPath: "/tmp/a.json")), windowUUID: windowUUID,
                                                         parentID: 100, logger: recording), "a file is not refused by this policy")
         let loads = policy.asked.filter { if case .load = $0.0 { return true }; return false }
         XCTAssertEqual(loads.count, 2)

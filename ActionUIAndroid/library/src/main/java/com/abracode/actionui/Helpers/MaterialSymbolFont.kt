@@ -28,9 +28,34 @@ import kotlin.math.roundToInt
  * ([materialCodepoint]) and the axis values ([selectImageSource]); this file owns
  * the font instantiation and the draw.
  *
+ * ## The bundled fonts
+ *
+ * Both are made by the library's Gradle build (generateSymbolFonts, running
+ * Tools/material_symbols/make_symbol_fonts.py) and packaged as generated
+ * assets:
+ *
+ * - `assets/fonts/MaterialSymbols.ttf`: every glyph of Material Symbols Rounded,
+ *   variable on `wght` and `FILL`, with `GRAD` pinned at 0 and `opsz` at 24 (as
+ *   Linux and Windows draw it; the whole font is ~15 MB, this one ~4.3 MB). The
+ *   `GRAD` and `opsz` values below are still sent; a font without those axes
+ *   ignores them, so `materialGrade` has no effect; it is still read, but no
+ *   longer documented (the element schemas leave it out). To make it work again:
+ *   keep the grade axis in the font by deleting "GRAD" from
+ *   `MATERIAL_PINNED_AXES` in make_symbol_fonts.py (the font grows from ~4.2 MB
+ *   to ~8.7 MB, about 2 MB compressed), and list `materialGrade` again in the
+ *   ActionUIVerifier schemas of Image, Label, Button, NavigationLink, Tab and
+ *   ContentUnavailableView ("(Android only) Material Symbols 'GRAD' axis,
+ *   -50..200; defaults to 0"). Nothing in this library changes: the grade read
+ *   from `materialGrade` already reaches [materialVariationSettings].
+ * - `assets/fonts/FluentSymbols.ttf`: the Fluent System Icons glyphs that stand
+ *   in for the SF names Material has no glyph for ([SymbolFont.FLUENT] rows of the
+ *   SF map), at their own code points, static (weight and fill do not apply).
+ *   Its code points overlap Material's, so each glyph is drawn from the font its
+ *   map row names ([symbolFontFamily]).
+ *
  * ## Why a variable font + `setFontVariationSettings`, not Compose `FontVariation`
  *
- * The font exposes four axes (confirmed from its `fvar` table):
+ * The upstream font exposes four axes (two are pinned in the bundled one):
  *
  * | Axis   | Range        | Default | Meaning                                  |
  * |--------|--------------|---------|------------------------------------------|
@@ -59,7 +84,11 @@ import kotlin.math.roundToInt
  * handful of sizes accumulated 15 MB each and could OOM outright.)
  */
 
-internal const val MATERIAL_SYMBOLS_FONT_ASSET = "fonts/MaterialSymbolsRounded.ttf"
+internal const val MATERIAL_SYMBOLS_FONT_ASSET = "fonts/MaterialSymbols.ttf"
+internal const val FLUENT_SYMBOLS_FONT_ASSET = "fonts/FluentSymbols.ttf"
+
+/** The bundled font a symbol glyph's code point belongs to. */
+internal enum class SymbolFont { MATERIAL, FLUENT }
 
 internal const val MATERIAL_WEIGHT_MIN = 100
 internal const val MATERIAL_WEIGHT_MAX = 700
@@ -91,45 +120,43 @@ private data class AxisKey(val weight: Int, val fill: Float, val grade: Int, val
 private val familyCache = ConcurrentHashMap<AxisKey, FontFamily>()
 
 // The font bytes, read from the asset ONCE and shared by every axis instance.
-// Typeface.Builder(assets, path) copies the ~15 MB font into a fresh direct
+// Typeface.Builder(assets, path) copies the whole font into a fresh direct
 // ByteBuffer PER BUILD (VMRuntime.newNonMovableArray counts against the Java
 // heap), so an app whose glyphs appear at a handful of distinct sizes used to
-// accumulate 15 MB per (wght, FILL, GRAD, opsz) tuple and could OOM outright
-// (observed: a 3-screen restore hit the 192 MB growth limit). Building each
-// instance from one shared buffer via Font.Builder(ByteBuffer) keeps the font
-// bytes in memory exactly once. The one-time load is synchronized: a first-use
-// race would otherwise pin a SECOND 15 MB copy permanently through the losing
+// accumulate 15 MB (the font's size then) per (wght, FILL, GRAD, opsz) tuple
+// and could OOM outright (observed: a 3-screen restore hit the 192 MB growth
+// limit). Building each instance from one shared buffer via
+// Font.Builder(ByteBuffer) keeps the font bytes in memory exactly once. The one-time load is synchronized: a first-use
+// race would otherwise pin a SECOND copy permanently through the losing
 // thread's cached Font (cheap - this is a cold path taken once per process).
-@Volatile
-private var sharedFontBuffer: java.nio.ByteBuffer? = null
+// One buffer per font asset (Material's and Fluent's).
+private val sharedFontBuffers = ConcurrentHashMap<String, java.nio.ByteBuffer>()
 private val fontBufferLock = Any()
 
-private fun sharedFontBuffer(assets: AssetManager): java.nio.ByteBuffer? {
-    sharedFontBuffer?.let { return it }
+private fun sharedFontBuffer(assets: AssetManager, asset: String): java.nio.ByteBuffer? {
+    sharedFontBuffers[asset]?.let { return it }
     synchronized(fontBufferLock) {
-        sharedFontBuffer?.let { return it }
+        sharedFontBuffers[asset]?.let { return it }
         return try {
-            val bytes = assets.open(MATERIAL_SYMBOLS_FONT_ASSET).use { it.readBytes() }
+            val bytes = assets.open(asset).use { it.readBytes() }
             val buf = java.nio.ByteBuffer.allocateDirect(bytes.size)
             buf.put(bytes)
             buf.flip()
-            sharedFontBuffer = buf
+            sharedFontBuffers[asset] = buf
             buf
         } catch (e: Exception) {
-            // Asset missing (e.g. the fetchMaterialSymbols Gradle task did not
-            // run): do NOT cache the failure, so a later build that adds the font
-            // recovers without a process restart - the pre-existing contract.
+            // Asset missing: do NOT cache the failure, so a later build that adds
+            // the font recovers without a process restart - the pre-existing contract.
             null
         }
     }
 }
 
 /**
- * Returns a [FontFamily] backed by the bundled variable font instanced at the
- * given axes, cached by (weight, fill, grade, opsz). Every instance shares ONE
+ * Returns a [FontFamily] backed by the bundled Material variable font instanced at
+ * the given axes, cached by (weight, fill, grade, opsz). Every instance shares ONE
  * read-only copy of the font bytes ([sharedFontBuffer]); only the small platform
- * font objects differ per axis tuple. If the font asset is missing (e.g. the
- * [fetchMaterialSymbols] Gradle task did not run), falls back to
+ * font objects differ per axis tuple. If the font asset is missing, falls back to
  * [FontFamily.Default] without caching, so a later build that adds the font
  * recovers without a process restart.
  */
@@ -142,28 +169,64 @@ internal fun materialSymbolFontFamily(
 ): FontFamily {
     val key = AxisKey(weight, fill, grade, opsz.roundToInt())
     familyCache[key]?.let { return it }
-
-    val typeface: Typeface? = try {
-        val buffer = sharedFontBuffer(assets)
-        if (buffer == null) {
-            null
-        } else {
-            // slice(): an independent position/limit view of the SAME bytes, so
-            // concurrent builds cannot disturb each other's read cursor.
-            val font = android.graphics.fonts.Font.Builder(buffer.slice())
-                .setFontVariationSettings(materialVariationSettings(weight, fill, grade, key.opsz.toFloat()))
-                .build()
-            Typeface.CustomFallbackBuilder(android.graphics.fonts.FontFamily.Builder(font).build()).build()
-        }
-    } catch (e: Exception) {
-        null
+    val typeface = typefaceOf(assets, MATERIAL_SYMBOLS_FONT_ASSET) {
+        setFontVariationSettings(materialVariationSettings(weight, fill, grade, key.opsz.toFloat()))
     }
-
     return if (typeface != null) {
         FontFamily(typeface).also { familyCache[key] = it }
     } else {
         FontFamily.Default
     }
+}
+
+@Volatile
+private var fluentFamily: FontFamily? = null
+
+/**
+ * Returns the [FontFamily] of the bundled Fluent font (static: no axes), built once
+ * from its shared bytes. Falls back to [FontFamily.Default] without caching when the
+ * asset is missing, as [materialSymbolFontFamily] does.
+ */
+internal fun fluentSymbolFontFamily(assets: AssetManager): FontFamily {
+    fluentFamily?.let { return it }
+    val typeface = typefaceOf(assets, FLUENT_SYMBOLS_FONT_ASSET) { this }
+        ?: return FontFamily.Default
+    return FontFamily(typeface).also { fluentFamily = it }
+}
+
+/**
+ * The [FontFamily] to draw a glyph of [font] with: the Material font at the given
+ * axes, or the Fluent font, to which the axes do not apply.
+ */
+internal fun symbolFontFamily(
+    assets: AssetManager,
+    font: SymbolFont,
+    weight: Int,
+    fill: Float,
+    grade: Int,
+    opsz: Float,
+): FontFamily = when (font) {
+    SymbolFont.MATERIAL -> materialSymbolFontFamily(assets, weight, fill, grade, opsz)
+    SymbolFont.FLUENT -> fluentSymbolFontFamily(assets)
+}
+
+/** A platform [Typeface] over the shared bytes of [asset], or null when it cannot be built. */
+private fun typefaceOf(
+    assets: AssetManager,
+    asset: String,
+    configure: android.graphics.fonts.Font.Builder.() -> android.graphics.fonts.Font.Builder,
+): Typeface? = try {
+    val buffer = sharedFontBuffer(assets, asset)
+    if (buffer == null) {
+        null
+    } else {
+        // slice(): an independent position/limit view of the SAME bytes, so
+        // concurrent builds cannot disturb each other's read cursor.
+        val font = android.graphics.fonts.Font.Builder(buffer.slice()).configure().build()
+        Typeface.CustomFallbackBuilder(android.graphics.fonts.FontFamily.Builder(font).build()).build()
+    }
+} catch (e: Exception) {
+    null
 }
 
 /**
@@ -185,10 +248,31 @@ fun MaterialSymbolGlyph(
     contentDescription: String? = null,
     modifier: Modifier = Modifier,
 ) {
+    SymbolFontGlyph(
+        codepoint, SymbolFont.MATERIAL, sizeSp, tint, weight, fill, grade, contentDescription, modifier,
+    )
+}
+
+/**
+ * Renders [codepoint] of the bundled [font] as a tinted glyph at [sizeSp], as
+ * [MaterialSymbolGlyph] does; for [SymbolFont.FLUENT] the axes are ignored.
+ */
+@Composable
+internal fun SymbolFontGlyph(
+    codepoint: Int,
+    font: SymbolFont,
+    sizeSp: TextUnit,
+    tint: Color,
+    weight: Int,
+    fill: Float,
+    grade: Int,
+    contentDescription: String?,
+    modifier: Modifier,
+) {
     val assets = LocalContext.current.assets
     val opsz = sizeSp.value.coerceIn(MATERIAL_OPSZ_MIN, MATERIAL_OPSZ_MAX)
-    val family = remember(weight, fill, grade, opsz.roundToInt(), assets) {
-        materialSymbolFontFamily(assets, weight, fill, grade, opsz)
+    val family = remember(font, weight, fill, grade, opsz.roundToInt(), assets) {
+        symbolFontFamily(assets, font, weight, fill, grade, opsz)
     }
     val glyph = remember(codepoint) { String(Character.toChars(codepoint)) }
     val described = if (contentDescription != null) {

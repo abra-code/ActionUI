@@ -25,7 +25,7 @@ final class ElementIDRuleTests: XCTestCase {
     private var recording: RecordingLogger!
 
     override func setUp() async throws {
-        // No super.setUp(): see DocumentLoaderTests.
+        // No super.setUp(): see ActionUIContentLoaderTests.
         recording = RecordingLogger()
         ActionUIModel.shared.logger = recording
         ActionUIRegistry.shared.resetForTesting()
@@ -39,7 +39,7 @@ final class ElementIDRuleTests: XCTestCase {
     }
 
     private func load(_ json: String) throws -> ActionUIElement {
-        try ActionUIDocumentLoader.load(data: Data(json.utf8), format: "json", windowUUID: windowUUID, isContentView: true,
+        try ActionUIContentLoader.load(data: Data(json.utf8), format: "json", windowUUID: windowUUID, isContentView: true,
                                         parentID: 0, source: nil)
     }
 

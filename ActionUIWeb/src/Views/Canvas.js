@@ -12,7 +12,8 @@
 //     and re-rendered on resize (ResizeObserver), so the drawing stays crisp and
 //     responsive without a JS layout loop.
 //   * Async resources trigger a redraw when they become available: the
-//     SF->Material symbol map (systemName glyphs), the Material Symbols web font
+//     SF->Material and SF->Fluent symbol maps and the Fluent fill-in font
+//     (systemName glyphs), the Material Symbols web font
 //     (any glyph), and raster images (resourceName/filePath -> a URL <img>). Until
 //     then the affected op draws nothing (no layout shift), matching the
 //     "blank for one frame then fills" stance of the Image element.
@@ -23,10 +24,11 @@
 import { HOST_ORIGIN } from "../Common/TrustPolicy.js";
 import { register } from "../Common/ActionUIRegistry.js";
 import { drawCanvasOperations, parseCanvasOperations } from "../Helpers/CanvasRenderer.js";
-import { resolveSystemSymbol, preloadSymbolMap } from "../Helpers/MaterialSymbolResolver.js";
+import { resolveSFSymbol, preloadSymbolMap } from "../Helpers/MaterialSymbolResolver.js";
 
 const VALID_COORDINATE_MODES = ["normalized", "points"];
 const MATERIAL_FONT_SPEC = '24px "Material Symbols Rounded"';
+const FLUENT_FONT_SPEC = '24px "ActionUI Fluent Symbols"';
 
 register("Canvas", {
     valueType: "none",
@@ -64,6 +66,7 @@ register("Canvas", {
         const warned = new Set();
         const images = new Map(); // url -> { img, status: "loading"|"ready"|"failed" }
         let fontReady = false;
+        let fluentFontReady = false;
         let destroyed = false;
 
         const scheduleRedraw = () => {
@@ -98,9 +101,10 @@ register("Canvas", {
         const env = {
             logger: ctx.logger,
             get glyphColor() { return getComputedStyle(canvas).color || "#000000"; },
-            resolveSymbol: resolveSystemSymbol,
+            resolveSymbol: resolveSFSymbol,
             image,
             get fontReady() { return fontReady; },
+            get fluentFontReady() { return fluentFontReady; },
             warned,
         };
 
@@ -126,8 +130,18 @@ register("Canvas", {
         };
 
         // Load the async resources the ops need, then redraw. Only systemName
-        // glyphs need the SF->Material map; any glyph needs the Material font.
-        if (opsNeedSymbolMap(ops)) preloadSymbolMap(ctx.logger).then(scheduleRedraw);
+        // glyphs need the symbol maps, and may need the Fluent font (a name only
+        // the Fluent map has); any glyph needs the Material font.
+        if (opsNeedSymbolMap(ops)) {
+            preloadSymbolMap(ctx.logger).then(scheduleRedraw);
+            if (document.fonts && document.fonts.load) {
+                document.fonts.load(FLUENT_FONT_SPEC).then((faces) => {
+                    if (faces.some((face) => face.status === "loaded")) { fluentFontReady = true; scheduleRedraw(); }
+                }).catch(() => {});
+            } else {
+                fluentFontReady = true;
+            }
+        }
         if (opsNeedFont(ops)) {
             if (document.fonts && document.fonts.load) {
                 document.fonts.load(MATERIAL_FONT_SPEC).then(() => { fontReady = true; scheduleRedraw(); }).catch(() => {});

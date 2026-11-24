@@ -102,7 +102,7 @@ package enum URLLoader {
     }
 
     /// `url`'s bytes as Data, with the address they finally came from (after redirects), for a
-    /// caller that takes an asynchronous fetch (ActionUIDocumentLoader); throws when fetch gives nil.
+    /// caller that takes an asynchronous fetch (ActionUIContentLoader); throws when fetch gives nil.
     static func data(_ url: URL, maximumSize: Int? = nil) async throws -> (data: Data, finalURL: URL) {
         let bytes = await withCheckedContinuation { continuation in
             fetch(url.absoluteString, maximumSize: maximumSize) { continuation.resume(returning: $0) }
@@ -152,7 +152,7 @@ package enum URLLoader {
     }
 
     private static func fetchFile(_ url: String, _ completion: @escaping @MainActor (LoadedBytes?) -> Void) {
-        // Only a regular file: a document names the address, and GIO would read a device such as
+        // Only a regular file: the JSON names the address, and GIO would read a device such as
         // /dev/zero until memory runs out, or hold a worker thread on a named pipe for good.
         // GIO checks the file it will read (symbolic links followed): a path through Swift's String
         // would lose a file name that is not UTF-8.

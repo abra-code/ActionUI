@@ -2,8 +2,8 @@
 /*
  Tests for elements whose type is given only for other platforms: after PlatformFilter such an
  element has no type, and loading skips it (in a child list, a grid row and a single subview)
- instead of failing the document, from JSON, a property list and a dictionary, and in an inserted
- element (which itself still needs a type). A document whose root has no type still fails.
+ instead of failing the whole load, from JSON, a property list and a dictionary, and in an inserted
+ element (which itself still needs a type). ActionUI JSON whose root has no type still fails.
 */
 
 import XCTest
@@ -21,7 +21,7 @@ final class TypelessElementTests: XCTestCase {
     }
 
     /// No platform these tests run on is watchOS, so "type:watchos" leaves no type.
-    private static let document: [String: Any] = [
+    private static let json: [String: Any] = [
         "type": "VStack", "id": 1,
         "children": [
             ["type": "Text", "id": 2],
@@ -46,7 +46,7 @@ final class TypelessElementTests: XCTestCase {
 
     func testJSONSkipsAnElementWithNoTypeHere() throws {
         let model = WindowModel(windowUUID: "typeless-json", logger: logger)
-        let data = try JSONSerialization.data(withJSONObject: Self.document)
+        let data = try JSONSerialization.data(withJSONObject: Self.json)
         check(try model.loadDescription(from: data, format: "json"))
         XCTAssertNil(model.viewModels[3], "no view model for the skipped element")
         XCTAssertNotNil(model.viewModels[4])
@@ -54,13 +54,13 @@ final class TypelessElementTests: XCTestCase {
 
     func testAPropertyListSkipsAnElementWithNoTypeHere() throws {
         let model = WindowModel(windowUUID: "typeless-plist", logger: logger)
-        let data = try PropertyListSerialization.data(fromPropertyList: Self.document, format: .binary, options: 0)
+        let data = try PropertyListSerialization.data(fromPropertyList: Self.json, format: .binary, options: 0)
         check(try model.loadDescription(from: data, format: "plist"))
     }
 
     func testADictionarySkipsAnElementWithNoTypeHere() throws {
         let model = WindowModel(windowUUID: "typeless-dictionary", logger: logger)
-        check(try model.loadDescription(from: Self.document))
+        check(try model.loadDescription(from: Self.json))
     }
 
     func testAGridRowSkipsACellWithNoTypeHere() throws {

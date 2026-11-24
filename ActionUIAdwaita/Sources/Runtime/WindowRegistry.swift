@@ -26,8 +26,8 @@ import CAdwaita
 package final class WindowRegistry {
     package static let shared = WindowRegistry()
 
-    /// A window showing a document: its GTK window and its render tree (nil while it shows why its
-    /// document could not be loaded).
+    /// A window showing ActionUI JSON: its GTK window and its render tree (nil while it shows why its
+    /// JSON could not be loaded).
     final class Entry {
         let window: UnsafeMutablePointer<GtkWindow>
         let renderTree: AdwaitaWindow?

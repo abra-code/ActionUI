@@ -26,7 +26,7 @@
 // lands), matching Apple/Android where the load is keyed on the resolved URL.
 
 import { register } from "../Common/ActionUIRegistry.js";
-import { systemSymbolGlyph } from "../Helpers/SymbolIcon.js";
+import { sfSymbolGlyph } from "../Helpers/SymbolIcon.js";
 
 const CONTENT_MODES = ["fit", "fill"];
 const DEFAULT_PLACEHOLDER = "photo";
@@ -126,7 +126,7 @@ function render(node, url, config, ctx) {
 }
 
 function makePlaceholder(name, ctx) {
-    return systemSymbolGlyph(name, { imageScale: "large" }, ctx.logger, (n) =>
+    return sfSymbolGlyph(name, { imageScale: "large" }, ctx.logger, (n) =>
         `AsyncImage placeholder '${n}' has no SF->Material mapping; nothing shown while ` +
         `loading/failed. Use a mapped SF Symbol name for the placeholder.`);
 }

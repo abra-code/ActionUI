@@ -172,7 +172,7 @@ private func showTool(host: WindowHost, label: String?) -> MCPTool {
         "title": ["type": "string", "description": "Window title."],
         "kind": ["type": "string", "enum": kinds,
                  "description": .string(kindText)],
-        "text": ["type": "string", "description": "Content for markdown, text, and web (HTML)."],
+        "text": ["type": "string", "description": "Content for markdown (Markdown only: HTML tags such as <img> show as plain text), text, and web (HTML)."],
         "path": ["type": "string", "description": "Absolute path of a local file for image, pdf, file, video."],
         "url": ["type": "string", "description": "http(s) URL for image, video, web."],
         "base": ["type": "string", "description": "For markdown: absolute path of the folder that relative image paths in text resolve against (or of a file in it), such as the folder where you wrote the images the report shows."],
@@ -212,9 +212,11 @@ private func showTool(host: WindowHost, label: String?) -> MCPTool {
             Open a native \(HostPlatform.systemName) window that presents content to the user: \(shows). Returns \
             {window, warnings?} at once without waiting; the window stays open until the user closes it, you call \
             close_window, or this session ends (with keep: true, until the user closes it). \(focus) For a report \
-            with images, write the images to a folder and pass it as base with markdown text. For an HTML page with \
-            images or other files, write the page and its files into one folder and show the page with kind file: it \
-            loads files beside and below it, not from parent folders. HTML passed in text can use no local files.
+            with images, write the images to a folder, pass it as base with markdown text, and put each image in \
+            the text as ![alt](name.png): markdown shows HTML tags such as <img> as plain text, so to change an \
+            image's size, resize the image file. For an HTML page with images or other files, write the page and \
+            its files into one folder and show the page with kind file: it loads files beside and below it, not \
+            from parent folders. HTML passed in text can use no local files.
             """,
         inputSchema: input,
         outputSchema: output,

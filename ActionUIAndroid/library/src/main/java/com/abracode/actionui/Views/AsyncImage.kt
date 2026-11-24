@@ -21,7 +21,7 @@ import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Helpers.LOADABLE_REMOTE_TIMEOUT_MS
 import com.abracode.actionui.Helpers.withLoadDeadline
-import com.abracode.actionui.Helpers.SystemSymbolIcon
+import com.abracode.actionui.Helpers.SFSymbolIcon
 import com.abracode.actionui.Helpers.booleanProperty
 import com.abracode.actionui.Helpers.decodeBytesWithinCap
 import com.abracode.actionui.Helpers.readRegularFileBytes
@@ -64,7 +64,7 @@ import kotlinx.serialization.json.JsonPrimitive
  *
  * **Phases** (SwiftUI `AsyncImagePhase` parity): while loading and on failure
  * the `placeholder` SF Symbol renders through the shared glyph helper
- * (`SystemSymbolIcon`, the same SF->Material path as `Image`'s `systemName`);
+ * (`SFSymbolIcon`, the same SF->Material path as `Image`'s `systemName`);
  * on success the bitmap renders. A missing/empty `url` warns and shows the
  * placeholder, like the Apple builder.
  *
@@ -162,7 +162,7 @@ object AsyncImage : ActionUIViewConstruction {
     /** The loading/failure glyph - `placeholder` through the shared SF-symbol helper. */
     @Composable
     private fun Placeholder(config: AsyncImageConfig, modifier: Modifier, logger: ActionUILogger) {
-        val rendered = SystemSymbolIcon(
+        val rendered = SFSymbolIcon(
             name = config.placeholder,
             explicitWeight = null,
             explicitFill = null,

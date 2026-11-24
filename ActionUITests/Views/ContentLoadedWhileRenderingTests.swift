@@ -1,4 +1,4 @@
-// Views/DocumentLoadedWhileRenderingTests.swift
+// Views/ContentLoadedWhileRenderingTests.swift
 /*
  A description can load while a view renders: a host builds FileLoadableView in a window's
  content (ActionUISwift.loadView), and a LoadableView element loads its file from buildView.
@@ -15,7 +15,7 @@ import AppKit
 @testable import ActionUI
 
 @MainActor
-final class DocumentLoadedWhileRenderingTests: XCTestCase {
+final class ContentLoadedWhileRenderingTests: XCTestCase {
     private var windowUUID: String!
 
     override func setUp() async throws {
@@ -35,7 +35,7 @@ final class DocumentLoadedWhileRenderingTests: XCTestCase {
 
     private static let listID = 920
 
-    private static let document: [String: Any] = [
+    private static let json: [String: Any] = [
         "type": "VStack", "id": 1,
         "children": [[
             "type": "List", "id": listID, "properties": ["frame": ["height": 150]],
@@ -49,7 +49,7 @@ final class DocumentLoadedWhileRenderingTests: XCTestCase {
         let windowUUID: String
         let isContentView: Bool
         var body: some SwiftUI.View {
-            FileLoadableView(data: data, sourceName: "document", windowUUID: windowUUID,
+            FileLoadableView(data: data, sourceName: "json", windowUUID: windowUUID,
                              isContentView: isContentView, logger: ActionUIModel.shared.logger)
         }
     }
@@ -70,7 +70,7 @@ final class DocumentLoadedWhileRenderingTests: XCTestCase {
             // A sub-view load joins a window that already exists.
             _ = try ActionUIModel.shared.loadDescription(from: ["type": "VStack", "id": 500], windowUUID: windowUUID)
         }
-        let data = try JSONSerialization.data(withJSONObject: Self.document)
+        let data = try JSONSerialization.data(withJSONObject: Self.json)
         let host = NSHostingView(rootView: HostContent(data: data, windowUUID: windowUUID, isContentView: isContentView)
             .frame(width: 400, height: 400))
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 400), styleMask: [.titled],
@@ -107,11 +107,11 @@ final class DocumentLoadedWhileRenderingTests: XCTestCase {
         defer { ActionUIRendererHooks.resourceFolders = savedFolders }
         ActionUIRendererHooks.resourceFolders = { [folder.path] }
         let file = folder.appendingPathComponent("Self.json")
-        let document: [String: Any] = [
+        let windowJSON: [String: Any] = [
             "type": "VStack", "id": 1,
             "children": [["type": "LoadableView", "id": 2, "properties": ["filePath": file.path]]],
         ]
-        try JSONSerialization.data(withJSONObject: document).write(to: file)
+        try JSONSerialization.data(withJSONObject: windowJSON).write(to: file)
         let logger = CapturingLogger()
         ActionUIModel.shared.logger = logger
 
@@ -126,10 +126,10 @@ final class DocumentLoadedWhileRenderingTests: XCTestCase {
 
         XCTAssertTrue(logger.messages.contains { $0.contains("it includes itself") }, "\(logger.messages.suffix(5))")
         let loads = logger.messages.filter { $0.hasPrefix("Successfully loaded json for LoadableView from") }.count
-        XCTAssertLessThanOrEqual(loads, 4, "the document loaded \(loads) times")
+        XCTAssertLessThanOrEqual(loads, 4, "the JSON loaded \(loads) times")
     }
 
-    /// Documents that each list all the others multiply their loads past the depth limit (about 2000
+    /// JSON files that each list all the others multiply their loads past the depth limit (about 2000
     /// loads in 4 seconds before the load budget); the budget stops them at its count.
     func testJSONFilesThatListEachOtherStopAtTheLoadBudget() throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("measure-loop-\(UUID().uuidString)")
@@ -168,7 +168,7 @@ final class DocumentLoadedWhileRenderingTests: XCTestCase {
         XCTAssertLessThan(Date().timeIntervalSince(start), 10)
     }
 
-    func testRowsSurviveWhenTheHostLoadsTheDocumentInItsWindowContent() throws {
+    func testRowsSurviveWhenTheHostLoadsTheJSONInItsWindowContent() throws {
         try checkRowsSurvive(isContentView: true)
     }
 
@@ -195,7 +195,7 @@ final class DocumentLoadedWhileRenderingTests: XCTestCase {
 
         func show(templateID: Int) throws {
             windowUUID = UUID().uuidString
-            let document: [String: Any] = [
+            let windowJSON: [String: Any] = [
                 "type": "VStack", "id": 1,
                 "children": [
                     ["type": "LoadableView", "id": 100],
@@ -204,7 +204,7 @@ final class DocumentLoadedWhileRenderingTests: XCTestCase {
                                   "properties": ["filePath": file.path, "viewDidLoadActionID": "row.loaded"]]],
                 ],
             ]
-            let data = try JSONSerialization.data(withJSONObject: document)
+            let data = try JSONSerialization.data(withJSONObject: windowJSON)
             let host = NSHostingView(rootView: HostContent(data: data, windowUUID: windowUUID, isContentView: true)
                 .frame(width: 400, height: 400))
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 400), styleMask: [.titled],

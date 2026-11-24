@@ -9,7 +9,7 @@
  popover showing a rebuilt submenu as it is now, one page each; titles with underscores shown as written;
  keyboardShortcut as GTK accelerators; an item's action firing its actionID with the element's id;
  a disabled item's action disabled; About's name, version and copyright line; Ctrl+Q quitting;
- a WindowGroup document as its content, its title and its commands (its platform overrides
+ a WindowGroup's JSON as its content, its title and its commands (its platform overrides
  applied), loaded once per group, and not before its window shows; one that cannot be loaded
  brings none.
 */
@@ -335,14 +335,14 @@ final class AppCommandsTests: XCTestCase {
                        "greyed out, as AppKit shows a menu item without an action")
     }
 
-    func testAWindowGroupDocumentIsItsContentWithItsTitle() throws {
-        let document = #"""
+    func testAWindowGroupGivesTheWindowItsContentAndTitle() throws {
+        let json = #"""
             {"type": "WindowGroup", "id": 1, "properties": {"title": "Default Window", "windowGroupID": "test-group"},
              "content": {"type": "Text", "id": 2, "properties": {"text": "Hello"}},
              "commands": [{"type": "CommandMenu", "id": 3, "properties": {"name": "Group Tools"}, "children": [
                 {"type": "Button", "id": 4, "properties": {"title": "Go", "actionID": "test.run"}}]}]}
             """#
-        let group = AdwaitaApplication.shared.windowGroup(Data(document.utf8), format: "json")
+        let group = AdwaitaApplication.shared.windowGroup(Data(json.utf8), format: "json")
         XCTAssertEqual(group.title, "Default Window")
         let content = try XCTUnwrap(try ActionUIJSON.value(from: String(decoding: group.data, as: UTF8.self)) as? [String: Any])
         XCTAssertEqual(content["type"] as? String, "Text")
@@ -351,12 +351,12 @@ final class AppCommandsTests: XCTestCase {
         XCTAssertTrue(group.commands?.json.contains("Group Tools") ?? false)
         XCTAssertNil(group.error)
         let plain = Data(#"{"type": "Text", "id": 1}"#.utf8)
-        XCTAssertEqual(AdwaitaApplication.shared.windowGroup(plain, format: "json").data, plain, "any other document as it is")
+        XCTAssertEqual(AdwaitaApplication.shared.windowGroup(plain, format: "json").data, plain, "any other JSON as it is")
         XCTAssertNil(AdwaitaApplication.shared.windowGroup(plain, format: "json").title)
     }
 
     func testAWindowGroupsCommandsWaitForItsWindow() throws {
-        let document = #"""
+        let json = #"""
             {"type": "WindowGroup", "id": 1, "properties": {"title": "Prepared Group", "windowGroupID": "test-prepared-group"},
              "content": {"type": "Text", "id": 2, "properties": {"text": "Hello"}},
              "commands": [{"type": "CommandMenu", "id": 3, "properties": {"name": "Prepared Tools"}, "children": [
@@ -367,7 +367,7 @@ final class AppCommandsTests: XCTestCase {
         var shown: [String] = []
         var title: String?
         app.handlers.didFinishLaunching = {
-            let window = app.prepareWindow(json: Data(document.utf8), windowUUID: "commands-w1")
+            let window = app.prepareWindow(json: Data(json.utf8), windowUUID: "commands-w1")
             prepared = self.outline(AppCommands.shared.menu.opaquePointer)
             app.presentWindow(prepared: window, title: nil)
             shown = self.outline(AppCommands.shared.menu.opaquePointer)
@@ -377,13 +377,13 @@ final class AppCommandsTests: XCTestCase {
         }
         XCTAssertEqual(app.run(), 0)
         AdwaitaTestHost.drainMainLoop()
-        XCTAssertFalse(prepared.joined().contains("Prepared Tools"), "a document that is only checked adds nothing to the menu")
+        XCTAssertFalse(prepared.joined().contains("Prepared Tools"), "JSON that is only checked adds nothing to the menu")
         XCTAssertTrue(shown.joined().contains("Prepared Tools"), "\(shown)")
-        XCTAssertEqual(title, "Prepared Group", "the group's title comes with the prepared document")
+        XCTAssertEqual(title, "Prepared Group", "the group's title comes with the prepared JSON")
     }
 
     func testAWindowGroupThatCannotBeLoadedBringsNoCommands() throws {
-        let document = #"""
+        let json = #"""
             {"type": "WindowGroup", "id": 1, "properties": {"title": "Failed Group"},
              "commands": [{"type": "CommandMenu", "id": 3, "properties": {"name": "Failed Tools"}, "children": [
                 {"type": "Button", "id": 4, "properties": {"title": "Go", "actionID": "test.run"}}]}]}
@@ -392,7 +392,7 @@ final class AppCommandsTests: XCTestCase {
         var shown: [String] = []
         var opened = false
         app.handlers.didFinishLaunching = {
-            app.presentWindow(json: Data(document.utf8), windowUUID: "commands-w2", title: nil)
+            app.presentWindow(json: Data(json.utf8), windowUUID: "commands-w2", title: nil)
             opened = app.gtkWindow("commands-w2") != nil
             shown = self.outline(AppCommands.shared.menu.opaquePointer)
             app.closeWindow("commands-w2")
@@ -420,14 +420,14 @@ final class AppCommandsTests: XCTestCase {
     }
 
     private func windowGroupFile(_ folder: URL, name: String, menu: String) throws -> URL {
-        let document = """
+        let json = """
             {"type": "WindowGroup", "id": 1, "properties": {"title": "\(menu)", "windowGroupID": "\(menu)"},
              "content": {"type": "Text", "id": 2, "properties": {"text": "Hello"}},
              "commands": [{"type": "CommandMenu", "id": 3, "properties": {"name": "\(menu)"}, "children": [
                 {"type": "Button", "id": 4, "properties": {"title": "Go", "actionID": "test.run"}}]}]}
             """
         let file = folder.appendingPathComponent(name)
-        try Data(document.utf8).write(to: file)
+        try Data(json.utf8).write(to: file)
         return file
     }
 
@@ -451,9 +451,9 @@ final class AppCommandsTests: XCTestCase {
         try FileManager.default.createSymbolicLink(at: link, withDestinationURL: linked)
 
         XCTAssertTrue(menuWhileShowing(path: own.path, windowUUID: "commands-own").joined().contains("Own Tools"),
-                      "a document in the app's resource folder is the app's own")
+                      "JSON in the app's resource folder is the app's own")
         XCTAssertFalse(menuWhileShowing(path: outside.path, windowUUID: "commands-outside").joined().contains("Outside Tools"),
-                       "a document elsewhere adds no menu commands")
+                       "JSON elsewhere adds no menu commands")
         XCTAssertFalse(menuWhileShowing(path: link.path, windowUUID: "commands-link").joined().contains("Linked Tools"),
                        "a link in the resource folder to a file elsewhere is elsewhere")
         XCTAssertTrue(AdwaitaApplication.isInResourceFolder(own))
@@ -478,13 +478,13 @@ final class AppCommandsTests: XCTestCase {
             func trust(for source: JSONContentOrigin.Source, inside parent: JSONContentOrigin?,
                        byDefault: JSONContentOrigin.Trust) -> JSONContentOrigin.Trust { .trusted }
         }
-        let document = """
+        let json = """
             {"type": "WindowGroup", "id": 1, "properties": {"title": "Server Tools", "windowGroupID": "Server Tools"},
              "content": {"type": "Text", "id": 2, "properties": {"text": "Hello"}},
              "commands": [{"type": "CommandMenu", "id": 3, "properties": {"name": "Server Tools"}, "children": [
                 {"type": "Button", "id": 4, "properties": {"title": "Go", "actionID": "test.run"}}]}]}
             """
-        let server = try TestImageServer(png: [], document: document)
+        let server = try TestImageServer(png: [], json: json)
         defer {
             server.stop()
             ActionUIModel.shared.trustPolicy = DefaultTrustPolicy()
@@ -513,14 +513,14 @@ final class AppCommandsTests: XCTestCase {
     }
 
     func testAWindowGroupLargerThanTheCapIsLeftForTheLoadToRefuse() throws {
-        let document = Data(#"{"type": "WindowGroup", "id": 1, "properties": {"title": "Big"}, "content": {"type": "Text", "id": 2}}"#.utf8)
+        let json = Data(#"{"type": "WindowGroup", "id": 1, "properties": {"title": "Big"}, "content": {"type": "Text", "id": 2}}"#.utf8)
         let saved = WindowModel.maximumJSONSize
         defer { ActionUIConfiguration.updateForTesting { $0.limits.maximumJSONSize = saved } }
-        ActionUIConfiguration.updateForTesting { $0.limits.maximumJSONSize = document.count - 1 }
-        let group = AdwaitaApplication.shared.windowGroup(document, format: "json")
-        XCTAssertEqual(group.data, document, "not parsed, so its smaller content cannot slip under the cap")
+        ActionUIConfiguration.updateForTesting { $0.limits.maximumJSONSize = json.count - 1 }
+        let group = AdwaitaApplication.shared.windowGroup(json, format: "json")
+        XCTAssertEqual(group.data, json, "not parsed, so its smaller content cannot slip under the cap")
         XCTAssertNil(group.title)
-        XCTAssertThrowsError(try ActionUIModel.shared.loadWindowDocument(group.data, format: "json", windowUUID: UUID().uuidString)) { error in
+        XCTAssertThrowsError(try ActionUIModel.shared.loadWindowContent(group.data, format: "json", windowUUID: UUID().uuidString)) { error in
             XCTAssertEqual("\(error)", "the ActionUI JSON is larger than 0 MB")
         }
     }
@@ -532,11 +532,11 @@ final class AppCommandsTests: XCTestCase {
     }
 
     func testAWindowGroupsPlatformOverridesApply() throws {
-        let document = #"""
+        let json = #"""
             {"type": "WindowGroup", "id": 1, "properties": {"title": "Mac Window", "title:linux": "Linux Window"},
              "content": {"type": "Text", "id": 2}, "content:linux": {"type": "Text", "id": 3}}
             """#
-        let group = AdwaitaApplication.shared.windowGroup(Data(document.utf8), format: "json")
+        let group = AdwaitaApplication.shared.windowGroup(Data(json.utf8), format: "json")
         XCTAssertEqual(group.title, "Linux Window")
         let content = try XCTUnwrap(try ActionUIJSON.value(from: String(decoding: group.data, as: UTF8.self)) as? [String: Any])
         XCTAssertEqual(content["id"] as? Int, 3)

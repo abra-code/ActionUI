@@ -52,7 +52,7 @@ package final class WinUIWindow {
                 return name.map { "The file \($0) could not be read." } ?? "The file could not be read."
             }
         }
-        if error is ActionUIDocumentLoader.NotARegularFile {
+        if error is ActionUIContentLoader.NotARegularFile {
             return name.map { "\($0) is not a file." } ?? "The path is not a file."
         }
         if let failure = error as? JSONParseError {
@@ -91,8 +91,8 @@ package final class WinUIWindow {
     /// window model `windowUUID`, as from that file: it is the app's own when it is in the app's
     /// resources, else less trusted (JSONContentOrigin), and builds its tree.
     package static func load(file url: URL, windowUUID: String) throws -> WinUIWindow {
-        let data = try ActionUIDocumentLoader.readRegularFile(url)
-        _ = try ActionUIDocumentLoader.load(data: data, format: ActionUIDocumentLoader.format(of: url), windowUUID: windowUUID,
+        let data = try ActionUIContentLoader.readRegularFile(url)
+        _ = try ActionUIContentLoader.load(data: data, format: ActionUIContentLoader.format(of: url), windowUUID: windowUUID,
                                             isContentView: true, parentID: 0, source: .file(url))
         guard let windowModel = ActionUIModel.shared.windowModels[windowUUID] else {
             throw ActionUIError("WinUIWindow: no window model for \(windowUUID) after loading")
@@ -113,7 +113,7 @@ package final class WinUIWindow {
             }
             source = read
         }
-        _ = try ActionUIDocumentLoader.load(data: data, format: ActionUIDocumentLoader.format(of: url), windowUUID: windowUUID,
+        _ = try ActionUIContentLoader.load(data: data, format: ActionUIContentLoader.format(of: url), windowUUID: windowUUID,
                                             isContentView: true, parentID: 0, source: .remote(source))
         guard let windowModel = ActionUIModel.shared.windowModels[windowUUID] else {
             throw ActionUIError("WinUIWindow: no window model for \(windowUUID) after loading")

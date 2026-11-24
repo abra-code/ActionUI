@@ -30,7 +30,7 @@
 import { register } from "../Common/ActionUIRegistry.js";
 import { allows } from "../Common/TrustPolicy.js";
 import { pageBaseURL } from "../Helpers/URLPolicy.js";
-import { systemSymbolGlyph } from "../Helpers/SymbolIcon.js";
+import { sfSymbolGlyph } from "../Helpers/SymbolIcon.js";
 
 register("VideoPlayer", {
     valueType: "string",
@@ -119,7 +119,7 @@ function render(node, url, autoplay, ctx) {
 function errorRow(ctx, message) {
     const row = document.createElement("span");
     row.className = "aui-video-error";
-    row.appendChild(systemSymbolGlyph("exclamationmark.triangle", {}, ctx.logger, (n) =>
+    row.appendChild(sfSymbolGlyph("exclamationmark.triangle", {}, ctx.logger, (n) =>
         `VideoPlayer error glyph '${n}' has no SF->Material mapping.`));
     const text = document.createElement("span");
     text.textContent = message;

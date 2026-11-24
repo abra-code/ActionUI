@@ -10,6 +10,7 @@
 #     share/actionui/ActionUIMCP.svg            the windows' icon (actionui-mcp --install-desktop-entry)
 #     LICENSE.txt
 #     LICENSE-MaterialSymbols.txt               the license of the symbol icons in the server
+#     LICENSE-FluentSystemIcons.txt             the license of the Fluent ones among them
 #     LICENSE-RichText.txt, LICENSE-AsyncImageCache.txt, LICENSE-DiffView.txt   the licenses of the packages the add-ons link
 #   actionui-mcp-<version>-linux-<arch>.tar.gz  the folder, packed
 #
@@ -52,7 +53,7 @@ fi
 # The add-ons the Linux server links (Apps/ActionUIMCP/Package.swift, linuxPackage): their schemas and pages go in.
 addons="ActionUICachedImage ActionUIDiff ActionUIRichText"
 
-# The version the server states ("actionui-mcp 0.6.0"), and the machine.
+# The version the server states ("actionui-mcp 0.6.1"), and the machine.
 stated="$("$server" --version 2>&1)"
 status=$?
 if [ "$status" -ne 0 ]; then
@@ -211,6 +212,13 @@ done
 status=$?
 if [ "$status" -ne 0 ]; then
     printf 'make-linux-mcp-package: could not write the Material Symbols license notice\n' >&2
+    discard_package
+    exit 1
+fi
+/bin/bash "$repo/Tools/fluent_symbols/write-fluent-icons-license.sh" "$package/LICENSE-FluentSystemIcons.txt"
+status=$?
+if [ "$status" -ne 0 ]; then
+    printf 'make-linux-mcp-package: could not write the Fluent System Icons license notice\n' >&2
     discard_package
     exit 1
 fi

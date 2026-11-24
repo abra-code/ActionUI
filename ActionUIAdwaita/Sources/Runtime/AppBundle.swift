@@ -2,13 +2,14 @@
 /*
  Where an app's resources are on Linux, which has no app bundles. An ActionUI app ships as a
  simplified iOS-style bundle: a folder holding the program and its resources side by side
- (documents, images), named `Name.app` by the convention carried over from Apple, not required.
+ (ActionUI JSON files, images), named `Name.app` by the convention carried over from Apple, not
+ required.
  The bundle is the folder of the running program, unless the host names another
  (ActionUIResourceFolder: a development build pointing at its sources, a Python host, whose
  program is python3).
 
- - LoadableView `name`: a file of that name in the folder of the document holding the
-   LoadableView (the file an enclosing LoadableView loaded, else the window's document), then in
+ - LoadableView `name`: a file of that name in the folder of the JSON holding the
+   LoadableView (the file an enclosing LoadableView loaded, else the window's JSON), then in
    the bundle.
  - Image `resourceName`: a file of that name in the bundle.
  - Image `assetName`: the bundle is on the icon theme's search path, so an image file named after
@@ -36,8 +37,8 @@ package enum AppBundle {
     package static var folder: String? { ActionUIResourceFolder.path ?? programFolder }
     private static let programFolder = defaultFolder()
 
-    /// The folder of each window's document, by window, when it came from a file.
-    private static var documentFolders: [String: String] = [:]
+    /// The folder of each window's JSON, by window, when it came from a file.
+    private static var contentFolders: [String: String] = [:]
     /// The bundle folders put on the icon theme's search path (GTK has no way to take one off).
     private static var iconFoldersAdded: Set<String> = []
 
@@ -98,21 +99,22 @@ package enum AppBundle {
         }
     }
 
-    // MARK: Documents
+    // MARK: JSON folders and format
 
-    /// Records the folder of the document a window shows (nil: not from a file).
-    package static func setDocumentFolder(_ folder: String?, window windowUUID: String) {
-        documentFolders[windowUUID] = folder
+    /// Records the folder of the JSON a window shows (nil: not from a file).
+    package static func setContentFolder(_ folder: String?, window windowUUID: String) {
+        contentFolders[windowUUID] = folder
     }
 
-    static func documentFolder(window windowUUID: String) -> String? {
-        documentFolders[windowUUID]
+    static func contentFolder(window windowUUID: String) -> String? {
+        contentFolders[windowUUID]
     }
 
-    /// A document's format by its URL ("json" or "plist"), as Core reads it (ActionUIDocumentLoader),
-    /// for the application module: Core is also built for Apple, where it takes no package access.
-    package static func documentFormat(of url: URL) -> String {
-        ActionUIDocumentLoader.format(of: url)
+    /// The format of ActionUI JSON by its URL ("json" or "plist"), as Core reads it
+    /// (ActionUIContentLoader), for the application module: Core is also built for Apple, where it
+    /// takes no package access.
+    package static func contentFormat(of url: URL) -> String {
+        ActionUIContentLoader.format(of: url)
     }
 
     // MARK: Icon theme

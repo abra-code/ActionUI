@@ -22,7 +22,7 @@
 
 import { allows } from "../Common/TrustPolicy.js";
 import { register } from "../Common/ActionUIRegistry.js";
-import { systemSymbolGlyph } from "../Helpers/SymbolIcon.js";
+import { sfSymbolGlyph } from "../Helpers/SymbolIcon.js";
 import { isOpenedURL } from "../Helpers/URLPolicy.js";
 
 register("ShareLink", {
@@ -72,7 +72,7 @@ register("ShareLink", {
 
         const node = document.createElement("button");
         node.className = "aui-sharelink";
-        node.appendChild(systemSymbolGlyph("square.and.arrow.up", {}, ctx.logger, (n) =>
+        node.appendChild(sfSymbolGlyph("square.and.arrow.up", {}, ctx.logger, (n) =>
             `ShareLink glyph '${n}' has no SF->Material mapping.`));
         const label = document.createElement("span");
         label.textContent = "Share";

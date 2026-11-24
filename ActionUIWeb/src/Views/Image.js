@@ -18,7 +18,7 @@
 //   (setString) re-renders the source with simple "mixed" heuristics.
 
 import { register } from "../Common/ActionUIRegistry.js";
-import { materialNameGlyph, systemSymbolGlyph } from "../Helpers/SymbolIcon.js";
+import { materialNameGlyph, sfSymbolGlyph } from "../Helpers/SymbolIcon.js";
 
 const SOURCE_KEYS = ["filePath", "resourceName", "assetName", "systemName", "materialName"];
 const RASTER_KEYS = ["filePath", "resourceName", "assetName"];
@@ -126,8 +126,8 @@ function render(node, source, props, ctx) {
     }
 
     if (typeof source.systemName === "string") {
-        node.appendChild(systemSymbolGlyph(source.systemName, props, ctx.logger, (name) =>
-            `Image systemName '${name}' has no SF→Material mapping; nothing rendered. ` +
+        node.appendChild(sfSymbolGlyph(source.systemName, props, ctx.logger, (name) =>
+            `Image systemName '${name}' has no SF->Material or SF->Fluent mapping; nothing rendered. ` +
             `Use 'materialName' for an explicit Material glyph.`));
         return;
     }

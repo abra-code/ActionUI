@@ -166,7 +166,7 @@ extension VideoPlayer: ActionUIWinUIRenderer {
         // A document names the address: a local file must be a regular file, not a device or a named
         // pipe. A missing file goes on to the player, which reports it.
         if let localPath, FileManager.default.fileExists(atPath: localPath),
-           ActionUIDocumentLoader.regularFilePath(URL(filePath: localPath, directoryHint: .notDirectory)) == nil {
+           ActionUIContentLoader.regularFilePath(URL(filePath: localPath, directoryHint: .notDirectory)) == nil {
             logger.log("VideoPlayer not playing '\(url.absoluteString)': \(localPath) is not a regular file", .error)
             if !actionUIWinUIVideoPlayerSetSource(player.pointer, nil) {
                 logger.log("VideoPlayer: \(WinUIError.last("clearing the video"))", .error)

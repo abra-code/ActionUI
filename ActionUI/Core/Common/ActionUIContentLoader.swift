@@ -1,11 +1,11 @@
-// Core/Common/DocumentLoader.swift
+// Core/Common/ActionUIContentLoader.swift
 /*
  Loading a description into a window, without the views: where a LoadableView's text points (a
  remote URL, a file, a bundled resource), the format of a file or URL, loading the data as the
  window's content or as a sub-view of a LoadableView, and firing a LoadableView's viewDidLoadActionID
  once per source. Where loaded content came from and how far it is trusted (JSONContentOrigin): the
- app's own resources and the host are trusted; a remote document, or a local file outside the
- resources, is less trusted, and so is everything a less-trusted document loads in turn.
+ app's own resources and the host are trusted; remote JSON, or a local file outside the
+ resources, is less trusted, and so is everything less-trusted JSON loads in turn.
 
  (The SwiftUI views are FileLoadableView and RemoteLoadableView, in Common/.)
 */
@@ -175,7 +175,7 @@ public struct DefaultTrustPolicy: ActionUITrustPolicy {
     public static let mediaSchemes: Set<String> = ["http", "https"]
 
     /// Whether the file at `path` is inside one of the app's resource folders (symbolic links
-    /// followed), the folders whose documents are trusted.
+    /// followed), the folders whose JSON is trusted.
     @MainActor
     public static func isInAppResources(_ path: String) -> Bool {
         let url = URL(fileURLWithPath: path)
@@ -197,7 +197,7 @@ public struct DefaultTrustPolicy: ActionUITrustPolicy {
     /// What content of `origin` may do when the host does not say: trusted content anything; less
     /// trusted content may open only web and mail links (linkSchemes), show only web addresses in a
     /// WebView (webViewSchemes), play only web addresses in a VideoPlayer (mediaSchemes; local
-    /// files as below), give its inline html a base address only of its own document's
+    /// files as below), give its inline html a base address only of its own JSON's
     /// origin, run no WebView user scripts, keep no WebView data in the app's persistent store,
     /// read local files (images, videos, WebView script files) and load ActionUI JSON from local
     /// files only inside the app's resources, neither set the window's title nor present its
@@ -215,10 +215,10 @@ public struct DefaultTrustPolicy: ActionUITrustPolicy {
             guard let url else { return true }
             return webViewSchemes.contains(url.scheme?.lowercased() ?? "")
         case .webViewBaseURL(let base):
-            // A remote document's own origin, so its relative resources resolve; not another site,
+            // The remote JSON's own origin, so its relative resources resolve; not another site,
             // whose cookies and storage the html would get, and no local file.
-            guard case .remote(let document) = origin.source else { return false }
-            return haveSameOrigin(base, document)
+            guard case .remote(let address) = origin.source else { return false }
+            return haveSameOrigin(base, address)
         case .webViewUserScripts, .webViewPersistentData:
             // No scripts of its own in its pages, and none of the app's own cookies and storage.
             return false
@@ -340,7 +340,7 @@ enum WebViewTrust {
 }
 
 @MainActor
-enum ActionUIDocumentLoader {
+enum ActionUIContentLoader {
 
     /// Where a LoadableView's text points.
     enum Source: Equatable {
@@ -404,7 +404,7 @@ enum ActionUIDocumentLoader {
     }
 
     /// The contents of the local file at `url`, which must be a regular file once symbolic links
-    /// are followed. A document names the path, so it could name a device such as /dev/zero or a
+    /// are followed. The JSON names the path, so it could name a device such as /dev/zero or a
     /// named pipe, and reading one would never end (or never begin) on the main thread.
     /// A file larger than `maximumFileSize` is refused before it is read: larger ActionUI JSON is
     /// refused when it loads anyway (WindowModel.maximumJSONSize), so reading more only costs memory.
@@ -427,7 +427,7 @@ enum ActionUIDocumentLoader {
 
     /// The path of `url` with symbolic links followed, when it names a regular file; nil for a
     /// folder, a device, a pipe, a socket or nothing. For readers that open the file themselves,
-    /// such as an image decoder given a path a document named.
+    /// such as an image decoder given a path the JSON named.
     nonisolated static func regularFilePath(_ url: URL) -> String? {
         let path = url.resolvingSymlinksInPath().path
         guard let type = (try? FileManager.default.attributesOfItem(atPath: path))?[.type] as? FileAttributeType,
@@ -455,7 +455,7 @@ enum ActionUIDocumentLoader {
     }
 
     /// Why the source known as `key` (`nestingKey`) must not load inside LoadableViews showing
-    /// `enclosing` (the outermost first), or nil when it may. A document that loads itself, directly
+    /// `enclosing` (the outermost first), or nil when it may. ActionUI JSON that loads itself, directly
     /// or through others, would load without end; file sources load while the view is built.
     /// Siblings showing the same source are not in `enclosing`, so they stay allowed.
     nonisolated static func nestingRefusal(_ key: String, inside enclosing: [String]) -> String? {
@@ -660,7 +660,7 @@ enum ActionUIDocumentLoader {
 /// localizedDescription. LocalizedError is Foundation's, which Core imports only on Apple. Next to
 /// the type, as ActionUIError's conformance is: a conformance is found only by a cast at run time,
 /// and the linker may drop a file that holds nothing else a host refers to.
-extension ActionUIDocumentLoader.NotARegularFile: LocalizedError {
+extension ActionUIContentLoader.NotARegularFile: LocalizedError {
     var errorDescription: String? { description }
 }
 #endif

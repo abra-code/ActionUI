@@ -118,10 +118,10 @@ internal fun loadableNestingKey(source: LoadableSource): String? = when (source)
 
 /**
  * Why the source known as [key] ([loadableNestingKey]) must not load inside LoadableViews
- * showing [enclosing] (the outermost first), or null when it may. A document that loads
+ * showing [enclosing] (the outermost first), or null when it may. ActionUI JSON that loads
  * itself, directly or through others, would load without end: file and asset sources load
  * while the view is composed. Siblings showing the same source are not in [enclosing], so
- * they stay allowed. The same rule and words as Apple's `ActionUIDocumentLoader.nestingRefusal`.
+ * they stay allowed. The same rule and words as Apple's `ActionUIContentLoader.nestingRefusal`.
  */
 internal fun loadableNestingRefusal(key: String, enclosing: List<String>): String? = when {
     key in enclosing -> "it includes itself"
@@ -223,7 +223,7 @@ internal fun loadLocalDescription(
     is LoadableSource.FilePath -> {
         if (source.format == LoadableFormat.PLIST) deferredPlist(source.path, logger)
         else try {
-            // Only a regular file: a device or a named pipe the document names would never
+            // Only a regular file: a device or a named pipe the JSON names would never
             // finish (or never start) reading on the main thread.
             val text = readRegularFileText(source.path)
             decodeDescription(text, json, logger)

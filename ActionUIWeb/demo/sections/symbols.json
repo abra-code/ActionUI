@@ -23,6 +23,62 @@
       ]
     },
     { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "Fluent System Icons fill in the SF Symbols Material has no glyph for (after scripts/make-symbol-fonts.sh). Odd positions: Material; even positions: Fluent.", "foregroundStyle": "secondary", "font": "callout" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 10 },
+      "children": [
+        { "type": "Image", "properties": { "systemName": "house", "imageScale": "large" } },
+        { "type": "Image", "properties": { "systemName": "barometer", "imageScale": "large" } },
+        { "type": "Image", "properties": { "systemName": "folder", "imageScale": "large" } },
+        { "type": "Image", "properties": { "systemName": "checkmark.rectangle", "imageScale": "large" } },
+        { "type": "Image", "properties": { "systemName": "magnifyingglass", "imageScale": "large" } },
+        { "type": "Image", "properties": { "systemName": "cloud.moon.bolt", "imageScale": "large" } },
+        { "type": "Image", "properties": { "systemName": "gear", "imageScale": "large" } },
+        { "type": "Image", "properties": { "systemName": "cube.transparent", "imageScale": "large" } },
+        { "type": "Image", "properties": { "systemName": "envelope", "imageScale": "large" } },
+        { "type": "Image", "properties": { "systemName": "drop.degreesign", "imageScale": "large" } },
+        { "type": "Image", "properties": { "systemName": "heart", "imageScale": "large" } },
+        { "type": "Image", "properties": { "systemName": "exclamationmark.lock", "imageScale": "large" } },
+        { "type": "Image", "properties": { "systemName": "bell", "imageScale": "large" } },
+        { "type": "Image", "properties": { "systemName": "ring.dashed", "imageScale": "large" } },
+        { "type": "Image", "properties": { "systemName": "trash", "imageScale": "large" } },
+        { "type": "Image", "properties": { "systemName": "square.dotted", "imageScale": "large" } }
+      ]
+    },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 10 },
+      "children": [
+        { "type": "Image", "properties": { "systemName": "house.fill", "imageScale": "large" } },
+        { "type": "Image", "properties": { "systemName": "key.card.fill", "imageScale": "large" } },
+        { "type": "Image", "properties": { "systemName": "folder.fill", "imageScale": "large" } },
+        { "type": "Image", "properties": { "systemName": "hand.point.up.fill", "imageScale": "large" } },
+        { "type": "Image", "properties": { "systemName": "heart.fill", "imageScale": "large" } },
+        { "type": "Image", "properties": { "systemName": "questionmark.folder.fill", "imageScale": "large" } },
+        { "type": "Image", "properties": { "systemName": "star.fill", "imageScale": "large" } },
+        { "type": "Image", "properties": { "systemName": "video.fill.badge.checkmark", "imageScale": "large" } }
+      ]
+    },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 16 },
+      "children": [
+        { "type": "Label", "properties": { "title": "Pressure", "systemImage": "barometer" } },
+        {
+          "type": "Canvas",
+          "properties": {
+            "frame": { "width": 96, "height": 32 },
+            "operations": [
+              { "type": "image", "systemName": "house", "frame": [0.0, 0.0, 0.33, 1.0] },
+              { "type": "image", "systemName": "barometer", "frame": [0.33, 0.0, 0.33, 1.0] },
+              { "type": "image", "systemName": "folder", "frame": [0.66, 0.0, 0.33, 1.0] }
+            ]
+          }
+        }
+      ]
+    },
+    { "type": "Divider" },
     { "type": "Text", "properties": { "text": "An unmapped SF Symbol vs. an explicit Material glyph:", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "VStack",

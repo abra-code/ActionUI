@@ -2,25 +2,25 @@
 /*
  Tests for the application on Linux, each running a real AdwApplication until it ends: windows
  asked for before the start wait for it and open between willFinishLaunching and
- didFinishLaunching; a window opens at its document's ideal size, titled by the application's
+ didFinishLaunching; a window opens at its content's ideal size, titled by the application's
  name; no wider than 900 (SwiftUI's opening width) unless its minimum needs more, a long text
- wrapping there; a document in a ScrollView opens tall enough to show it; a minimum larger than
+ wrapping there; content in a ScrollView opens tall enough to show it; a minimum larger than
  the monitor scrolls; a file's
- document is titled by its name, and one that cannot be loaded shows its error; the user's close
+ window is titled by its name, and one that cannot be loaded shows its error; the user's close
  of the last window asks shouldTerminate; terminate ends the application and willTerminate fires;
  a second run while running is refused; the host's close of a window showing a modal and an
  alert closes the window; the icon is the windows' default icon; a closed window's model is
  readable in the close handler and its elements' disappear actions and removed after them, unless
  a window is reopened under its UUID; a subtitle shows in every kind of window, whatever its
- document does with the header bar, and in a sheet that covers the window, in view however large
+ JSON does with the header bar, and in a sheet that covers the window, in view however large
  the bars or the sheet; a content size opens the window at that size, capped by the
  monitor; a window that is not resizable keeps its size; the options survive the wait for the start
- and for a remote document; with keepsRunningWithoutWindows the user's close of the last window
- leaves the application running; a document prepared but not presented is loaded with nothing on
+ and for remote ActionUI JSON; with keepsRunningWithoutWindows the user's close of the last window
+ leaves the application running; ActionUI JSON prepared but not presented is loaded with nothing on
  screen, fetches nothing, and can be dropped; presented, it shows once, and waits for the start
  like any window; preparing replaces a window that waits under its UUID, closes one on screen as
  the host's close does, keeping the application running, and keeps its model from a closed
- window's removal. A prepared document renders offscreen with nothing on screen and no window of the
+ window's removal. Prepared ActionUI JSON renders offscreen with nothing on screen and no window of the
  application's, at its size or a content size, with its toolbar in the header bar, says when it holds
  a WebView, and renders once, not before the start nor when it could not be loaded. A window's
  options open it again as it is: its subtitle, content size and resizability.
@@ -52,7 +52,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         AdwaitaTestHost.drainMainLoop()
     }
 
-    private static let document = #"{"type": "VStack", "id": 1, "properties": {"frame": {"minWidth": 300, "idealWidth": 360, "minHeight": 280, "idealHeight": 320}}, "children": [{"type": "Text", "id": 2, "properties": {"text": "Hello"}}]}"#
+    private static let json = #"{"type": "VStack", "id": 1, "properties": {"frame": {"minWidth": 300, "idealWidth": 360, "minHeight": 280, "idealHeight": 320}}, "children": [{"type": "Text", "id": 2, "properties": {"text": "Hello"}}]}"#
 
     private func defaultSize(_ window: UnsafeMutablePointer<GtkWindow>) -> (Int32, Int32) {
         var width: Int32 = 0
@@ -61,7 +61,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         return (width, height)
     }
 
-    /// The toolbar view's content: the document's box, or what holds it.
+    /// The toolbar view's content: the root element's box, or what holds it.
     private func content(_ window: UnsafeMutablePointer<GtkWindow>) -> WidgetPointer? {
         guard let toolbar = adw_application_window_get_content(typed(window)),
               let overlay = adw_toolbar_view_get_content(OpaquePointer(toolbar)) else { return nil }
@@ -86,13 +86,13 @@ final class AdwaitaApplicationTests: XCTestCase {
             app.closeWindow("app-w1")
             app.terminate()
         }
-        app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+        app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil)
         XCTAssertEqual(app.windowUUIDs, [], "before the start the window waits")
         XCTAssertEqual(app.run(), 0, "terminate ended the application")
         XCTAssertEqual(events, ["willFinishLaunching", "present app-w1", "didFinishLaunching", "close app-w1"])
         XCTAssertEqual(size.0, 360, "the root frame's ideal width")
         XCTAssertGreaterThan(size.1, 320, "the ideal height plus the header bar")
-        XCTAssertEqual(title, "Linux Test App", "a JSON document is titled by the application's name")
+        XCTAssertEqual(title, "Linux Test App", "a window from JSON is titled by the application's name")
     }
 
     func testAClosedWindowsModelGoesAfterItsHandlerUnlessTheWindowIsReopened() throws {
@@ -107,7 +107,7 @@ final class AdwaitaApplicationTests: XCTestCase {
             } else if uuid == "app-w2", !reopened {
                 // The client opens a window under the same UUID from the handler.
                 reopened = true
-                app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w2", title: nil)
+                app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w2", title: nil)
             }
         }
         app.handlers.didFinishLaunching = {
@@ -122,8 +122,8 @@ final class AdwaitaApplicationTests: XCTestCase {
                 }
             }
         }
-        app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
-        app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w2", title: nil)
+        app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil)
+        app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w2", title: nil)
         XCTAssertEqual(app.run(), 0)
         XCTAssertEqual(inHandler, true, "the handler reads the closing window's model")
         XCTAssertEqual(afterClose, false, "the model goes after the handler")
@@ -135,7 +135,7 @@ final class AdwaitaApplicationTests: XCTestCase {
 
     func testAClosingWindowsDisappearActionsReadItsValuesBeforeItsModelGoes() throws {
         let app = AdwaitaApplication()
-        let document = #"{"type": "VStack", "id": 1, "children": [{"type": "TextField", "id": 2, "properties": {"onDisappearActionID": "app.gone"}}]}"#
+        let windowJSON = #"{"type": "VStack", "id": 1, "children": [{"type": "TextField", "id": 2, "properties": {"onDisappearActionID": "app.gone"}}]}"#
         var seen: [String] = []
         ActionUIModel.shared.registerActionHandler(for: "app.gone") { _, uuid, _, _, _ in
             seen.append("\(uuid) \(ActionUIModel.shared.getElementValue(windowUUID: uuid, viewID: 2) as? String ?? "nil")")
@@ -150,8 +150,8 @@ final class AdwaitaApplicationTests: XCTestCase {
                 app.terminate()
             }
         }
-        app.presentWindow(json: Data(document.utf8), windowUUID: "app-w1", title: nil)
-        app.presentWindow(json: Data(document.utf8), windowUUID: "app-w2", title: nil)
+        app.presentWindow(json: Data(windowJSON.utf8), windowUUID: "app-w1", title: nil)
+        app.presentWindow(json: Data(windowJSON.utf8), windowUUID: "app-w2", title: nil)
         XCTAssertEqual(app.run(), 0)
         AdwaitaTestHost.drainMainLoop()
         XCTAssertEqual(seen, ["app-w1 typed", "app-w2 typed"], "the disappear actions run before the model goes")
@@ -167,7 +167,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         var subtitle: WidgetPointer?
         var presentedBefore: [String] = []
         app.handlers.didFinishLaunching = {
-            let prepared = app.prepareWindow(json: Data(Self.document.utf8), windowUUID: "app-w1")
+            let prepared = app.prepareWindow(json: Data(Self.json.utf8), windowUUID: "app-w1")
             XCTAssertNil(prepared.error)
             XCTAssertTrue(ActionUIModel.shared.hasWindow("app-w1"), "its model is loaded")
             presentedBefore = app.windowUUIDs
@@ -192,12 +192,12 @@ final class AdwaitaApplicationTests: XCTestCase {
     func testPreparingFetchesNothingUntilTheWindowShows() throws {
         let server = try TestImageServer(png: TestImages.png(width: 20, height: 20))
         defer { server.stop() }
-        let document = #"{"type": "AsyncImage", "id": 1, "properties": {"url": "\#(server.base)/image.png"}}"#
+        let windowJSON = #"{"type": "AsyncImage", "id": 1, "properties": {"url": "\#(server.base)/image.png"}}"#
         let app = AdwaitaApplication()
         var afterPreparing: Int?
         var afterShowing: Int?
         app.handlers.didFinishLaunching = {
-            let prepared = app.prepareWindow(json: Data(document.utf8), windowUUID: "app-w1")
+            let prepared = app.prepareWindow(json: Data(windowJSON.utf8), windowUUID: "app-w1")
             _ = runAfter(milliseconds: 300) {
                 afterPreparing = server.requests
                 app.presentWindow(prepared: prepared, title: nil)
@@ -209,7 +209,7 @@ final class AdwaitaApplicationTests: XCTestCase {
             }
         }
         XCTAssertEqual(app.run(), 0)
-        XCTAssertEqual(afterPreparing, 0, "a document that is only checked reaches no server")
+        XCTAssertEqual(afterPreparing, 0, "JSON that is only checked reaches no server")
         XCTAssertEqual(afterShowing, 1, "the check above could fail: the window does fetch")
     }
 
@@ -231,7 +231,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         }
         XCTAssertEqual(app.run(), 0)
         XCTAssertTrue(error?.contains("could not be loaded") ?? false, "\(error ?? "nil")")
-        XCTAssertEqual(shownError, error, "as a document that cannot be loaded does through presentWindow")
+        XCTAssertEqual(shownError, error, "as JSON that cannot be loaded does through presentWindow")
         XCTAssertEqual(showsDocument, false)
     }
 
@@ -242,7 +242,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         var afterSecond: WidgetPointer?
         app.handlers.windowWillPresent = { presented.append($0) }
         app.handlers.didFinishLaunching = {
-            let prepared = app.prepareWindow(json: Data(Self.document.utf8), windowUUID: "app-w1")
+            let prepared = app.prepareWindow(json: Data(Self.json.utf8), windowUUID: "app-w1")
             app.presentWindow(prepared: prepared, title: nil)
             first = app.contentWidget("app-w1")
             app.presentWindow(prepared: prepared, title: nil)
@@ -257,29 +257,29 @@ final class AdwaitaApplicationTests: XCTestCase {
     }
 
     func testAPreparedWindowThatIsDroppedLeavesItsModelAndFiresNothing() throws {
-        let document = #"{"type": "VStack", "id": 1, "children": [{"type": "TextField", "id": 2, "properties": {"onAppearActionID": "app.seen", "onDisappearActionID": "app.seen"}}]}"#
+        let windowJSON = #"{"type": "VStack", "id": 1, "children": [{"type": "TextField", "id": 2, "properties": {"onAppearActionID": "app.seen", "onDisappearActionID": "app.seen"}}]}"#
         var fired = 0
         ActionUIModel.shared.registerActionHandler(for: "app.seen") { _, _, _, _, _ in fired += 1 }
         defer { ActionUIModel.shared.unregisterActionHandler(for: "app.seen") }
         let app = AdwaitaApplication()
-        _ = app.prepareWindow(json: Data(document.utf8), windowUUID: "app-w1")
+        _ = app.prepareWindow(json: Data(windowJSON.utf8), windowUUID: "app-w1")
         AdwaitaTestHost.drainMainLoop()
-        XCTAssertEqual(fired, 0, "the document never appeared")
+        XCTAssertEqual(fired, 0, "the content never appeared")
         XCTAssertEqual(app.windowUUIDs, [])
         XCTAssertTrue(ActionUIModel.shared.hasWindow("app-w1"), "the model is the caller's to remove")
     }
 
     func testALoadableViewInADroppedPreparedWindowFiresNothing() throws {
         let path = NSTemporaryDirectory() + "actionui-app-test-sub-\(ProcessInfo.processInfo.processIdentifier).json"
-        try Self.document.write(toFile: path, atomically: true, encoding: .utf8)
+        try Self.json.write(toFile: path, atomically: true, encoding: .utf8)
         files.append(path)
-        let document = #"{"type": "LoadableView", "id": 1, "properties": {"filePath": "\#(path)", "viewDidLoadActionID": "app.loaded"}}"#
+        let windowJSON = #"{"type": "LoadableView", "id": 1, "properties": {"filePath": "\#(path)", "viewDidLoadActionID": "app.loaded"}}"#
         var fired = 0
         ActionUIModel.shared.registerActionHandler(for: "app.loaded") { _, _, _, _, _ in fired += 1 }
         defer { ActionUIModel.shared.unregisterActionHandler(for: "app.loaded") }
-        _ = AdwaitaApplication().prepareWindow(json: Data(document.utf8), windowUUID: "app-w1")
+        _ = AdwaitaApplication().prepareWindow(json: Data(windowJSON.utf8), windowUUID: "app-w1")
         AdwaitaTestHost.drainMainLoop()
-        XCTAssertEqual(fired, 0, "the document never showed")
+        XCTAssertEqual(fired, 0, "the content never showed")
     }
 
     func testAPreparedWindowWaitsForTheStart() throws {
@@ -294,7 +294,7 @@ final class AdwaitaApplicationTests: XCTestCase {
             app.closeWindow("app-w1")
             app.terminate()
         }
-        let prepared = app.prepareWindow(json: Data(Self.document.utf8), windowUUID: "app-w1")
+        let prepared = app.prepareWindow(json: Data(Self.json.utf8), windowUUID: "app-w1")
         app.presentWindow(prepared: prepared, title: nil)
         XCTAssertEqual(app.windowUUIDs, [], "before the start the window waits")
         XCTAssertEqual(app.run(), 0)
@@ -315,10 +315,10 @@ final class AdwaitaApplicationTests: XCTestCase {
             app.terminate()
         }
         app.presentWindow(json: Data(#"{"type": "Text", "id": 1}"#.utf8), windowUUID: "app-w1", title: nil)
-        let prepared = app.prepareWindow(json: Data(Self.document.utf8), windowUUID: "app-w1")
+        let prepared = app.prepareWindow(json: Data(Self.json.utf8), windowUUID: "app-w1")
         app.presentWindow(prepared: prepared, title: nil)
         XCTAssertEqual(app.run(), 0)
-        XCTAssertEqual(presented, ["app-w1"], "the waiting window's document never loads over the prepared one")
+        XCTAssertEqual(presented, ["app-w1"], "the waiting window's JSON never loads over the prepared one")
         XCTAssertEqual(modelType, "VStack")
         XCTAssertNotNil(shown)
     }
@@ -331,26 +331,26 @@ final class AdwaitaApplicationTests: XCTestCase {
         app.handlers.didFinishLaunching = {
             // A watchdog: an application kept open for good ends here instead of hanging.
             _ = runAfter(milliseconds: 5000) { app.terminate() }
-            // The document is refused: no window takes the closed one's place.
+            // The JSON is refused: no window takes the closed one's place.
             let refused = app.prepareWindow(json: Data("not json".utf8), windowUUID: "app-w1")
             XCTAssertNotNil(refused.error)
             // Never runs if the application ended with its last window.
             _ = runAfter(milliseconds: 300) {
                 running = true
-                let prepared = app.prepareWindow(json: Data(Self.document.utf8), windowUUID: "app-w2")
+                let prepared = app.prepareWindow(json: Data(Self.json.utf8), windowUUID: "app-w2")
                 app.presentWindow(prepared: prepared, title: nil)
                 app.closeWindow("app-w2")
                 app.terminate()
             }
         }
-        app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+        app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil)
         XCTAssertEqual(app.run(), 0)
         XCTAssertTrue(running, "the host closed its last window: the application keeps running")
         XCTAssertEqual(presented, ["app-w1", "app-w2"], "and a later window releases the hold")
     }
 
     func testPreparingUnderTheUUIDOfTheLastLoadLeavesTheApplicationRunning() throws {
-        let server = try TestImageServer(png: [], document: Self.document)
+        let server = try TestImageServer(png: [], json: Self.json)
         defer { server.stop() }
         let app = AdwaitaApplication()
         var presented: [String] = []
@@ -367,7 +367,7 @@ final class AdwaitaApplicationTests: XCTestCase {
                 app.terminate()
             }
         }
-        app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+        app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil)
         XCTAssertEqual(app.run(), 0)
         XCTAssertTrue(running, "the host dropped its last load: the application keeps running")
         XCTAssertEqual(presented, ["app-w1"], "the dropped load presents nothing")
@@ -379,7 +379,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         var showsDocument = false
         app.handlers.didFinishLaunching = {
             app.closeWindow("app-w1")
-            let prepared = app.prepareWindow(json: Data(Self.document.utf8), windowUUID: "app-w1")
+            let prepared = app.prepareWindow(json: Data(Self.json.utf8), windowUUID: "app-w1")
             // After the removal the close queued.
             _ = runAfter(milliseconds: 50) {
                 hadModel = ActionUIModel.shared.hasWindow("app-w1")
@@ -389,7 +389,7 @@ final class AdwaitaApplicationTests: XCTestCase {
                 app.terminate()
             }
         }
-        app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+        app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil)
         XCTAssertEqual(app.run(), 0)
         XCTAssertTrue(hadModel, "the host reopened the window: its model stays")
         XCTAssertTrue(showsDocument)
@@ -401,15 +401,15 @@ final class AdwaitaApplicationTests: XCTestCase {
         var afterPreparing: [String]?
         app.handlers.windowWillClose = { closed.append($0) }
         app.handlers.didFinishLaunching = {
-            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
-            let prepared = app.prepareWindow(json: Data(Self.document.utf8), windowUUID: "app-w1")
+            app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil)
+            let prepared = app.prepareWindow(json: Data(Self.json.utf8), windowUUID: "app-w1")
             afterPreparing = app.windowUUIDs
             app.presentWindow(prepared: prepared, title: nil)
             app.closeWindow("app-w1")
             app.terminate()
         }
         XCTAssertEqual(app.run(), 0)
-        XCTAssertEqual(afterPreparing, [], "its model is the new document's now, as for presentWindow")
+        XCTAssertEqual(afterPreparing, [], "its model is the new JSON's now, as for presentWindow")
         XCTAssertEqual(closed, ["app-w1"], "no handler for the replaced window, as for presentWindow")
     }
 
@@ -423,7 +423,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         var missing: (width: Int, height: Int)?
         app.handlers.didFinishLaunching = {
             missing = app.capturePNG(windowUUID: "no-such-window", path: path)
-            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: "Capture")
+            app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: "Capture")
             _ = runAfter(milliseconds: 300) {
                 full = app.capturePNG(windowUUID: "app-w1", path: path)
                 limited = app.capturePNG(windowUUID: "app-w1", path: path, maxPixels: 100)
@@ -477,7 +477,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         let app = AdwaitaApplication()
         let path = NSTemporaryDirectory() + "actionui-app-test-offscreen-\(ProcessInfo.processInfo.processIdentifier).png"
         files.append(path)
-        let document = #"{"type": "Color", "id": 1, "properties": {"color": "red", "frame": {"width": 400, "height": 200}}, "toolbar": [{"type": "ToolbarItem", "id": 2, "content": {"type": "Button", "id": 3, "properties": {"title": "Tool"}}}]}"#
+        let windowJSON = #"{"type": "Color", "id": 1, "properties": {"color": "red", "frame": {"width": 400, "height": 200}}, "toolbar": [{"type": "ToolbarItem", "id": 2, "content": {"type": "Button", "id": 3, "properties": {"title": "Tool"}}}]}"#
         var size: (width: Int, height: Int)?
         var limited: (width: Int, height: Int)?
         var windowSize: (Int, Int) = (0, 0)
@@ -488,7 +488,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         var afterClose: (width: Int, height: Int)? = (1, 1)
         var modelKept = false
         app.handlers.didFinishLaunching = {
-            let prepared = app.prepareWindow(json: Data(document.utf8), windowUUID: "app-w1")
+            let prepared = app.prepareWindow(json: Data(windowJSON.utf8), windowUUID: "app-w1")
             guard let render = app.renderOffscreen(prepared: prepared, title: "Preview") else {
                 app.terminate()
                 return
@@ -515,10 +515,10 @@ final class AdwaitaApplicationTests: XCTestCase {
         let full = try XCTUnwrap(size)
         XCTAssertEqual(full.width, windowSize.0)
         XCTAssertEqual(full.height, windowSize.1)
-        XCTAssertEqual(full.width, 400, "the document's width")
-        XCTAssertGreaterThan(full.height, 200, "the document's height and the header bar")
+        XCTAssertEqual(full.width, 400, "the content's width")
+        XCTAssertGreaterThan(full.height, 200, "the content's height and the header bar")
         let color = try XCTUnwrap(center)
-        XCTAssertGreaterThan(color[0], 200, "the document is drawn: red")
+        XCTAssertGreaterThan(color[0], 200, "the content is drawn: red")
         XCTAssertLessThan(color[1], 80)
         XCTAssertEqual(max(try XCTUnwrap(limited).width, try XCTUnwrap(limited).height), 100, "scaled to the limit")
         XCTAssertFalse(webView)
@@ -528,11 +528,11 @@ final class AdwaitaApplicationTests: XCTestCase {
 
     func testAnOffscreenRenderTakesAContentSizeAndShowsTheToolbar() throws {
         let app = AdwaitaApplication()
-        let document = #"{"type": "Text", "id": 1, "properties": {"text": "Body"}, "toolbar": [{"type": "ToolbarItem", "id": 2, "content": {"type": "Button", "id": 3, "properties": {"title": "Tool"}}}]}"#
+        let windowJSON = #"{"type": "Text", "id": 1, "properties": {"text": "Body"}, "toolbar": [{"type": "ToolbarItem", "id": 2, "content": {"type": "Button", "id": 3, "properties": {"title": "Tool"}}}]}"#
         var size: (Int, Int) = (0, 0)
         var toolInHeader = false
         app.handlers.didFinishLaunching = {
-            let prepared = app.prepareWindow(json: Data(document.utf8), windowUUID: "app-w1")
+            let prepared = app.prepareWindow(json: Data(windowJSON.utf8), windowUUID: "app-w1")
             if let render = app.renderOffscreen(prepared: prepared, title: nil, options: AdwaitaApplication.WindowOptions(contentSize: (420, 260))) {
                 size = (render.width, render.height)
                 if let tool = self.label(showing: "Tool", in: render.rootWidget) {
@@ -545,7 +545,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         XCTAssertEqual(app.run(), 0)
         XCTAssertEqual(size.0, 420)
         XCTAssertGreaterThan(size.1, 260, "the content's height and the header bar")
-        XCTAssertTrue(toolInHeader, "the document's toolbar shows in the header bar, as in a shown window")
+        XCTAssertTrue(toolInHeader, "the window's toolbar shows in the header bar, as in a shown window")
     }
 
     func testAnOffscreenRenderIsAsLargeAsTheShownWindowAtLeast() throws {
@@ -554,12 +554,12 @@ final class AdwaitaApplicationTests: XCTestCase {
         var rendered: (Int, Int) = (0, 0)
         var shown: (Int32, Int32) = (0, 0)
         app.handlers.didFinishLaunching = {
-            let prepared = app.prepareWindow(json: Data(Self.document.utf8), windowUUID: "app-w1")
+            let prepared = app.prepareWindow(json: Data(Self.json.utf8), windowUUID: "app-w1")
             if let render = app.renderOffscreen(prepared: prepared, title: nil, options: options) {
                 rendered = (render.width, render.height)
                 render.close()
             }
-            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w2", title: nil, options: options)
+            app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w2", title: nil, options: options)
             _ = runAfter(milliseconds: 300) {
                 if let window = app.gtkWindow("app-w2") {
                     shown = (gtk_widget_get_width(typed(window)), gtk_widget_get_height(typed(window)))
@@ -582,12 +582,12 @@ final class AdwaitaApplicationTests: XCTestCase {
         var reopened: AdwaitaApplication.WindowOptions?
         app.handlers.didFinishLaunching = {
             missing = app.windowOptions(windowUUID: "no-such-window")
-            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil, options: asked)
+            app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil, options: asked)
             _ = runAfter(milliseconds: 300) {
                 current = app.windowOptions(windowUUID: "app-w1")
                 app.closeWindow("app-w1")
                 if let current {
-                    app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w2", title: nil, options: current)
+                    app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w2", title: nil, options: current)
                 }
                 _ = runAfter(milliseconds: 300) {
                     reopened = app.windowOptions(windowUUID: "app-w2")
@@ -613,10 +613,10 @@ final class AdwaitaApplicationTests: XCTestCase {
             throw XCTSkip("WebKitGTK 6.0 is not installed (package \(WebKitLibrary.packageName))")
         }
         let app = AdwaitaApplication()
-        let document = #"{"type": "VStack", "id": 1, "children": [{"type": "WebView", "id": 2, "properties": {"html": "<p>Page</p>", "frame": {"width": 200, "height": 100}}}]}"#
+        let windowJSON = #"{"type": "VStack", "id": 1, "children": [{"type": "WebView", "id": 2, "properties": {"html": "<p>Page</p>", "frame": {"width": 200, "height": 100}}}]}"#
         var webView = false
         app.handlers.didFinishLaunching = {
-            let prepared = app.prepareWindow(json: Data(document.utf8), windowUUID: "app-w1")
+            let prepared = app.prepareWindow(json: Data(windowJSON.utf8), windowUUID: "app-w1")
             if let render = app.renderOffscreen(prepared: prepared, title: nil) {
                 webView = render.showsWebView
                 render.close()
@@ -629,12 +629,12 @@ final class AdwaitaApplicationTests: XCTestCase {
 
     func testRenderingOffscreenRefusesAUsedOrBadDocumentAndBeforeTheStart() throws {
         let app = AdwaitaApplication()
-        let early = app.prepareWindow(json: Data(Self.document.utf8), windowUUID: "app-w2")
+        let early = app.prepareWindow(json: Data(Self.json.utf8), windowUUID: "app-w2")
         XCTAssertNil(app.renderOffscreen(prepared: early, title: nil), "before the start")
         var used: Bool?
         var bad: Bool?
         app.handlers.didFinishLaunching = {
-            let prepared = app.prepareWindow(json: Data(Self.document.utf8), windowUUID: "app-w1")
+            let prepared = app.prepareWindow(json: Data(Self.json.utf8), windowUUID: "app-w1")
             let first = app.renderOffscreen(prepared: prepared, title: nil)
             used = app.renderOffscreen(prepared: prepared, title: nil) == nil
             first?.close()
@@ -643,7 +643,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         }
         XCTAssertEqual(app.run(), 0)
         XCTAssertEqual(used, true, "a prepared window renders once")
-        XCTAssertEqual(bad, true, "a document that could not be loaded")
+        XCTAssertEqual(bad, true, "JSON that could not be loaded")
     }
 
     func testAWindowOpensNoWiderThan900UnlessItsMinimumNeedsMore() throws {
@@ -789,30 +789,30 @@ final class AdwaitaApplicationTests: XCTestCase {
 
     func testAFileIsTitledByItsNameAndABadDocumentShowsItsError() throws {
         let path = NSTemporaryDirectory() + "actionui-app-test-\(ProcessInfo.processInfo.processIdentifier).json"
-        try Self.document.write(toFile: path, atomically: true, encoding: .utf8)
+        try Self.json.write(toFile: path, atomically: true, encoding: .utf8)
         files.append(path)
         let app = AdwaitaApplication()
         var title: String?
         var errorText: String?
-        var documentFolder: String?
+        var contentFolder: String?
         var folderAfterClose: String?
         app.handlers.didFinishLaunching = {
             app.presentWindow(url: path, windowUUID: "app-file", title: nil)
-            documentFolder = AppBundle.documentFolder(window: "app-file")
+            contentFolder = AppBundle.contentFolder(window: "app-file")
             app.presentWindow(json: Data("{ not json".utf8), windowUUID: "app-bad", title: "Bad")
             title = app.gtkWindow("app-file").flatMap { swiftString(gtk_window_get_title($0)) }
             if let window = app.gtkWindow("app-bad"), let label = self.content(window) {
                 errorText = swiftString(gtk_label_get_text(opaque(label)))
             }
             app.closeWindow("app-file")
-            folderAfterClose = AppBundle.documentFolder(window: "app-file")
+            folderAfterClose = AppBundle.contentFolder(window: "app-file")
             app.closeWindow("app-bad")
             app.terminate()
         }
         app.run()
         XCTAssertEqual(title, "actionui-app-test-\(ProcessInfo.processInfo.processIdentifier)")
-        XCTAssertTrue(errorText?.hasPrefix("The document could not be loaded") == true, "got \(errorText ?? "nil")")
-        XCTAssertEqual(documentFolder, URL(fileURLWithPath: path).deletingLastPathComponent().path, "the file's folder, where its LoadableViews find their names")
+        XCTAssertTrue(errorText?.hasPrefix("The ActionUI JSON could not be loaded") == true, "got \(errorText ?? "nil")")
+        XCTAssertEqual(contentFolder, URL(fileURLWithPath: path).deletingLastPathComponent().path, "the file's folder, where its LoadableViews find their names")
         XCTAssertNil(folderAfterClose, "dropped when the window closes")
     }
 
@@ -826,14 +826,14 @@ final class AdwaitaApplicationTests: XCTestCase {
             try? FileManager.default.removeItem(atPath: folder)
         }
         ActionUIConfiguration.updateForTesting { $0.resourceFolder = resources }
-        try Self.document.write(toFile: resources + "/Main.json", atomically: true, encoding: .utf8)
-        try Self.document.write(toFile: folder + "/Other.json", atomically: true, encoding: .utf8)
+        try Self.json.write(toFile: resources + "/Main.json", atomically: true, encoding: .utf8)
+        try Self.json.write(toFile: folder + "/Other.json", atomically: true, encoding: .utf8)
         let app = AdwaitaApplication()
         var inside: JSONContentOrigin?, outside: JSONContentOrigin?, host: JSONContentOrigin?
         app.handlers.didFinishLaunching = {
             app.presentWindow(url: resources + "/Main.json", windowUUID: "origin-inside", title: nil)
             app.presentWindow(url: folder + "/Other.json", windowUUID: "origin-outside", title: nil)
-            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "origin-host", title: "Host")
+            app.presentWindow(json: Data(Self.json.utf8), windowUUID: "origin-host", title: "Host")
             inside = ActionUIModel.shared.origin(windowUUID: "origin-inside", viewID: 2)
             outside = ActionUIModel.shared.origin(windowUUID: "origin-outside", viewID: 2)
             host = ActionUIModel.shared.origin(windowUUID: "origin-host", viewID: 2)
@@ -864,7 +864,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         app.handlers.willTerminate = { terminated = true }
         let toplevels = g_list_model_get_n_items(gtk_window_get_toplevels())
         app.handlers.didFinishLaunching = {
-            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+            app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil)
             secondRun = app.run()
             // The user's close of the last window: refused.
             if let window = app.gtkWindow("app-w1") { gtk_window_close(window) }
@@ -903,7 +903,7 @@ final class AdwaitaApplicationTests: XCTestCase {
                 app.terminate()
             }
         }
-        app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+        app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil)
         XCTAssertEqual(app.run(), 0)
         XCTAssertTrue(runningAfterClose, "the host's close of the last window leaves the application running, as on Apple")
         XCTAssertEqual(modelAfterClose, false, "the closed window's model goes meanwhile")
@@ -925,19 +925,19 @@ final class AdwaitaApplicationTests: XCTestCase {
             _ = runAfter(milliseconds: 5000) { app.terminate() }
             app.closeWindow("app-w1")
             _ = runAfter(milliseconds: 100) {
-                app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w2", title: nil)
+                app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w2", title: nil)
                 // The user's close of the last window: asked, and the application ends.
                 if let window = app.gtkWindow("app-w2") { gtk_window_close(window) }
             }
         }
-        app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+        app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil)
         XCTAssertEqual(app.run(), 0)
         XCTAssertEqual(events, ["close app-w1", "close app-w2"], "the user's close was carried out, not left to the watchdog")
         XCTAssertEqual(asked, 1, "the user's close of the new window asked and ended the application: no hold was left")
     }
 
     func testTheHostClosingItsLastWindowWhileItsDocumentLoadsLeavesTheApplicationRunning() throws {
-        let server = try TestImageServer(png: [], document: Self.document)
+        let server = try TestImageServer(png: [], json: Self.json)
         defer { server.stop() }
         let app = AdwaitaApplication()
         var presented: [String] = []
@@ -957,7 +957,7 @@ final class AdwaitaApplicationTests: XCTestCase {
                 app.terminate()
             }
         }
-        app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+        app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil)
         XCTAssertEqual(app.run(), 0)
         XCTAssertTrue(runningAfterClose, "the host dropped its last load: the application keeps running")
         XCTAssertEqual(presented, ["app-w1"], "the dropped load presents nothing")
@@ -976,7 +976,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         app.handlers.didFinishLaunching = {
             // A watchdog: a window that stays open fails the test instead of hanging it.
             _ = runAfter(milliseconds: 5000) { app.terminate() }
-            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+            app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil)
             try? ActionUIModel.shared.presentModal(windowUUID: "app-w1", data: Data(#"{"type": "Text", "id": 50, "properties": {"text": "Sheet"}}"#.utf8),
                                                    format: "json", style: .sheet, onDismissActionID: "app.dismissed")
             ActionUIModel.shared.presentAlert(windowUUID: "app-w1", title: "Alert", buttons: [DialogButton(title: "Cancel", role: .cancel, actionID: "app.dismissed")])
@@ -1001,9 +1001,9 @@ final class AdwaitaApplicationTests: XCTestCase {
             // A watchdog: a hold never released, or a close that does not end the application,
             // fails the test instead of hanging it.
             _ = runAfter(milliseconds: 5000) { app.terminate() }
-            // As a host whose document arrives later: no window when launching ends.
+            // As a host whose JSON arrives later: no window when launching ends.
             _ = runAfter(milliseconds: 50) {
-                app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w2", title: "Later")
+                app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w2", title: "Later")
                 presented = app.gtkWindow("app-w2") != nil
                 app.closeWindow("app-w2")
                 app.terminate()
@@ -1014,7 +1014,7 @@ final class AdwaitaApplicationTests: XCTestCase {
     }
 
     func testAnHTTPDocumentOpensOnceLoadedAndHoldsTheApplicationMeanwhile() throws {
-        let server = try TestImageServer(png: [], document: Self.document)
+        let server = try TestImageServer(png: [], json: Self.json)
         defer { server.stop() }
         let app = AdwaitaApplication()
         var events: [String] = []
@@ -1032,7 +1032,7 @@ final class AdwaitaApplicationTests: XCTestCase {
                     app.closeWindow("app-w1")
                     // Presented again while it loads: the newer window stays.
                     app.presentWindow(url: server.base + "/missing.json", windowUUID: "app-big", title: nil)
-                    app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-big", title: nil)
+                    app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-big", title: nil)
                     app.presentWindow(url: server.base + "/missing.json", windowUUID: "app-bad", title: nil)
                 }
             case "app-bad":
@@ -1057,7 +1057,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         }
         app.handlers.didFinishLaunching = {
             _ = runAfter(milliseconds: 10000) { app.terminate() }
-            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+            app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil)
             // The only window closes, then the next one loads: the hold the close takes, and then the
             // load's, keep the application running meanwhile.
             app.closeWindow("app-w1")
@@ -1088,8 +1088,8 @@ final class AdwaitaApplicationTests: XCTestCase {
         let app = AdwaitaApplication()
         let subtitle = "Requested by a test"
         let options = AdwaitaApplication.WindowOptions(subtitle: subtitle)
-        let documents: [(String, String)] = [
-            ("app-w1", Self.document),
+        let windowsJSON: [(String, String)] = [
+            ("app-w1", Self.json),
             ("app-w2", #"{"type": "NavigationStack", "id": 1, "properties": {"navigationTitle": "Own bars"}, "content": {"type": "Text", "id": 2, "properties": {"text": "Page"}}}"#),
             ("app-text", #"{"type": "NavigationSplitView", "id": 1, "sidebar": {"type": "Text", "id": 2, "properties": {"text": "Side"}}, "detail": {"type": "Text", "id": 3, "properties": {"text": "Detail"}}}"#),
             ("app-wide", #"{"type": "Text", "id": 1, "properties": {"text": "Own title"}, "toolbar": [{"type": "ToolbarItem", "id": 2, "properties": {"placement": "principal"}, "content": {"type": "Text", "id": 3, "properties": {"text": "Principal"}}}]}"#),
@@ -1098,11 +1098,11 @@ final class AdwaitaApplicationTests: XCTestCase {
         var mapped: [String: Bool] = [:]
         var loaded: [String] = []
         app.handlers.didFinishLaunching = {
-            for (uuid, document) in documents {
-                app.presentWindow(json: Data(document.utf8), windowUUID: uuid, title: "Title", options: options)
+            for (uuid, windowJSON) in windowsJSON {
+                app.presentWindow(json: Data(windowJSON.utf8), windowUUID: uuid, title: "Title", options: options)
             }
             _ = runAfter(milliseconds: 500) {
-                for (uuid, _) in documents {
+                for (uuid, _) in windowsJSON {
                     let line = app.gtkWindow(uuid).flatMap { self.label(showing: subtitle, in: typed($0)) }
                     mapped[uuid] = line.map { gtk_widget_get_mapped($0) != 0 } ?? false
                     if app.showsDocument(uuid) { loaded.append(uuid) }
@@ -1113,7 +1113,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         }
         XCTAssertEqual(app.run(), 0)
         XCTAssertEqual(mapped, ["app-w1": true, "app-w2": true, "app-text": true, "app-wide": true, "app-bad": true])
-        XCTAssertEqual(loaded, ["app-w1", "app-w2", "app-text", "app-wide"], "the documents themselves loaded")
+        XCTAssertEqual(loaded, ["app-w1", "app-w2", "app-text", "app-wide"], "the windows themselves loaded")
     }
 
     /// The labels in `widget` showing `text`: the window's first, then those of what is over it.
@@ -1175,13 +1175,13 @@ final class AdwaitaApplicationTests: XCTestCase {
         let app = AdwaitaApplication()
         let subtitle = "Requested by a test"
         let options = AdwaitaApplication.WindowOptions(subtitle: subtitle, contentSize: (500, 400))
-        func document(width: Int, height: Int) -> Data {
+        func windowJSON(width: Int, height: Int) -> Data {
             Data(#"{"type": "Text", "id": 1, "properties": {"text": "Document"}, "toolbar": [{"type": "ToolbarItem", "id": 2, "properties": {"placement": "principal"}, "content": {"type": "Color", "id": 3, "properties": {"color": "gray", "frame": {"width": \#(width), "height": \#(height)}}}}]}"#.utf8)
         }
         var inView: [String: Bool] = [:]
         app.handlers.didFinishLaunching = {
-            app.presentWindow(json: document(width: 100, height: 3000), windowUUID: "app-tall", title: nil, options: options)
-            app.presentWindow(json: document(width: 5000, height: 20), windowUUID: "app-wide", title: nil, options: options)
+            app.presentWindow(json: windowJSON(width: 100, height: 3000), windowUUID: "app-tall", title: nil, options: options)
+            app.presentWindow(json: windowJSON(width: 5000, height: 20), windowUUID: "app-wide", title: nil, options: options)
             @MainActor func lineInView(_ uuid: String) -> Bool {
                 guard let window = app.gtkWindow(uuid), let line = self.label(showing: subtitle, in: typed(window)) else { return false }
                 return self.startIsInView(line, of: window)
@@ -1204,7 +1204,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         let subtitle = String(repeating: "Requested by a test ", count: 20)
         let options = AdwaitaApplication.WindowOptions(subtitle: subtitle, contentSize: (500, 400))
         let cover = #"{"type": "Color", "id": 20, "properties": {"color": "red", "frame": {"width": 2000, "height": 2000}}}"#
-        let document = #"{"type": "VStack", "id": 1, "children": [{"type": "Button", "id": 2, "properties": {"title": "Sheet"}, "sheet": \#(cover)}, {"type": "Button", "id": 3, "properties": {"title": "Cover"}, "fullScreenCover": {"type": "NavigationStack", "id": 30, "content": {"type": "Color", "id": 31, "properties": {"color": "blue", "frame": {"width": 3000, "height": 3000}}}}}]}"#
+        let windowJSON = #"{"type": "VStack", "id": 1, "children": [{"type": "Button", "id": 2, "properties": {"title": "Sheet"}, "sheet": \#(cover)}, {"type": "Button", "id": 3, "properties": {"title": "Cover"}, "fullScreenCover": {"type": "NavigationStack", "id": 30, "content": {"type": "Color", "id": 31, "properties": {"color": "blue", "frame": {"width": 3000, "height": 3000}}}}}]}"#
         var counts: [Int] = []
         var inView: [Bool] = []
         var windowCount = 0
@@ -1212,8 +1212,8 @@ final class AdwaitaApplicationTests: XCTestCase {
         app.handlers.didFinishLaunching = {
             // A watchdog: a test that goes wrong ends here instead of hanging.
             _ = runAfter(milliseconds: 8000) { app.terminate() }
-            app.presentWindow(json: Data(document.utf8), windowUUID: "app-w1", title: "Sheets", options: options)
-            app.presentWindow(json: Data(document.utf8), windowUUID: "app-w2", title: "Plain")
+            app.presentWindow(json: Data(windowJSON.utf8), windowUUID: "app-w1", title: "Sheets", options: options)
+            app.presentWindow(json: Data(windowJSON.utf8), windowUUID: "app-w2", title: "Plain")
             @MainActor func show(_ uuid: String, _ id: Int, _ key: String, then next: @escaping @MainActor () -> Void) {
                 _ = ActionUIModel.shared.setElementState(windowUUID: uuid, viewID: id, key: key, value: true)
                 // app-w1: until the sheet's line (after the window's own) is there and in view; app-w2,
@@ -1239,7 +1239,7 @@ final class AdwaitaApplicationTests: XCTestCase {
                 windowCount = app.gtkWindow("app-w1").map { self.labels(showing: subtitle, in: typed($0)).count } ?? 0
                 show("app-w1", 2, "sheetVisible") {
                     show("app-w1", 3, "fullScreenCoverVisible") {
-                        // No subtitle, no line, in the same document's sheet.
+                        // No subtitle, no line, in the same window's sheet.
                         show("app-w2", 2, "sheetVisible") {
                             app.closeWindow("app-w1")
                             app.closeWindow("app-w2")
@@ -1261,11 +1261,11 @@ final class AdwaitaApplicationTests: XCTestCase {
         defer { gtk_widget_set_default_direction(GTK_TEXT_DIR_LTR) }
         let app = AdwaitaApplication()
         let subtitle = "Requested by a test"
-        let document = #"{"type": "Button", "id": 1, "properties": {"title": "Sheet"}, "sheet": {"type": "Color", "id": 2, "properties": {"color": "red", "frame": {"width": 2000, "height": 2000}}}}"#
+        let windowJSON = #"{"type": "Button", "id": 1, "properties": {"title": "Sheet"}, "sheet": {"type": "Color", "id": 2, "properties": {"color": "red", "frame": {"width": 2000, "height": 2000}}}}"#
         var inView = false
         app.handlers.didFinishLaunching = {
             _ = runAfter(milliseconds: 8000) { app.terminate() }
-            app.presentWindow(json: Data(document.utf8), windowUUID: "app-w1", title: "Sheet",
+            app.presentWindow(json: Data(windowJSON.utf8), windowUUID: "app-w1", title: "Sheet",
                               options: AdwaitaApplication.WindowOptions(subtitle: subtitle, contentSize: (500, 400)))
             _ = ActionUIModel.shared.setElementState(windowUUID: "app-w1", viewID: 1, key: "sheetVisible", value: true)
             // Until the sheet's line (after the window's own, which is in view from the start) is there
@@ -1291,12 +1291,12 @@ final class AdwaitaApplicationTests: XCTestCase {
     func testALongSubtitleDoesNotWidenASheet() throws {
         let app = AdwaitaApplication()
         let subtitle = String(repeating: "Requested by a test ", count: 40)
-        let document = #"{"type": "Button", "id": 1, "properties": {"title": "Sheet"}, "sheet": {"type": "Color", "id": 2, "properties": {"color": "red", "frame": {"width": 300, "height": 100}}}}"#
+        let windowJSON = #"{"type": "Button", "id": 1, "properties": {"title": "Sheet"}, "sheet": {"type": "Color", "id": 2, "properties": {"color": "red", "frame": {"width": 300, "height": 100}}}}"#
         var width: Int32 = 0
         var lineCount = 0
         app.handlers.didFinishLaunching = {
             _ = runAfter(milliseconds: 8000) { app.terminate() }
-            app.presentWindow(json: Data(document.utf8), windowUUID: "app-w1", title: "Sheets",
+            app.presentWindow(json: Data(windowJSON.utf8), windowUUID: "app-w1", title: "Sheets",
                               options: AdwaitaApplication.WindowOptions(subtitle: subtitle, contentSize: (800, 600)))
             _ = ActionUIModel.shared.setElementState(windowUUID: "app-w1", viewID: 1, key: "sheetVisible", value: true)
             _ = runAfter(milliseconds: 600) {
@@ -1334,7 +1334,7 @@ final class AdwaitaApplicationTests: XCTestCase {
             }
         }
         XCTAssertEqual(app.run(), 0)
-        XCTAssertTrue(principal, "the document's title item and the subtitle both show")
+        XCTAssertTrue(principal, "the window's title item and the subtitle both show")
     }
 
     func testALongSubtitleDoesNotWidenTheWindow() throws {
@@ -1346,9 +1346,9 @@ final class AdwaitaApplicationTests: XCTestCase {
         var allocated: Int32 = 0
         var allocatedNotResizable: Int32 = 0
         app.handlers.didFinishLaunching = {
-            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
-            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w2", title: nil, options: AdwaitaApplication.WindowOptions(subtitle: subtitle))
-            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-big", title: nil, options: AdwaitaApplication.WindowOptions(subtitle: subtitle, isResizable: false))
+            app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil)
+            app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w2", title: nil, options: AdwaitaApplication.WindowOptions(subtitle: subtitle))
+            app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-big", title: nil, options: AdwaitaApplication.WindowOptions(subtitle: subtitle, isResizable: false))
             if let window = app.gtkWindow("app-w1") { plain = self.defaultSize(window) }
             if let window = app.gtkWindow("app-w2") {
                 withLine = self.defaultSize(window)
@@ -1364,7 +1364,7 @@ final class AdwaitaApplicationTests: XCTestCase {
             }
         }
         XCTAssertEqual(app.run(), 0)
-        XCTAssertEqual(withLine.0, plain.0, "the document sets the width")
+        XCTAssertEqual(withLine.0, plain.0, "the content sets the width")
         XCTAssertEqual(allocated, plain.0, "and it opens at that width")
         XCTAssertEqual(allocatedNotResizable, plain.0, "resizable or not")
         XCTAssertGreaterThan(withLine.1, plain.1, "the line adds to the height")
@@ -1384,10 +1384,10 @@ final class AdwaitaApplicationTests: XCTestCase {
             g_object_unref(item)
         }
         app.handlers.didFinishLaunching = {
-            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
-            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w2", title: nil, options: AdwaitaApplication.WindowOptions(contentSize: (500, 400)))
-            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-big", title: nil, options: AdwaitaApplication.WindowOptions(contentSize: (50000, 50000)))
-            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-tall", title: nil, options: AdwaitaApplication.WindowOptions(contentSize: (0, 400)))
+            app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil)
+            app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w2", title: nil, options: AdwaitaApplication.WindowOptions(contentSize: (500, 400)))
+            app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-big", title: nil, options: AdwaitaApplication.WindowOptions(contentSize: (50000, 50000)))
+            app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-tall", title: nil, options: AdwaitaApplication.WindowOptions(contentSize: (0, 400)))
             if let window = app.gtkWindow("app-w1") { plain = self.defaultSize(window) }
             if let window = app.gtkWindow("app-w2") {
                 sized = self.defaultSize(window)
@@ -1406,7 +1406,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         XCTAssertEqual(resizable, 1, "a size given does not fix it")
         XCTAssertEqual(large.0, monitor.width)
         XCTAssertEqual(large.1, monitor.height)
-        XCTAssertEqual(oneSide.0, plain.0, "a side not given stays the document's")
+        XCTAssertEqual(oneSide.0, plain.0, "a side not given stays the content's")
         XCTAssertEqual(oneSide.1, sized.1)
     }
 
@@ -1416,12 +1416,12 @@ final class AdwaitaApplicationTests: XCTestCase {
         let plain = AdwaitaApplication.WindowOptions(contentSize: (500, 400))
         let withLine = AdwaitaApplication.WindowOptions(subtitle: "Requested by a test", contentSize: (500, 400))
         let windows: [(String, String, AdwaitaApplication.WindowOptions)] = [
-            ("app-w1", Self.document, plain), ("app-w2", Self.document, withLine), ("app-text", stack, plain), ("app-big", stack, withLine),
+            ("app-w1", Self.json, plain), ("app-w2", Self.json, withLine), ("app-text", stack, plain), ("app-big", stack, withLine),
         ]
         var sizes: [String: (Int32, Int32)] = [:]
         app.handlers.didFinishLaunching = {
-            for (uuid, document, options) in windows {
-                app.presentWindow(json: Data(document.utf8), windowUUID: uuid, title: nil, options: options)
+            for (uuid, windowJSON, options) in windows {
+                app.presentWindow(json: Data(windowJSON.utf8), windowUUID: uuid, title: nil, options: options)
             }
             _ = runAfter(milliseconds: 500) {
                 for (uuid, _, _) in windows {
@@ -1451,7 +1451,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         var plainScrolls = true
         var withLineScrolls = false
         app.handlers.didFinishLaunching = {
-            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+            app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil)
             let headerBar = app.gtkWindow("app-w1").map { self.defaultSize($0).1 - 320 } ?? 0
             // Fits under the header bar, but not under the header bar and the line.
             let tall = Data(#"{"type": "Color", "id": 1, "properties": {"color": "red", "frame": {"minWidth": 100, "minHeight": \#(monitor.height - headerBar - 5)}}}"#.utf8)
@@ -1497,9 +1497,9 @@ final class AdwaitaApplicationTests: XCTestCase {
         var results: [String: (resizable: gboolean, wanted: (Int32, Int32), got: (Int32, Int32))] = [:]
         let notResizable = AdwaitaApplication.WindowOptions(isResizable: false)
         app.handlers.didFinishLaunching = {
-            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil, options: notResizable)
+            app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil, options: notResizable)
             app.presentWindow(json: Data(scrolling.utf8), windowUUID: "app-scroll", title: nil, options: notResizable)
-            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w2", title: nil, options: AdwaitaApplication.WindowOptions(contentSize: (500, 400), isResizable: false))
+            app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w2", title: nil, options: AdwaitaApplication.WindowOptions(contentSize: (500, 400), isResizable: false))
             _ = runAfter(milliseconds: 500) {
                 for uuid in ["app-w1", "app-scroll", "app-w2"] {
                     guard let window = app.gtkWindow(uuid) else { continue }
@@ -1536,17 +1536,17 @@ final class AdwaitaApplicationTests: XCTestCase {
             if let window = app.gtkWindow("app-w1") { gtk_window_close(window) }
             _ = runAfter(milliseconds: 200) {
                 runningAfterClose = true
-                app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w2", title: nil)
+                app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w2", title: nil)
                 if let window = app.gtkWindow("app-w2") { gtk_window_close(window) }
                 _ = runAfter(milliseconds: 200) {
                     // Without the flag, the user's close asks and ends the application, as no hold is left.
                     app.keepsRunningWithoutWindows = false
-                    app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-big", title: nil)
+                    app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-big", title: nil)
                     if let window = app.gtkWindow("app-big") { gtk_window_close(window) }
                 }
             }
         }
-        app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+        app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil)
         XCTAssertEqual(app.run(), 0)
         XCTAssertTrue(runningAfterClose, "the application outlives the user's close")
         XCTAssertEqual(events, ["close app-w1", "close app-w2", "close app-big"])
@@ -1554,7 +1554,7 @@ final class AdwaitaApplicationTests: XCTestCase {
     }
 
     func testWithKeepsRunningALoadingDocumentHoldsTheApplicationAsAWindowWould() throws {
-        let server = try TestImageServer(png: [], document: Self.document)
+        let server = try TestImageServer(png: [], json: Self.json)
         defer { server.stop() }
         let app = AdwaitaApplication()
         app.keepsRunningWithoutWindows = true
@@ -1573,7 +1573,7 @@ final class AdwaitaApplicationTests: XCTestCase {
                 _ = runAfter(milliseconds: 200) {
                     // Without the flag, the user's close asks and ends the application, as no hold is left.
                     app.keepsRunningWithoutWindows = false
-                    app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w2", title: nil)
+                    app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w2", title: nil)
                     if let window = app.gtkWindow("app-w2") { gtk_window_close(window) }
                 }
             }
@@ -1586,12 +1586,12 @@ final class AdwaitaApplicationTests: XCTestCase {
             if let window = app.gtkWindow("app-w1") { gtk_window_close(window) }
             _ = runAfter(milliseconds: 200) {
                 // The user closes the only window while another loads: that one opens.
-                app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+                app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil)
                 app.presentWindow(url: server.base + "/view.json", windowUUID: "app-big", title: nil)
                 if let window = app.gtkWindow("app-w1") { gtk_window_close(window) }
             }
         }
-        app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+        app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil)
         XCTAssertEqual(app.run(), 0)
         XCTAssertEqual(events, ["present app-w1", "close app-w1", "present app-w1", "close app-w1", "present app-big", "close app-big",
                                 "present app-w2", "close app-w2"])
@@ -1599,7 +1599,7 @@ final class AdwaitaApplicationTests: XCTestCase {
     }
 
     func testOptionsSurviveTheWaitForTheStartAndForARemoteDocument() throws {
-        let server = try TestImageServer(png: [], document: Self.document)
+        let server = try TestImageServer(png: [], json: Self.json)
         defer { server.stop() }
         let app = AdwaitaApplication()
         let subtitle = "Requested by a test"
@@ -1617,7 +1617,7 @@ final class AdwaitaApplicationTests: XCTestCase {
             _ = runAfter(milliseconds: 5000) { app.terminate() }
             app.presentWindow(url: server.base + "/view.json", windowUUID: "app-big", title: nil, options: options)
         }
-        app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil, options: options)
+        app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil, options: options)
         app.presentWindow(url: server.base + "/view.json", windowUUID: "app-w2", title: nil, options: options)
         XCTAssertEqual(app.run(), 0)
         XCTAssertEqual(Set(seen.keys), ["app-w1", "app-w2", "app-big"])
@@ -1642,7 +1642,7 @@ final class AdwaitaApplicationTests: XCTestCase {
 }
 
 /// For `swift test` with no display, where the renderer tests skip: a server over SSH still checks
-/// documents.
+/// ActionUI JSON.
 @MainActor
 final class AdwaitaApplicationNoDisplayTests: XCTestCase {
     override func tearDown() async throws {
@@ -1656,9 +1656,9 @@ final class AdwaitaApplicationNoDisplayTests: XCTestCase {
         let good = app.prepareWindow(json: Data(#"{"type": "VStack", "id": 1, "children": [{"type": "Text", "id": 2, "properties": {"text": "Hello"}}]}"#.utf8),
                                      windowUUID: "app-no-display")
         XCTAssertNil(good.error)
-        XCTAssertTrue(ActionUIModel.shared.hasWindow("app-no-display"), "the document loads")
+        XCTAssertTrue(ActionUIModel.shared.hasWindow("app-no-display"), "the JSON loads")
         let bad = app.prepareWindow(json: Data("not json".utf8), windowUUID: "app-no-display")
-        XCTAssertNotNil(bad.error, "a bad document is still found")
+        XCTAssertNotNil(bad.error, "bad JSON is still found")
     }
 
     func testWithNoDisplayARunServesTheMainQueueUntilTerminate() throws {

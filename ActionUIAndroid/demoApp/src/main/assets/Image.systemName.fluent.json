@@ -1,0 +1,621 @@
+{
+ "type": "VStack",
+ "id": 1,
+ "properties": {
+  "alignment": "leading",
+  "spacing": 10,
+  "padding": 20
+ },
+ "children": [
+  {
+   "type": "Text",
+   "id": 2,
+   "properties": {
+    "text": "Odd positions: Material. Even positions: Fluent (Material has no glyph).",
+    "font": "headline"
+   }
+  },
+  {
+   "type": "Text",
+   "id": 3,
+   "properties": {
+    "text": "font: body",
+    "font": "subheadline",
+    "foregroundStyle": "secondary"
+   }
+  },
+  {
+   "type": "HStack",
+   "id": 4,
+   "properties": {
+    "spacing": 14
+   },
+   "children": [
+    {
+     "type": "Image",
+     "id": 5,
+     "properties": {
+      "systemName": "house",
+      "font": "body"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 6,
+     "properties": {
+      "systemName": "barometer",
+      "font": "body"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 7,
+     "properties": {
+      "systemName": "folder",
+      "font": "body"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 8,
+     "properties": {
+      "systemName": "checkmark.rectangle",
+      "font": "body"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 9,
+     "properties": {
+      "systemName": "magnifyingglass",
+      "font": "body"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 10,
+     "properties": {
+      "systemName": "cloud.moon.bolt",
+      "font": "body"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 11,
+     "properties": {
+      "systemName": "gear",
+      "font": "body"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 12,
+     "properties": {
+      "systemName": "cube.transparent",
+      "font": "body"
+     }
+    }
+   ]
+  },
+  {
+   "type": "HStack",
+   "id": 13,
+   "properties": {
+    "spacing": 14
+   },
+   "children": [
+    {
+     "type": "Image",
+     "id": 14,
+     "properties": {
+      "systemName": "envelope",
+      "font": "body"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 15,
+     "properties": {
+      "systemName": "drop.degreesign",
+      "font": "body"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 16,
+     "properties": {
+      "systemName": "heart",
+      "font": "body"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 17,
+     "properties": {
+      "systemName": "exclamationmark.lock",
+      "font": "body"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 18,
+     "properties": {
+      "systemName": "bell",
+      "font": "body"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 19,
+     "properties": {
+      "systemName": "ring.dashed",
+      "font": "body"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 20,
+     "properties": {
+      "systemName": "trash",
+      "font": "body"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 21,
+     "properties": {
+      "systemName": "square.dotted",
+      "font": "body"
+     }
+    }
+   ]
+  },
+  {
+   "type": "HStack",
+   "id": 22,
+   "properties": {
+    "spacing": 14
+   },
+   "children": [
+    {
+     "type": "Image",
+     "id": 23,
+     "properties": {
+      "systemName": "calendar",
+      "font": "body"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 24,
+     "properties": {
+      "systemName": "suit.diamond",
+      "font": "body"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 25,
+     "properties": {
+      "systemName": "person",
+      "font": "body"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 26,
+     "properties": {
+      "systemName": "pano.badge.play",
+      "font": "body"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 27,
+     "properties": {
+      "systemName": "lock",
+      "font": "body"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 28,
+     "properties": {
+      "systemName": "doc.badge.ellipsis",
+      "font": "body"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 29,
+     "properties": {
+      "systemName": "star",
+      "font": "body"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 30,
+     "properties": {
+      "systemName": "arrow.up.right.diamond",
+      "font": "body"
+     }
+    }
+   ]
+  },
+  {
+   "type": "HStack",
+   "id": 31,
+   "properties": {
+    "spacing": 14
+   },
+   "children": [
+    {
+     "type": "Image",
+     "id": 32,
+     "properties": {
+      "systemName": "house.fill",
+      "font": "body"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 33,
+     "properties": {
+      "systemName": "key.card.fill",
+      "font": "body"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 34,
+     "properties": {
+      "systemName": "folder.fill",
+      "font": "body"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 35,
+     "properties": {
+      "systemName": "hand.point.up.fill",
+      "font": "body"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 36,
+     "properties": {
+      "systemName": "heart.fill",
+      "font": "body"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 37,
+     "properties": {
+      "systemName": "questionmark.folder.fill",
+      "font": "body"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 38,
+     "properties": {
+      "systemName": "star.fill",
+      "font": "body"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 39,
+     "properties": {
+      "systemName": "video.fill.badge.checkmark",
+      "font": "body"
+     }
+    }
+   ]
+  },
+  {
+   "type": "Text",
+   "id": 40,
+   "properties": {
+    "text": "font: largeTitle",
+    "font": "subheadline",
+    "foregroundStyle": "secondary"
+   }
+  },
+  {
+   "type": "HStack",
+   "id": 41,
+   "properties": {
+    "spacing": 14
+   },
+   "children": [
+    {
+     "type": "Image",
+     "id": 42,
+     "properties": {
+      "systemName": "house",
+      "font": "largeTitle"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 43,
+     "properties": {
+      "systemName": "barometer",
+      "font": "largeTitle"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 44,
+     "properties": {
+      "systemName": "folder",
+      "font": "largeTitle"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 45,
+     "properties": {
+      "systemName": "checkmark.rectangle",
+      "font": "largeTitle"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 46,
+     "properties": {
+      "systemName": "magnifyingglass",
+      "font": "largeTitle"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 47,
+     "properties": {
+      "systemName": "cloud.moon.bolt",
+      "font": "largeTitle"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 48,
+     "properties": {
+      "systemName": "gear",
+      "font": "largeTitle"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 49,
+     "properties": {
+      "systemName": "cube.transparent",
+      "font": "largeTitle"
+     }
+    }
+   ]
+  },
+  {
+   "type": "HStack",
+   "id": 50,
+   "properties": {
+    "spacing": 14
+   },
+   "children": [
+    {
+     "type": "Image",
+     "id": 51,
+     "properties": {
+      "systemName": "envelope",
+      "font": "largeTitle"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 52,
+     "properties": {
+      "systemName": "drop.degreesign",
+      "font": "largeTitle"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 53,
+     "properties": {
+      "systemName": "heart",
+      "font": "largeTitle"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 54,
+     "properties": {
+      "systemName": "exclamationmark.lock",
+      "font": "largeTitle"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 55,
+     "properties": {
+      "systemName": "bell",
+      "font": "largeTitle"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 56,
+     "properties": {
+      "systemName": "ring.dashed",
+      "font": "largeTitle"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 57,
+     "properties": {
+      "systemName": "trash",
+      "font": "largeTitle"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 58,
+     "properties": {
+      "systemName": "square.dotted",
+      "font": "largeTitle"
+     }
+    }
+   ]
+  },
+  {
+   "type": "HStack",
+   "id": 59,
+   "properties": {
+    "spacing": 14
+   },
+   "children": [
+    {
+     "type": "Image",
+     "id": 60,
+     "properties": {
+      "systemName": "calendar",
+      "font": "largeTitle"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 61,
+     "properties": {
+      "systemName": "suit.diamond",
+      "font": "largeTitle"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 62,
+     "properties": {
+      "systemName": "person",
+      "font": "largeTitle"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 63,
+     "properties": {
+      "systemName": "pano.badge.play",
+      "font": "largeTitle"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 64,
+     "properties": {
+      "systemName": "lock",
+      "font": "largeTitle"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 65,
+     "properties": {
+      "systemName": "doc.badge.ellipsis",
+      "font": "largeTitle"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 66,
+     "properties": {
+      "systemName": "star",
+      "font": "largeTitle"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 67,
+     "properties": {
+      "systemName": "arrow.up.right.diamond",
+      "font": "largeTitle"
+     }
+    }
+   ]
+  },
+  {
+   "type": "HStack",
+   "id": 68,
+   "properties": {
+    "spacing": 14
+   },
+   "children": [
+    {
+     "type": "Image",
+     "id": 69,
+     "properties": {
+      "systemName": "house.fill",
+      "font": "largeTitle"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 70,
+     "properties": {
+      "systemName": "key.card.fill",
+      "font": "largeTitle"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 71,
+     "properties": {
+      "systemName": "folder.fill",
+      "font": "largeTitle"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 72,
+     "properties": {
+      "systemName": "hand.point.up.fill",
+      "font": "largeTitle"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 73,
+     "properties": {
+      "systemName": "heart.fill",
+      "font": "largeTitle"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 74,
+     "properties": {
+      "systemName": "questionmark.folder.fill",
+      "font": "largeTitle"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 75,
+     "properties": {
+      "systemName": "star.fill",
+      "font": "largeTitle"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 76,
+     "properties": {
+      "systemName": "video.fill.badge.checkmark",
+      "font": "largeTitle"
+     }
+    }
+   ]
+  }
+ ]
+}

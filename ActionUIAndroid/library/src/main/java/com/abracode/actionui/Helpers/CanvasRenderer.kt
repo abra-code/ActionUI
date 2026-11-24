@@ -148,7 +148,7 @@ internal sealed interface CanvasGradientSpec {
 
 /** An image operation's source (the validated one-of-four contract). */
 internal sealed interface CanvasImageSpec {
-    /** SF Symbol name, drawn as the mapped Material glyph (`SystemSymbolResolver`). */
+    /** SF Symbol name, drawn as the mapped Material glyph (`SFSymbolResolver`). */
     data class SystemName(val name: String) : CanvasImageSpec
     /**
      * Explicit Material Symbol, the Android-only `materialName:android` axis
@@ -942,18 +942,12 @@ private fun DrawScope.drawCanvasImage(
             // Resolve to a codepoint plus axis tuning: an SF name goes through
             // the SF->Material map (with its per-row fill/weight), an explicit
             // Material name through the codepoints table at the defaults.
-            val resolved: Triple<Int, Int, Float>? = when (source) {
-                is CanvasImageSpec.SystemName ->
-                    systemSymbol(source.name, env.assets, env.logger)?.let {
-                        Triple(
-                            it.codepoint,
-                            resolveSymbolWeight(explicit = null, mapWeight = it.weight),
-                            resolveSymbolFill(explicit = null, mapFill = it.fill),
-                        )
-                    }
+            // An SF name the Material map lacks resolves to a glyph of the Fluent font.
+            val resolved: SFSymbolEntry? = when (source) {
+                is CanvasImageSpec.SystemName -> sfSymbol(source.name, env.assets, env.logger)
                 is CanvasImageSpec.MaterialName ->
                     materialCodepoint(source.name, env.assets, env.logger)?.let {
-                        Triple(it, MATERIAL_WEIGHT_DEFAULT, MATERIAL_FILL_DEFAULT)
+                        SFSymbolEntry(it, fill = false, weight = null)
                     }
                 else -> null
             }
@@ -967,12 +961,13 @@ private fun DrawScope.drawCanvasImage(
                 }
                 return
             }
-            val (codepoint, weight, fill) = resolved
+            val codepoint = resolved.codepoint
             val fontSize = frame.height.toSp()
-            val family = materialSymbolFontFamily(
+            val family = symbolFontFamily(
                 assets = env.assets,
-                weight = weight,
-                fill = fill,
+                font = resolved.font,
+                weight = resolveSymbolWeight(explicit = null, mapWeight = resolved.weight),
+                fill = resolveSymbolFill(explicit = null, mapFill = resolved.fill),
                 grade = resolveSymbolGrade(explicit = null),
                 opsz = fontSize.value.coerceIn(MATERIAL_OPSZ_MIN, MATERIAL_OPSZ_MAX),
             )

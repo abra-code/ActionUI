@@ -2,7 +2,7 @@
 /*
  LoadableView on WinUI: the description its source names (the runtime value, else url, filePath or
  name, as on Apple), loaded into the window as the LoadableView's sub-view (Core's
- ActionUIDocumentLoader) and shown as its one child, as a one-child ZStack holds it, following the
+ ActionUIContentLoader) and shown as its one child, as a one-child ZStack holds it, following the
  Linux renderer (LoadableView+Adwaita.swift):
 
  - A file loads while the LoadableView updates, as SwiftUI's FileLoadableView loads in its init: a
@@ -34,7 +34,7 @@
    server on its own.) Trusted content keeps Windows' HTTP client and its settings.
  - The host's trust policy is asked before anything is read (ActionUICapability.load, for the content
    the LoadableView is in), as on Apple and Linux: a refused source shows "Failed to load view: ...".
- - A file is read only when it is a regular file (ActionUIDocumentLoader.readRegularFile). Less-trusted
+ - A file is read only when it is a regular file (ActionUIContentLoader.readRegularFile). Less-trusted
    content (ActionUI JSON from a server or from a file outside the app's resources) loads no file on a
    share or a device (\\server\share, \\?\ and the like), decided from the text before anything touches
    the path. A path or a name becomes a file URL without the file system being asked whether it is a
@@ -81,7 +81,7 @@ import Dispatch
 
 extension LoadableView: ActionUIWinUIRenderer {
     /// viewDidLoadActionID once per source, for every LoadableView on Windows.
-    private static let viewDidLoad = ActionUIDocumentLoader.ViewDidLoad()
+    private static let viewDidLoad = ActionUIContentLoader.ViewDidLoad()
 
     static func expansion(_ node: RenderNode) -> Expansion { StackViews.childrenExpansion(node) }
 
@@ -132,14 +132,14 @@ extension LoadableView: ActionUIWinUIRenderer {
             refuseNetworkPath(path, node, state)
             return
         }
-        let source: Result<ActionUIDocumentLoader.Source, ActionUIDocumentLoader.SourceError>
+        let source: Result<ActionUIContentLoader.Source, ActionUIContentLoader.SourceError>
         if isPathText(value) {
             source = .success(.file(LinkTrust.fileURL(path: value)))
         } else {
-            source = ActionUIDocumentLoader.source(for: value, bundleURL: { name, ext in
+            source = ActionUIContentLoader.source(for: value, bundleURL: { name, ext in
                 let file = "\(name).\(ext)"
                 let url = folder?.appending(path: file, directoryHint: .notDirectory) ?? LinkTrust.fileURL(path: file)
-                return ActionUIDocumentLoader.regularFilePath(url) != nil ? url : nil
+                return ActionUIContentLoader.regularFilePath(url) != nil ? url : nil
             }, logger: logger)
         }
         let windowUUID = node.windowModel.windowUUID
@@ -157,12 +157,12 @@ extension LoadableView: ActionUIWinUIRenderer {
             }
             // The trust policy may refuse the source (ActionUICapability.load), before anything is read,
             // as on Apple and Linux; after the share check, since classifying a file resolves its path.
-            if let refusal = ActionUIDocumentLoader.loadRefusal(found, windowUUID: windowUUID, parentID: parentID, logger: logger) {
+            if let refusal = ActionUIContentLoader.loadRefusal(found, windowUUID: windowUUID, parentID: parentID, logger: logger) {
                 state.status = message("Failed to load view: \(refusal)", error: true)
                 return
             }
-            let key = ActionUIDocumentLoader.nestingKey(for: found)
-            if let refusal = ActionUIDocumentLoader.nestingRefusal(key, inside: enclosingNestingKeys(of: node)) {
+            let key = ActionUIContentLoader.nestingKey(for: found)
+            if let refusal = ActionUIContentLoader.nestingRefusal(key, inside: enclosingNestingKeys(of: node)) {
                 logger.log("LoadableView: not loading \(key): \(refusal)", .error)
                 state.status = message("Failed to load view: \(refusal)", error: true)
                 return
@@ -173,10 +173,10 @@ extension LoadableView: ActionUIWinUIRenderer {
         case .failure(let error):
             state.status = message(error.message, error: false)
         case .success(.file(let url)):
-            let format = ActionUIDocumentLoader.format(of: url)
+            let format = ActionUIContentLoader.format(of: url)
             do {
                 let data = try readFile(url)
-                state.element = try ActionUIDocumentLoader.load(data: data, format: format, windowUUID: windowUUID,
+                state.element = try ActionUIContentLoader.load(data: data, format: format, windowUUID: windowUUID,
                                                                isContentView: false, parentID: parentID, source: .file(url))
                 state.loadedFolder = url.deletingLastPathComponent()
                 logger.log("Successfully loaded \(format) for LoadableView from \(url.absoluteString)", .debug)
@@ -221,7 +221,7 @@ extension LoadableView: ActionUIWinUIRenderer {
         let url = box.url
         state.status = nil
         if let data {
-            let format = ActionUIDocumentLoader.format(of: url)
+            let format = ActionUIContentLoader.format(of: url)
             do {
                 // The content is judged by the address it finally came from (a trusted server's redirect
                 // to another server gives less-trusted content), as on Apple and Linux; one Foundation
@@ -241,12 +241,12 @@ extension LoadableView: ActionUIWinUIRenderer {
                 if finalURL != url {
                     logger.log("Remote URL \(url) was redirected to \(finalURL)", .debug)
                     // The trust policy was asked about `url`; the content came from finalURL.
-                    if let refusal = ActionUIDocumentLoader.loadRefusal(.remote(finalURL), windowUUID: node.windowModel.windowUUID,
+                    if let refusal = ActionUIContentLoader.loadRefusal(.remote(finalURL), windowUUID: node.windowModel.windowUUID,
                                                                         parentID: node.element.id, logger: logger) {
                         throw ActionUIError("it was redirected to \(finalURL.absoluteString), and \(refusal)")
                     }
                 }
-                state.element = try ActionUIDocumentLoader.load(data: data, format: format, windowUUID: node.windowModel.windowUUID,
+                state.element = try ActionUIContentLoader.load(data: data, format: format, windowUUID: node.windowModel.windowUUID,
                                                                isContentView: false, parentID: node.element.id, source: .remote(finalURL))
                 logger.log("Successfully loaded \(format) for LoadableView from remote \(url)", .debug)
                 viewDidLoad.fire(source: url.absoluteString, windowUUID: node.windowModel.windowUUID, parentID: node.element.id,
@@ -268,7 +268,7 @@ extension LoadableView: ActionUIWinUIRenderer {
         guard FileManager.default.fileExists(atPath: url.path) else {
             throw LoadFailure(text: "The file \"\(url.lastPathComponent)\" couldn't be opened because there is no such file.")
         }
-        return try ActionUIDocumentLoader.readRegularFile(url)
+        return try ActionUIContentLoader.readRegularFile(url)
     }
 
     /// Why a load failed, in the words Apple's localizedDescription uses for the common cases.

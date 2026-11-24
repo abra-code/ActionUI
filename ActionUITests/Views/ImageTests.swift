@@ -210,7 +210,7 @@ final class ImageTests: XCTestCase {
     }
 }
 
-// A filePath a document names could be a device or a named pipe; reading one on the main thread
+// A filePath the JSON names could be a device or a named pipe; reading one on the main thread
 // would never finish (/dev/zero) or never begin (a pipe nobody writes to). Only a regular file is
 // opened; anything else shows the placeholder, at once.
 extension ImageTests {
@@ -273,13 +273,13 @@ extension ImageTests {
         let outside = folder.appendingPathComponent("out.png")
         try Self.png(width: 4, height: 4).write(to: inside)
         try Self.png(width: 4, height: 4).write(to: outside)
-        let document = Data(#"{"id": 7, "type": "Image", "properties": {"filePath": "x.png"}}"#.utf8)
+        let json = Data(#"{"id": 7, "type": "Image", "properties": {"filePath": "x.png"}}"#.utf8)
         let remote = UUID().uuidString
         ActionUIModel.shared.logger = ConsoleLogger(maxLevel: .error)
         defer { ActionUIModel.shared.logger = logger }
-        _ = try ActionUIDocumentLoader.load(data: document, format: "json", windowUUID: remote, isContentView: true, parentID: 0,
+        _ = try ActionUIContentLoader.load(data: json, format: "json", windowUUID: remote, isContentView: true, parentID: 0,
                                             source: .remote(URL(string: "https://example.com/v.json")!))
-        _ = try ActionUIDocumentLoader.load(data: document, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
+        _ = try ActionUIContentLoader.load(data: json, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
         let placeholder = SwiftUI.Image(systemName: ImageSource.placeholderSymbol)
         XCTAssertFalse(ActionUIModel.shared.readsLocalFile(outside.path, windowUUID: remote, viewID: 7))
         XCTAssertTrue(ActionUIModel.shared.readsLocalFile(inside.path, windowUUID: remote, viewID: 7), "the app's own resources")
@@ -306,12 +306,12 @@ extension ImageTests {
         defer { try? FileManager.default.removeItem(at: folder) }
         let file = folder.appendingPathComponent("photo.png")
         try Self.png(width: 4, height: 4).write(to: file)
-        let document = Data(#"{"id": 20, "type": "HStack", "template": {"type": "Image", "properties": {"filePath": "$1"}}}"#.utf8)
+        let json = Data(#"{"id": 20, "type": "HStack", "template": {"type": "Image", "properties": {"filePath": "$1"}}}"#.utf8)
         let remote = UUID().uuidString
         ActionUIModel.shared.logger = ConsoleLogger(maxLevel: .error)
         defer { ActionUIModel.shared.logger = logger }
-        let hostStack = try ActionUIDocumentLoader.load(data: document, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
-        let remoteStack = try ActionUIDocumentLoader.load(data: document, format: "json", windowUUID: remote, isContentView: true, parentID: 0,
+        let hostStack = try ActionUIContentLoader.load(data: json, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
+        let remoteStack = try ActionUIContentLoader.load(data: json, format: "json", windowUUID: remote, isContentView: true, parentID: 0,
                                                           source: .remote(URL(string: "https://example.com/v.json")!))
         let placeholder = SwiftUI.Image(systemName: ImageSource.placeholderSymbol)
         // A template row's element has no view model of its own: it asks with its container's id.

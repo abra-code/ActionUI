@@ -23,14 +23,14 @@ final class TemplateIDRuleTests: XCTestCase {
     private var recording: RecordingLogger!
 
     override func setUp() async throws {
-        // No super.setUp(): see DocumentLoaderTests.
+        // No super.setUp(): see ActionUIContentLoaderTests.
         recording = RecordingLogger()
         ActionUIModel.shared.logger = recording
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
         windowUUID = UUID().uuidString
         let root = Data(#"{ "id": 1, "type": "VStack", "children": [ { "id": 2, "type": "Button", "properties": { "title": "Mine" } }, { "id": 100, "type": "LoadableView", "properties": {} } ] }"#.utf8)
-        _ = try ActionUIDocumentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
+        _ = try ActionUIContentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
     }
 
     override func tearDown() async throws {
@@ -38,10 +38,10 @@ final class TemplateIDRuleTests: XCTestCase {
         ActionUIModel.resetForTesting()
     }
 
-    private let remote = ActionUIDocumentLoader.Source.remote(URL(string: "https://example.com/panel.json")!)
+    private let remote = ActionUIContentLoader.Source.remote(URL(string: "https://example.com/panel.json")!)
 
     private func loadRemote(_ json: String) throws {
-        _ = try ActionUIDocumentLoader.load(data: Data(json.utf8), format: "json", windowUUID: windowUUID, isContentView: false,
+        _ = try ActionUIContentLoader.load(data: Data(json.utf8), format: "json", windowUUID: windowUUID, isContentView: false,
                                             parentID: 100, source: remote)
     }
 
@@ -70,7 +70,7 @@ final class TemplateIDRuleTests: XCTestCase {
         // A negative id the JSON gives is replaced by a generated one, in a template's overlay as
         // anywhere else, so it cannot name a trusted element that has no id of its own: here one
         // whose generated id the less-trusted JSON names.
-        let trusted = try ActionUIDocumentLoader.load(data: Data(#"{ "type": "Button", "properties": { "title": "Mine" } }"#.utf8),
+        let trusted = try ActionUIContentLoader.load(data: Data(#"{ "type": "Button", "properties": { "title": "Mine" } }"#.utf8),
                                                       format: "json", windowUUID: windowUUID, isContentView: false, parentID: 0, source: nil)
         XCTAssertLessThan(trusted.id, -1, "a generated id")
         XCTAssertNoThrow(try loadRemote(#"{ "id": 200, "type": "List", "template": { "id": 201, "type": "Text", "overlay": { "id": \#(trusted.id), "type": "Button" } } }"#))
@@ -122,7 +122,7 @@ final class TemplateIDRuleTests: XCTestCase {
 
     func testTheHostsOwnTemplatesMayReuseItsIDs() throws {
         // The rule is for less-trusted content: the host's own sub-view may.
-        _ = try ActionUIDocumentLoader.load(data: Data(#"{ "id": 200, "type": "List", "template": { "id": 2, "type": "Text" } }"#.utf8),
+        _ = try ActionUIContentLoader.load(data: Data(#"{ "id": 200, "type": "List", "template": { "id": 2, "type": "Text" } }"#.utf8),
                                             format: "json", windowUUID: windowUUID, isContentView: false, parentID: 100, source: nil)
         XCTAssertTrue(recording.errors.isEmpty, "\(recording.errors)")
     }

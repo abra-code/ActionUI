@@ -31,7 +31,7 @@ import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
-import com.abracode.actionui.Helpers.SystemSymbolIcon
+import com.abracode.actionui.Helpers.SFSymbolIcon
 import com.abracode.actionui.Helpers.booleanProperty
 import com.abracode.actionui.Helpers.stringProperty
 import com.abracode.actionui.Helpers.LocalActionUIEnabled
@@ -113,7 +113,7 @@ object VideoPlayer : ActionUIViewConstruction {
                 logger.log("VideoPlayer missing or invalid URL, displaying error Label", LoggerLevel.error)
             }
             Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
-                SystemSymbolIcon(
+                SFSymbolIcon(
                     name = "exclamationmark.triangle",
                     explicitWeight = null,
                     explicitFill = null,
@@ -227,7 +227,7 @@ object VideoPlayer : ActionUIViewConstruction {
                     contentAlignment = Alignment.Center,
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        SystemSymbolIcon(
+                        SFSymbolIcon(
                             name = if (playing) "pause.circle.fill" else "play.circle.fill",
                             explicitWeight = null,
                             explicitFill = null,

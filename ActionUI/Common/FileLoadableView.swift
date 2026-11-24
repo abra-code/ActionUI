@@ -8,8 +8,8 @@ import SwiftUI
 // View for synchronous loading: a local file, a bundle resource, or a description already in memory
 @MainActor
 public struct FileLoadableView: SwiftUI.View {
-    // viewDidLoadActionID once per source (Core/Common/DocumentLoader.swift)
-    private static let viewDidLoad = ActionUIDocumentLoader.ViewDidLoad()
+    // viewDidLoadActionID once per source (Core/Common/ActionUIContentLoader.swift)
+    private static let viewDidLoad = ActionUIContentLoader.ViewDidLoad()
 
     // Where the description came from, for log messages and viewDidLoad dedup: the file URL, or the
     // name the caller gave to in-memory data.
@@ -27,10 +27,10 @@ public struct FileLoadableView: SwiftUI.View {
     /// template row's); nil: looked up by `parentID`.
     public init(fileURL: URL, windowUUID: String, isContentView: Bool, parentID: Int = 0, around: JSONContentOrigin? = nil,
                 viewDidLoadActionID: String? = nil, logger: any ActionUILogger) {
-        let format = ActionUIDocumentLoader.format(of: fileURL)
+        let format = ActionUIContentLoader.format(of: fileURL)
         logger.log("Determined format '\(format)' for file URL \(fileURL)", .debug)
         self.init(source: fileURL.absoluteString, origin: .file(fileURL), format: format, windowUUID: windowUUID, isContentView: isContentView, parentID: parentID, around: around, viewDidLoadActionID: viewDidLoadActionID, logger: logger) {
-            try ActionUIDocumentLoader.readRegularFile(fileURL)
+            try ActionUIContentLoader.readRegularFile(fileURL)
         }
     }
 
@@ -44,7 +44,7 @@ public struct FileLoadableView: SwiftUI.View {
     }
 
     // `origin`: where the data is read from (JSONContentOrigin), nil for data the host holds.
-    private init(source: String, origin: ActionUIDocumentLoader.Source?, format: String, windowUUID: String, isContentView: Bool, parentID: Int, around: JSONContentOrigin?, viewDidLoadActionID: String?, logger: any ActionUILogger, loadData: () throws -> Data) {
+    private init(source: String, origin: ActionUIContentLoader.Source?, format: String, windowUUID: String, isContentView: Bool, parentID: Int, around: JSONContentOrigin?, viewDidLoadActionID: String?, logger: any ActionUILogger, loadData: () throws -> Data) {
         self.source = source
         self.windowUUID = windowUUID
         self.isContentView = isContentView
@@ -55,7 +55,7 @@ public struct FileLoadableView: SwiftUI.View {
         // Perform synchronous loading in init
         do {
             let data = try loadData()
-            self.element = try ActionUIDocumentLoader.load(data: data, format: format, windowUUID: windowUUID, isContentView: isContentView, parentID: parentID, source: origin, around: around)
+            self.element = try ActionUIContentLoader.load(data: data, format: format, windowUUID: windowUUID, isContentView: isContentView, parentID: parentID, source: origin, around: around)
             logger.log("Successfully loaded \(format) for LoadableView from \(source)", .debug)
             self.error = nil
             // Defer fireViewDidLoad to after current body evaluation completes
@@ -112,8 +112,8 @@ extension EnvironmentValues {
 }
 
 /// Shows a LoadableView's content unless its source is already being shown by a LoadableView
-/// around it (a document that loads itself, directly or through others, would load without end)
-/// or the LoadableViews are nested too deep (the rule is Core's `ActionUIDocumentLoader.nestingRefusal`).
+/// around it (JSON that loads itself, directly or through others, would load without end)
+/// or the LoadableViews are nested too deep (the rule is Core's `ActionUIContentLoader.nestingRefusal`).
 /// The content view is made only when it may show, so a refused file is never read.
 @MainActor
 struct LoadableNestingGuard<Content: SwiftUI.View>: SwiftUI.View {
@@ -129,7 +129,7 @@ struct LoadableNestingGuard<Content: SwiftUI.View>: SwiftUI.View {
     }
 
     var body: some SwiftUI.View {
-        if let refusal = ActionUIDocumentLoader.nestingRefusal(source, inside: sources) {
+        if let refusal = ActionUIContentLoader.nestingRefusal(source, inside: sources) {
             SwiftUI.Text("Failed to load view: \(refusal)")
                 .foregroundStyle(.red)
                 .onAppear { logger.log("LoadableView: not loading \(source): \(refusal)", .error) }

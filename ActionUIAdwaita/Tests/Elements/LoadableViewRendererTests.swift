@@ -4,8 +4,8 @@
  its elements' view models in the window; viewDidLoadActionID once per source; an http URL loading
  behind a spinner; a new source replacing the sub-view and its view models; messages for no source,
  a missing file (in the error color), a description that does not parse, a URL that fails, and a
- bundle name (Linux has no bundle); a document that loads itself, directly or through another,
- refused at the repeat while siblings showing one document both load it; a device refused. Each
+ bundle name (Linux has no bundle); ActionUI JSON that loads itself, directly or through another,
+ refused at the repeat while siblings showing one JSON file both load it; a device refused. Each
  loaded element's origin: a file outside the app's resources and an http URL are less trusted, and
  links in less-trusted content open only web and mail addresses.
 */
@@ -56,7 +56,7 @@ final class LoadableViewRendererTests: XCTestCase {
     }
 
     /// A description file with one Text, `id`, saying `text`.
-    private func document(_ name: String, id: Int, text: String) throws -> String {
+    private func jsonFile(_ name: String, id: Int, text: String) throws -> String {
         let json = #"{"type": "Text", "id": \#(id), "properties": {"text": "\#(text)"}}"#
         let path = try TestImages.file(Array(json.utf8), name: name)
         files.append(path)
@@ -75,7 +75,7 @@ final class LoadableViewRendererTests: XCTestCase {
     }
 
     func testAFileIsShownAsTheChild() throws {
-        let path = try document("loadable-a.json", id: 10, text: "Loaded")
+        let path = try jsonFile("loadable-a.json", id: 10, text: "Loaded")
         let node = try render(#"{"type": "LoadableView", "id": 1, "properties": {"filePath": "\#(path)"}}"#)
         let loaded = try XCTUnwrap(node.childNodes[10])
         XCTAssertEqual(Gtk.Label(loaded.widget).text, "Loaded")
@@ -90,8 +90,8 @@ final class LoadableViewRendererTests: XCTestCase {
     }
 
     func testViewDidLoadFiresOncePerSource() throws {
-        let first = try document("loadable-b.json", id: 10, text: "One")
-        let second = try document("loadable-c.json", id: 20, text: "Two")
+        let first = try jsonFile("loadable-b.json", id: 10, text: "One")
+        let second = try jsonFile("loadable-c.json", id: 20, text: "Two")
         _ = try render(#"{"type": "LoadableView", "id": 1, "properties": {"filePath": "\#(first)", "viewDidLoadActionID": "test.loaded"}}"#)
         AdwaitaTestHost.drainMainLoop()
         XCTAssertEqual(fired.map(\.viewID), [1])
@@ -104,8 +104,8 @@ final class LoadableViewRendererTests: XCTestCase {
     }
 
     func testANewSourceReplacesTheSubViewAndItsModels() throws {
-        let first = try document("loadable-d.json", id: 10, text: "One")
-        let second = try document("loadable-e.json", id: 20, text: "Two")
+        let first = try jsonFile("loadable-d.json", id: 10, text: "One")
+        let second = try jsonFile("loadable-e.json", id: 20, text: "Two")
         let node = try render(#"{"type": "LoadableView", "id": 1, "properties": {"filePath": "\#(first)"}}"#)
         ActionUIModel.shared.setElementValue(windowUUID: windowUUID, viewID: 1, value: second)
         AdwaitaTestHost.drainMainLoop()
@@ -118,7 +118,7 @@ final class LoadableViewRendererTests: XCTestCase {
     }
 
     func testAnHTTPURLLoadsBehindASpinner() throws {
-        let server = try TestImageServer(png: [], document: #"{"type": "Text", "id": 30, "properties": {"text": "Remote"}}"#)
+        let server = try TestImageServer(png: [], json: #"{"type": "Text", "id": 30, "properties": {"text": "Remote"}}"#)
         self.server = server
         let node = try render(#"{"type": "LoadableView", "id": 1, "properties": {"url": "\#(server.base)/view.json", "viewDidLoadActionID": "test.loaded"}}"#)
         XCTAssertEqual(typeName(child(node)), "AdwSpinner")
@@ -131,7 +131,7 @@ final class LoadableViewRendererTests: XCTestCase {
     }
 
     func testLinksInRemoteJSONOpenOnlyWebAndMailAddresses() throws {
-        let server = try TestImageServer(png: [], document: #"{"type": "VStack", "id": 30, "children": [{"type": "Link", "id": 31, "properties": {"title": "Here", "url": "file:///etc/hosts"}}]}"#)
+        let server = try TestImageServer(png: [], json: #"{"type": "VStack", "id": 30, "children": [{"type": "Link", "id": 31, "properties": {"title": "Here", "url": "file:///etc/hosts"}}]}"#)
         self.server = server
         let node = try render(#"{"type": "VStack", "id": 1, "children": [{"type": "Link", "id": 2, "properties": {"title": "Host", "url": "file:///etc/hosts"}}, {"type": "LoadableView", "id": 3, "properties": {"url": "\#(server.base)/view.json"}}]}"#)
         let loadable = try XCTUnwrap(node.childNodes[3])
@@ -148,7 +148,7 @@ final class LoadableViewRendererTests: XCTestCase {
         XCTAssertNotEqual(g_signal_has_handler_pending(UnsafeMutableRawPointer(remoteLink.widget), signal, 0, 0), 0)
         // A template row's node takes its container's origin, even when its template reuses the id
         // of a trusted element in the window (template elements are not registered, so nothing
-        // refuses the id when the document loads).
+        // refuses the id when the JSON loads).
         func rowNode(_ id: Int) -> RenderNode {
             let model = ViewModel()
             model.templateContext = TemplateContext(parentID: 31, rowIndex: 0, row: [])
@@ -190,7 +190,7 @@ final class LoadableViewRendererTests: XCTestCase {
     func testAnImageInRemoteJSONReadsNoLocalFileOutsideTheResources() throws {
         let png = try TestImages.file(TestImages.png(width: 4, height: 4), name: "loadable-reads.png")
         files.append(png)
-        let server = try TestImageServer(png: [], document: #"{"type": "VStack", "id": 40, "children": [{"type": "Image", "id": 41, "properties": {"filePath": "\#(png)"}}]}"#)
+        let server = try TestImageServer(png: [], json: #"{"type": "VStack", "id": 40, "children": [{"type": "Image", "id": 41, "properties": {"filePath": "\#(png)"}}]}"#)
         self.server = server
         let node = try render(#"{"type": "VStack", "id": 1, "children": [{"type": "Image", "id": 2, "properties": {"filePath": "\#(png)"}}, {"type": "LoadableView", "id": 3, "properties": {"url": "\#(server.base)/view.json"}}]}"#)
         let loadable = try XCTUnwrap(node.childNodes[3])
@@ -220,7 +220,7 @@ final class LoadableViewRendererTests: XCTestCase {
         RemoteImages.shared.load(url) { _ in loaded = true }
         XCTAssertTrue(AdwaitaTestHost.runMainLoop { loaded })
         XCTAssertNotNil(RemoteImages.shared.texture(url))
-        let server = try TestImageServer(png: [], document: #"{"type": "VStack", "id": 40, "children": [{"type": "AsyncImage", "id": 41, "properties": {"url": "\#(url)"}}, {"type": "List", "id": 42, "properties": {"itemType": {"viewType": "AsyncImage"}}}]}"#)
+        let server = try TestImageServer(png: [], json: #"{"type": "VStack", "id": 40, "children": [{"type": "AsyncImage", "id": 41, "properties": {"url": "\#(url)"}}, {"type": "List", "id": 42, "properties": {"itemType": {"viewType": "AsyncImage"}}}]}"#)
         self.server = server
         let node = try render(#"{"type": "LoadableView", "id": 3, "properties": {"url": "\#(server.base)/view.json"}}"#)
         XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { node.childNodes[40]?.childNodes[42]?.widget != nil }))
@@ -243,9 +243,9 @@ final class LoadableViewRendererTests: XCTestCase {
     }
 
     func testAURLThatFinishesAfterANewSourceLoadsNothing() throws {
-        let server = try TestImageServer(png: [], document: #"{"type": "Text", "id": 30, "properties": {"text": "Remote"}}"#)
+        let server = try TestImageServer(png: [], json: #"{"type": "Text", "id": 30, "properties": {"text": "Remote"}}"#)
         self.server = server
-        let path = try document("loadable-f.json", id: 10, text: "File")
+        let path = try jsonFile("loadable-f.json", id: 10, text: "File")
         let node = try render(#"{"type": "LoadableView", "id": 1, "properties": {"url": "\#(server.base)/view.json"}}"#)
         ActionUIModel.shared.setElementValue(windowUUID: windowUUID, viewID: 1, value: path)
         SyncScheduler.shared.flush()
@@ -291,7 +291,7 @@ final class LoadableViewRendererTests: XCTestCase {
         defer { ActionUIRendererHooks.resourceFolders = savedFolders }
         ActionUIRendererHooks.resourceFolders = { [NSTemporaryDirectory()] }
         let node = try render(#"{"type": "LoadableView", "id": 1, "properties": {"filePath": "\#(path)"}}"#)
-        let inner = try XCTUnwrap(node.childNodes[20]?.childNodes[21], "the document loads once")
+        let inner = try XCTUnwrap(node.childNodes[20]?.childNodes[21], "the JSON loads once")
         let label = try XCTUnwrap(child(inner))
         XCTAssertEqual(Gtk.Label(label).text, "Failed to load view: it includes itself")
         XCTAssertTrue(Gtk.Widget(label).hasCSSClass("error"))
@@ -307,7 +307,7 @@ final class LoadableViewRendererTests: XCTestCase {
         let savedFolders = ActionUIRendererHooks.resourceFolders
         defer { ActionUIRendererHooks.resourceFolders = savedFolders }
         ActionUIRendererHooks.resourceFolders = { [NSTemporaryDirectory()] }
-        let text = try document("loadable-sibling.json", id: 40, text: "Sibling")
+        let text = try jsonFile("loadable-sibling.json", id: 40, text: "Sibling")
         let node = try render(#"{"type": "VStack", "id": 1, "children": ["#
             + #"{"type": "LoadableView", "id": 2, "properties": {"filePath": "\#(a)"}},"#
             + #"{"type": "LoadableView", "id": 3, "properties": {"filePath": "\#(text)"}},"#
@@ -315,19 +315,19 @@ final class LoadableViewRendererTests: XCTestCase {
         // a shows b, b shows a again: refused there.
         let repeated = try XCTUnwrap(node.childNodes[2]?.childNodes[30]?.childNodes[31])
         XCTAssertEqual(child(repeated).map { Gtk.Label($0).text }, "Failed to load view: it includes itself")
-        // Two siblings showing the same document both load it.
+        // Two siblings showing the same JSON both load it.
         for id in [3, 4] {
             let sibling = try XCTUnwrap(node.childNodes[id])
-            XCTAssertNotNil(sibling.childNodes[40], "sibling \(id) loads the shared document")
+            XCTAssertNotNil(sibling.childNodes[40], "sibling \(id) loads the shared JSON")
         }
     }
 
     func testAnOverlayOnALoadableViewMayShowTheSameJSON() throws {
         // SwiftUI applies the overlay around LoadableNestingGuard, so it is not inside the LoadableView.
-        let text = try document("loadable-overlay.json", id: 50, text: "Shared")
+        let text = try jsonFile("loadable-overlay.json", id: 50, text: "Shared")
         let node = try render(#"{"type": "LoadableView", "id": 1, "properties": {"filePath": "\#(text)"}, "#
             + #""overlay": {"type": "LoadableView", "id": 2, "properties": {"filePath": "\#(text)"}}}"#)
-        XCTAssertNotNil(node.childNodes[50], "the LoadableView loads the document")
+        XCTAssertNotNil(node.childNodes[50], "the LoadableView loads the JSON")
         let overlay = try XCTUnwrap(node.decorations?.overlay)
         XCTAssertNotNil(overlay.childNodes[50], "the overlay loads it too")
     }

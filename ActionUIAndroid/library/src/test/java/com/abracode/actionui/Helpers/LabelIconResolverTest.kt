@@ -13,7 +13,7 @@ import org.junit.Test
 
 /**
  * Unit tests for [selectLabelIcon] - the pure icon picker shared by `Label` and
- * Button image-labels. The glyph draw ([SystemSymbolIcon] / [MaterialNameIcon])
+ * Button image-labels. The glyph draw ([SFSymbolIcon] / [MaterialNameIcon])
  * is Composable + AssetManager-bound, so it is exercised via the demo, the same
  * stance the other resolver tests take for framework-bound code.
  */
@@ -30,14 +30,14 @@ class LabelIconResolverTest {
         Json.parseToJsonElement(json).jsonObject
 
     // -----------------------------------------------------------------------
-    // systemImage -> SystemSymbol (the Apple-canonical key)
+    // systemImage -> SFSymbol (the Apple-canonical key)
     // -----------------------------------------------------------------------
 
     @Test
-    fun `systemImage resolves to a SystemSymbol with no explicit overrides`() {
+    fun `systemImage resolves to an SFSymbol with no explicit overrides`() {
         val log = CapturingLogger()
         val icon = selectLabelIcon(props("""{ "systemImage": "star.fill" }"""), "imageName", "Label", log)
-        assertEquals(ImageSource.SystemSymbol("star.fill", null, null, null, null), icon)
+        assertEquals(ImageSource.SFSymbol("star.fill", null, null, null, null), icon)
         assertTrue(log.warnings.isEmpty())
     }
 
@@ -47,7 +47,7 @@ class LabelIconResolverTest {
             props("""{ "systemImage": "person", "materialWeight": 700, "materialFill": 1, "materialGrade": 100, "materialSize": 28 }"""),
             "imageName", "Label",
         )
-        assertEquals(ImageSource.SystemSymbol("person", 700, 1f, 100, 28f), icon)
+        assertEquals(ImageSource.SFSymbol("person", 700, 1f, 100, 28f), icon)
     }
 
     // -----------------------------------------------------------------------
@@ -142,7 +142,7 @@ class LabelIconResolverTest {
             props("""{ "systemImage": "star", "imageName": "Logo" }"""),
             "imageName", "Label", log, imageRegistryOf("Logo" to 42),
         )
-        assertEquals(ImageSource.SystemSymbol("star", null, null, null, null), icon)
+        assertEquals(ImageSource.SFSymbol("star", null, null, null, null), icon)
         assertTrue(log.warnings.isEmpty())
     }
 
@@ -151,10 +151,10 @@ class LabelIconResolverTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `Button systemImage resolves to a SystemSymbol (assetImage key untouched)`() {
+    fun `Button systemImage resolves to an SFSymbol (assetImage key untouched)`() {
         val log = CapturingLogger()
         val icon = selectLabelIcon(props("""{ "title": "Add", "systemImage": "plus" }"""), "assetImage", "Button", log)
-        assertEquals(ImageSource.SystemSymbol("plus", null, null, null, null), icon)
+        assertEquals(ImageSource.SFSymbol("plus", null, null, null, null), icon)
         assertTrue(log.warnings.isEmpty())
     }
 

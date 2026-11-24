@@ -27,7 +27,7 @@
 // setString("planets") on a search view re-renders it as "No Results for ...".
 
 import { register } from "../Common/ActionUIRegistry.js";
-import { materialNameGlyph, systemSymbolGlyph } from "../Helpers/SymbolIcon.js";
+import { materialNameGlyph, sfSymbolGlyph } from "../Helpers/SymbolIcon.js";
 
 register("ContentUnavailableView", {
     valueType: "string",
@@ -89,7 +89,7 @@ register("ContentUnavailableView", {
                 : (typeof properties.systemImage === "string" ? properties.systemImage : "exclamationmark.triangle");
             const glyph = explicit !== null
                 ? materialNameGlyph(explicit, { imageScale: "large" })
-                : systemSymbolGlyph(glyphName, { imageScale: "large" }, ctx.logger, (n) =>
+                : sfSymbolGlyph(glyphName, { imageScale: "large" }, ctx.logger, (n) =>
                     `ContentUnavailableView systemImage '${n}' has no SF->Material mapping; icon omitted. `
                     + `Use 'materialName' for an explicit Material glyph.`);
             glyph.classList.add("aui-content-unavailable-icon");

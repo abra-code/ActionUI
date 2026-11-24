@@ -1,17 +1,22 @@
 #!/bin/bash
 #
-# Scripts/prepare-linux-symbols.sh - generates the Material Symbols icons that ActionUI shows for SF
-# Symbols on Linux, before `swift build`. They go into ActionUI as a GResource in a section of its
+# Scripts/prepare-linux-symbols.sh - generates the Material Symbols icons that ActionUI shows for
+# SF Symbols on Linux, and the Fluent System Icons ones for the SF names Material has no glyph
+# for, before `swift build`. They go into ActionUI as a GResource in a section of its
 # own (ActionUIAdwaita/CSymbolResource), so libActionUI.so and every Swift program that links
 # ActionUI statically carry them. Without this step ActionUI still builds, with no icons: the build
 # warns, and SF Symbols show the missing-icon picture.
 #
-#   1. The font, Tools/material_symbols/font: downloaded by fetch-material-symbols-font.sh when it is
-#      missing. A font already there is used as it is; run that script to move to a newer release.
+#   1. The fonts. Tools/material_symbols/font: downloaded by fetch-material-symbols-font.sh when it is
+#      missing; a font already there is used as it is (run that script to move to a newer release).
+#      Tools/fluent_symbols/font: fetch-fluent-icons-font.sh makes sure it holds the font of the
+#      commit sf_to_fluent.map was built for, downloading it when it does not.
 #   2. The generator, Tools/material_symbols/generate-symbol-icons.c, compiled with HarfBuzz.
 #   3. The icons, from ActionUIAndroid's sf_to_material.map: one symbolic SVG per distinct glyph,
-#      fill and weight, in Tools/material_symbols/build/icons (gitignored, kept for inspection).
-#   4. glib-compile-resources --generate-source writes them, with the map, as C source into
+#      fill and weight; and from Tools/fluent_symbols/sf_to_fluent.map, one per glyph for the SF names
+#      the Material map lacks; with the table of SF names and icon names, in
+#      Tools/material_symbols/build/icons (gitignored, kept for inspection).
+#   4. glib-compile-resources --generate-source writes them, with the table, as C source into
 #      ActionUIAdwaita/CSymbolResource/generated/symbols-resource.inc (gitignored). The file is
 #      replaced only when it changed, and then SymbolResource.c, which includes it, is touched:
 #      SwiftPM does not look again for an included file it once found missing.
@@ -32,10 +37,12 @@ tools="$repo/Tools/material_symbols"
 font_folder="$tools/font"
 build="$tools/build"
 map="$repo/ActionUIAndroid/library/src/main/assets/symbols/sf_to_material.map"
+fluent_tools="$repo/Tools/fluent_symbols"
+fluent_font="$fluent_tools/font/FluentSystemIcons-Resizable.ttf"
 resource_folder="$repo/ActionUIAdwaita/CSymbolResource"
 generated="$resource_folder/generated"
 
-# 1. The font.
+# 1. The fonts.
 if [ ! -r "$font_folder/MaterialSymbolsRounded.ttf" ] || [ ! -r "$font_folder/COMMIT" ]; then
     printf 'prepare-linux-symbols: no font yet; downloading it\n'
     /bin/bash "$tools/fetch-material-symbols-font.sh"
@@ -44,6 +51,12 @@ if [ ! -r "$font_folder/MaterialSymbolsRounded.ttf" ] || [ ! -r "$font_folder/CO
         printf 'prepare-linux-symbols: the font download failed\n' >&2
         exit 1
     fi
+fi
+/bin/bash "$fluent_tools/fetch-fluent-icons-font.sh"
+status=$?
+if [ "$status" -ne 0 ]; then
+    printf 'prepare-linux-symbols: the Fluent System Icons font download failed\n' >&2
+    exit 1
 fi
 
 # 2. The generator. A C compiler: CC, the clang beside the Swift toolchain, else the system's.
@@ -107,7 +120,8 @@ if [ "$status" -ne 0 ]; then
 fi
 
 # 3. The icons.
-"$build/generate-symbol-icons" "$map" "$font_folder/MaterialSymbolsRounded.ttf" "$build/icons"
+"$build/generate-symbol-icons" "$map" "$font_folder/MaterialSymbolsRounded.ttf" \
+    "$fluent_tools/sf_to_fluent.map" "$fluent_font" "$build/icons"
 status=$?
 if [ "$status" -ne 0 ]; then
     printf 'prepare-linux-symbols: the generator failed; the icons were not updated\n' >&2
@@ -152,7 +166,7 @@ else
     /bin/rm -f "$generated/symbols-resource.inc.new"
     printf 'prepare-linux-symbols: the icons are unchanged\n'
 fi
-# The build's check compares this stamp with the map and the font.
+# The build's check compares this stamp with the maps and the fonts.
 /usr/bin/touch "$generated/stamp"
 status=$?
 if [ "$status" -ne 0 ]; then
