@@ -95,7 +95,7 @@ final class AdwaitaPlatform: WindowPlatform {
     }
 
     /// Only loads: building the widgets starts a WebView's page and an AsyncImage's fetch, which a
-    /// document that is only checked, or is refused, must not do. So the renderer's warnings come
+    /// window that is only checked, or is refused, must not do. So the renderer's warnings come
     /// from `present`, and validate_ui does not see them.
     func loadContent(file: URL, windowID: String) -> Content {
         application.prepareWindow(json: (try? Data(contentsOf: file)) ?? Data(), windowUUID: windowID)
@@ -218,7 +218,7 @@ final class AdwaitaPlatform: WindowPlatform {
     /// Wayland tells neither where a window is nor the order of windows, so the frame is 0, 0 and
     /// the content's size (below the bars, as the runtime's WindowOptions takes it), and the order
     /// is the given one. A window not laid out yet (it opened a moment ago) gets 0 for its size and
-    /// opens again at its document's.
+    /// opens again at its content size.
     func keptWindowStates(_ ids: [String]) -> [KeptWindowState] {
         ids.compactMap { id in
             guard let title = titles[id] else { return nil }

@@ -68,11 +68,11 @@ final class WindowHost {
     var dialogs: [String: DialogSession] = [:]
     /// Open panels count as something on screen.
     var openPanels = 0
-    /// Staged document files of windows opened with `keep`, handed to a keeper process at shutdown
+    /// Staged JSON files of windows opened with `keep`, handed to a keeper process at shutdown
     /// (KeptWindows.swift).
     var keptJSONFiles: [String: URL] = [:]
     /// Properties update_window set, per window and element id, so a kept window's keeper sets
-    /// them again over its staged document (KeptWindows.swift).
+    /// them again over its staged JSON file (KeptWindows.swift).
     var agentProperties: [String: [Int: [String: JSONValue]]] = [:]
     /// Each open window's mark and, for a `show` window, its bottom bar, for its keeper.
     var marks: [String: WindowMark] = [:]
@@ -111,18 +111,18 @@ final class WindowHost {
 
     // MARK: Windows
 
-    /// Opens a window showing `document` and returns its id with the warnings ActionUI logged while
-    /// loading it. With `rejectLoadErrors`, a document ActionUI logs errors for is not shown and the
+    /// Opens a window showing `ui` and returns its id with the warnings ActionUI logged while
+    /// loading it. With `rejectLoadErrors`, ActionUI JSON that ActionUI logs errors for is not shown and the
     /// errors are thrown. `activate` takes the keyboard focus (dialogs need an answer). A `keep`
     /// window stays open after the session ends, in a keeper process (KeptWindows.swift).
-    func openWindow(ui document: [String: Any], title: String, subtitle: String, sizing: Sizing, activate: Bool,
+    func openWindow(ui: [String: Any], title: String, subtitle: String, sizing: Sizing, activate: Bool,
                     queuesEvents: Bool, rejectLoadErrors: Bool = false, keep: Bool = false,
                     mark: WindowMark = .line, footer: ShowFooter? = nil) throws -> (id: String, warnings: [String]) {
         guard windows.count < Self.maxWindows else {
             throw MCPToolError("too many open windows (\(Self.maxWindows)); close one with close_window first")
         }
         let windowID = UUID().uuidString
-        let loaded = try load(ui: document, windowID: windowID, retainFile: keep)
+        let loaded = try load(ui: ui, windowID: windowID, retainFile: keep)
         let errors = loaded.entries.filter { $0.level == .error }.map(\.message)
         if rejectLoadErrors && !errors.isEmpty {
             if let file = loaded.file { try? FileManager.default.removeItem(at: file) }
@@ -136,7 +136,7 @@ final class WindowHost {
         footers[windowID] = footer
         if queuesEvents { eventQueues[windowID] = [] }
         updatePresence()
-        // A layer that builds the document as it shows it logs the renderer's warnings here.
+        // A layer that builds the content as it shows it logs the renderer's warnings here.
         let shown = logger.capture {
             platform.present(loaded.content, windowID: windowID, title: title, subtitle: subtitle, sizing: sizing,
                              activate: activate, mark: mark, footer: footer)
@@ -151,23 +151,23 @@ final class WindowHost {
     }
 
     /// Loads ActionUI JSON without showing it, for validate_ui. Returns what ActionUI logged.
-    func check(ui document: [String: Any]) throws -> (errors: [String], warnings: [String]) {
+    func check(ui: [String: Any]) throws -> (errors: [String], warnings: [String]) {
         let windowID = UUID().uuidString
-        let loaded = try load(ui: document, windowID: windowID)
+        let loaded = try load(ui: ui, windowID: windowID)
         forgetModel(windowID)
         return (loaded.entries.filter { $0.level == .error }.map(\.message),
                 loaded.entries.filter { $0.level == .warning }.map(\.message))
     }
 
-    /// Stages the document through a private temporary file (the public loading API takes a URL)
+    /// Stages the ActionUI JSON through a private temporary file (the public loading API takes a URL)
     /// and loads it through the platform layer inside the log capture. With `retainFile` the staged
     /// file is left in place and returned, for a kept window.
-    func load(ui document: [String: Any], windowID: String, retainFile: Bool = false) throws
+    func load(ui: [String: Any], windowID: String, retainFile: Bool = false) throws
         -> (content: HostPlatform.Content, entries: [HostLogger.Entry], file: URL?) {
         let fileURL = jsonFolder.appendingPathComponent(windowID + ".json")
         do {
             try FileManager.default.createDirectory(at: jsonFolder, withIntermediateDirectories: true)
-            try Data(JSONValue(any: document).serialized().utf8).write(to: fileURL, options: .atomic)
+            try Data(JSONValue(any: ui).serialized().utf8).write(to: fileURL, options: .atomic)
         } catch {
             throw MCPToolError("could not stage the window's ActionUI JSON: \(error.displayText)")
         }
@@ -215,7 +215,7 @@ final class WindowHost {
     }
 
     /// Removes a window's ActionUI model once its window is gone, so a long session does not keep
-    /// every document it showed, rendered or validated. After this turn of the run loop: views
+    /// all the ActionUI JSON it showed, rendered or validated. After this turn of the run loop: views
     /// still updating as the window closes find their model. Every value an agent gets is read
     /// before the window closes (dialog results, events, a kept window's snapshot), and get_values
     /// refuses a closed window.
@@ -464,15 +464,15 @@ final class WindowHost {
         }
         for (key, value) in values.sorted(by: { $0.key < $1.key }) {
             guard let id = element(key) else { continue }
-            // Only an element with an id in the document, whose type is known: an element without
+            // Only an element with an id in the window's JSON, whose type is known: an element without
             // one has an automatic negative id that the type rules below cannot see (the web view
             // of show kind web, which show refuses to point at a file: address, is one).
             guard types[id] != nil else {
                 problems.append("id \(key): the element's type is unknown; values can be set only on elements with an id in the window's ActionUI JSON")
                 continue
             }
-            // A LoadableView's value is its source. Agent documents cannot contain one; this keeps
-            // any other window's from loading a document the checks never saw.
+            // A LoadableView's value is its source. The agent's JSON cannot contain one; this keeps
+            // any other window's from loading ActionUI JSON the checks never saw.
             if types[id] == "LoadableView" {
                 problems.append("id \(key) (LoadableView): \(AgentUI.loadableViewRefusal)")
                 continue

@@ -4,8 +4,8 @@
 // Licensed under the PolyForm Small Business License 1.0.0
 // https://polyformproject.org/licenses/small-business/1.0.0
 
-// CannedUI.swift - the ActionUI documents the canned tools show. The agent passes a few typed
-// parameters; the server assembles the document here, so the agent never writes ActionUI syntax
+// CannedUI.swift - the ActionUI JSON the canned tools show. The agent passes a few typed
+// parameters; the server assembles the ActionUI JSON here, so the agent never writes ActionUI syntax
 // for a simple dialog or viewer.
 
 #if canImport(FoundationEssentials)
@@ -52,7 +52,7 @@ struct DialogSpec {
     let width: Double
 
     /// A dialog button's actionID is this prefix, a token new for each set of buttons, and the
-    /// button's index. The token keeps a document from naming a button's actionID itself (an
+    /// button's index. The token keeps ActionUI JSON from naming a button's actionID itself (an
     /// `onAppearActionID`, or a template row, would otherwise press it without a click).
     static let buttonActionPrefix = "mcp.dialog.button."
     /// A slider reports its moves under this prefix plus its view id, so the host can update its readout.
@@ -361,7 +361,7 @@ struct ViewerSpec {
     /// For `table`: the rows, set through the value API once the window exists (Table takes its
     /// rows as state, not as a property).
     let tableRows: [[String]]?
-    /// For `chart`: the warnings of the document checks, returned with the result.
+    /// For `chart`: the warnings of the ActionUI JSON checks, returned with the result.
     let warnings: [String]
     /// For `file`: the view the file is shown with, returned with the result.
     let shownAs: FileView?
@@ -512,9 +512,9 @@ struct ViewerSpec {
             }
             // The description is the agent's, so the window's ActionUI JSON gets the checks of show_ui,
             // the verifier among them, and its warnings go back with the result.
-            let document: AgentUI
+            let ui: AgentUI
             do {
-                document = try AgentUI(arguments: ["ui": [
+                ui = try AgentUI(arguments: ["ui": [
                     "type": "Chart", "id": .int(Self.chartViewID),
                     "properties": ["chart": chart, "padding": 16, "frame": ["maxWidth": "infinity", "maxHeight": "infinity"]],
                 ]])
@@ -525,8 +525,8 @@ struct ViewerSpec {
                     .replacing("root: properties.chart", with: "chart")
                     .replacing("root.properties.chart", with: "chart"))
             }
-            root = document.foundation
-            checkWarnings = document.warnings
+            root = ui.foundation
+            checkWarnings = ui.warnings
         }
         tableRows = parsedRows
         warnings = checkWarnings

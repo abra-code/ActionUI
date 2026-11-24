@@ -5,7 +5,7 @@
 // https://polyformproject.org/licenses/small-business/1.0.0
 
 // KeptWindows.swift - windows that outlive the session. A window opened with `keep: true` (show,
-// show_ui in window mode) keeps its staged document file. When the session ends (stdin
+// show_ui in window mode) keeps its staged JSON file. When the session ends (stdin
 // closes, or SIGTERM, SIGHUP or SIGINT arrives), the server moves those files into a spool directory, adds
 // a manifest with each window's frame, title and current values, and starts a keeper process:
 // this executable again, as `actionui-mcp --rehost <dir>`, in a session of its own, so a signal
@@ -45,7 +45,7 @@ struct KeptWindowRecord: Codable {
     /// Table and list rows, keyed by view id.
     let rows: [String: [[String]]]
     /// Properties update_window set, keyed by view id and name, each value as JSON text. Set again
-    /// after the document loads and before rows and values. Absent in manifests that predate it.
+    /// after the ActionUI JSON loads and before rows and values. Absent in manifests that predate it.
     let properties: [String: [String: String]]?
     /// The window's mark; absent in manifests that predate it (then a line).
     let mark: WindowMark?
@@ -87,7 +87,7 @@ enum KeptWindowSupport {
 
     /// Properties the agent set (checked when it set them), then rows, then values, so a replaced
     /// chart description is in place before its rows and a table's selection finds its row. Only
-    /// rows and values that differ from the freshly loaded document are written, so nothing the
+    /// rows and values that differ from the freshly loaded ActionUI JSON are written, so nothing the
     /// user did not change is touched.
     static func restore(_ record: KeptWindowRecord) {
         let id = record.window

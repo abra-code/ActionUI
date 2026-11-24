@@ -66,7 +66,7 @@ func showUITool(host: WindowHost, label: String?) -> MCPTool {
         annotations: ["readOnlyHint": true, "openWorldHint": true],
         heartbeatInterval: 15
     ) { arguments, context in
-        let document = try AgentUI(arguments: arguments)
+        let ui = try AgentUI(arguments: arguments)
         guard let rawTitle = arguments["title"]?.string, !rawTitle.isEmpty else {
             throw MCPToolError("'title' is required and must be a non-empty string")
         }
@@ -86,7 +86,7 @@ func showUITool(host: WindowHost, label: String?) -> MCPTool {
 
         if mode == "window" {
             // A width alone sizes the content; the height then follows from it.
-            var root = document.root
+            var root = ui.root
             if size == nil, let width = arguments["width"]?.double {
                 root = ["type": "VStack", "properties": ["frame": ["width": .double(min(max(width, 160), 3000))]], "children": [root]]
             }
@@ -96,20 +96,20 @@ func showUITool(host: WindowHost, label: String?) -> MCPTool {
                                     sizing: sizing, activate: false, queuesEvents: true, rejectLoadErrors: true, keep: keep)
             }
             var result: [String: JSONValue] = ["window": .string(opened.id)]
-            let warnings = document.warnings + opened.warnings
+            let warnings = ui.warnings + opened.warnings
             if !warnings.isEmpty { result["warnings"] = .array(warnings.map(JSONValue.string)) }
             return .structured(.object(result))
         }
 
         let dialog = try UIDialog(arguments: arguments)
-        try dialog.checkCloseActions(in: document.root)
+        try dialog.checkCloseActions(in: ui.root)
         let timeout = min(max(arguments["timeout_s"]?.double ?? defaultDialogTimeout, 1), maxDialogTimeout)
-        let opened = try await host.beginUIDialog(ui: document, dialog: dialog, title: title,
+        let opened = try await host.beginUIDialog(ui: ui, dialog: dialog, title: title,
                                                         subtitle: subtitle, size: size, timeout: timeout)
         guard case .object(var result) = await host.result(of: opened.id) else {
             throw MCPToolError("internal error: dialog result is not an object")
         }
-        let warnings = document.warnings + opened.warnings
+        let warnings = ui.warnings + opened.warnings
         if !warnings.isEmpty { result["warnings"] = .array(warnings.map(JSONValue.string)) }
         return .structured(.object(result))
     }
@@ -143,17 +143,17 @@ func validateUITool(host: WindowHost) -> MCPTool {
                        "required": ["ok", "errors", "warnings"]],
         annotations: ["readOnlyHint": true, "openWorldHint": true]
     ) { arguments, _ in
-        let document: AgentUI
+        let ui: AgentUI
         do {
-            document = try AgentUI(arguments: arguments)
+            ui = try AgentUI(arguments: arguments)
         } catch let error as MCPToolError {
             // Structural errors are the answer, not a failure of the tool.
             let lines = error.message.split(separator: "\n").map(String.init)
             let errors = lines.first?.hasSuffix("errors:") == true ? Array(lines.dropFirst()) : lines
             return .structured(["ok": false, "errors": .array(errors.map(JSONValue.string)), "warnings": []])
         }
-        let loaded = try await MainActor.run { try host.check(ui: document.foundation) }
-        let warnings = document.warnings + loaded.warnings
+        let loaded = try await MainActor.run { try host.check(ui: ui.foundation) }
+        let warnings = ui.warnings + loaded.warnings
         return .structured(["ok": .bool(loaded.errors.isEmpty),
                             "errors": .array(loaded.errors.prefix(50).map(JSONValue.string)),
                             "warnings": .array(warnings.prefix(50).map(JSONValue.string))])
@@ -356,14 +356,14 @@ func screenshotTool(host: WindowHost) -> MCPTool {
             guard arguments["ui"] != nil || arguments["path"] != nil else {
                 throw MCPToolError("give 'window' (an open window's id), 'ui' (an ActionUI element object), or 'path' (an absolute .json path)")
             }
-            let document = try AgentUI(arguments: arguments)
+            let ui = try AgentUI(arguments: arguments)
             var size: ContentSize?
             if let width = arguments["width"]?.double, let height = arguments["height"]?.double {
                 size = ContentSize(width: min(max(width, 160), 3000), height: min(max(height, 80), 3000))
             }
-            let rendered = try await host.renderUI(document.root, size: size, delay: delay)
+            let rendered = try await host.renderUI(ui.root, size: size, delay: delay)
             shot = rendered.0
-            warnings = document.warnings + rendered.1
+            warnings = ui.warnings + rendered.1
         }
         var info: [String: JSONValue] = ["path": .string(shot.path), "width": .int(shot.pixelWidth), "height": .int(shot.pixelHeight)]
         if !warnings.isEmpty { info["warnings"] = .array(warnings.map(JSONValue.string)) }

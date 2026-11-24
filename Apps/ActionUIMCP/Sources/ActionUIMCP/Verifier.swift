@@ -4,7 +4,7 @@
 // Licensed under the PolyForm Small Business License 1.0.0
 // https://polyformproject.org/licenses/small-business/1.0.0
 
-// Verifier.swift - the ActionUIVerifier library, set up for agent documents: validated as
+// Verifier.swift - the ActionUIVerifier library, set up for the agent's ActionUI JSON: validated as
 // deployed to this system, with the built-in schemas from the library's resource bundle and add-on
 // schemas found the way the library's own tool finds them.
 //

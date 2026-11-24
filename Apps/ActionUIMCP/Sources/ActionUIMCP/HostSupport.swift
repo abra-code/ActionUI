@@ -41,7 +41,7 @@ enum HostSupport {
 
     // MARK: JSON
 
-    /// Parses a JSON document: ActionUI's own parser on Linux, which has no JSONSerialization.
+    /// Parses ActionUI JSON: ActionUI's own parser on Linux, which has no JSONSerialization.
     static func parseJSON(_ data: Data) throws -> JSONValue {
         #if os(Linux)
         // String(decoding:) replaces broken bytes, where JSONSerialization refuses them.
@@ -64,11 +64,11 @@ enum HostSupport {
 
     // MARK: Paths
 
-    /// The folder for this session's staged documents and screenshots, removed when the session
+    /// The folder for this session's staged JSON files and screenshots, removed when the session
     /// ends (`removeSessionFolder`). Private (0700) and under a name nobody can guess and take
     /// first, on macOS too, where the temporary folder is the user's own: on Linux it is /tmp, open
-    /// to every user of the machine, and on both a staged document replaced by another process
-    /// would load past the document checks, and a screenshot shows what the user has on screen.
+    /// to every user of the machine, and on both a staged JSON file replaced by another process
+    /// would load past the ActionUI JSON checks, and a screenshot shows what the user has on screen.
     static let sessionFolder: URL = {
         let folder = FileManager.default.temporaryDirectory
             .appendingPathComponent("actionui-mcp-\(ProcessInfo.processInfo.processIdentifier)", isDirectory: true)
@@ -83,9 +83,9 @@ enum HostSupport {
         return URL(fileURLWithPath: fallback, isDirectory: true)
     }()
 
-    /// Removes the session folder and what is left in it (screenshots, kept windows' documents
+    /// Removes the session folder and what is left in it (screenshots, kept windows' JSON files
     /// that were not handed to a keeper). Called once, at shutdown, after the hand-off has moved
-    /// the kept windows' documents out. ACTIONUI_MCP_KEEP_DOCUMENTS=1 leaves it, for inspection.
+    /// the kept windows' JSON files out. ACTIONUI_MCP_KEEP_DOCUMENTS=1 leaves it, for inspection.
     static func removeSessionFolder() {
         guard ProcessInfo.processInfo.environment["ACTIONUI_MCP_KEEP_DOCUMENTS"] != "1" else { return }
         try? FileManager.default.removeItem(at: sessionFolder)

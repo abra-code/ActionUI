@@ -5,10 +5,10 @@
 // https://polyformproject.org/licenses/small-business/1.0.0
 
 // AgentUI.swift - ActionUI JSON written by the agent (show_ui,
-// validate_ui). A document arrives as a JSON object nested in the tool arguments, or as an
+// validate_ui). It arrives as a JSON object nested in the tool arguments, or as an
 // absolute path to a .json file, never as a string. Before anything loads it gets structural
 // checks for the mistakes ActionUI's loader would silently ignore, and the safety rules of the
-// design: no SecureField (every answer reaches the model), no LoadableView (the document it loads
+// design: no SecureField (every answer reaches the model), no LoadableView (the JSON it loads
 // would skip these checks), no WindowGroup (its commands would stay in the application's menu after
 // its window closes), no popover and no secondaryAction toolbar items (each can open over the
 // window's "Requested by" line), no WebView user scripts.
@@ -22,10 +22,10 @@ import ActionUI
 import MCPStdio
 
 struct AgentUI {
-    /// The checked document (always an element object). Sendable, so it can cross to the main
+    /// The checked ActionUI JSON (always an element object). Sendable, so it can cross to the main
     /// actor; `foundation` converts it for loading there.
     let root: JSONValue
-    /// Problems that do not stop the document from loading.
+    /// Problems that do not stop the ActionUI JSON from loading.
     let warnings: [String]
 
     static let maxBytes = 4 * 1024 * 1024
@@ -41,11 +41,11 @@ struct AgentUI {
                                     "sheet", "fullScreenCover", "overlay", "background", "contextMenuPreview",
                                     "safeAreaInset"]
     static let allowSecureFields = ProcessInfo.processInfo.environment["ACTIONUI_MCP_ALLOW_SECURE_FIELDS"] == "1"
-    /// A LoadableView loads another document when it is shown, past every check here, through any
+    /// A LoadableView loads other ActionUI JSON when it is shown, past every check here, through any
     /// of its sources (`url`, `filePath`, `name`) or a new value.
     static let loadableViewRefusal = "LoadableView is not allowed; the ActionUI JSON it loads would skip these checks, so put its content inline"
     /// On Linux a toolbar's secondaryAction items show in the header bar's "More" popover, which,
-    /// like a document's popover, opens over the "Requested by" line when it does not fit below
+    /// like an ActionUI popover, opens over the "Requested by" line when it does not fit below
     /// the bar (measured: a window moved low on the screen).
     static let secondaryActionRefusal = "placement \"secondaryAction\" is not allowed; its items open in a popover that can cover the window's \"Requested by\" line, so use another placement"
     static func isSecondaryActionItem(type: String, placement: JSONValue?) -> Bool {
@@ -93,10 +93,10 @@ struct AgentUI {
     }
 
     /// The rules for one property an agent sets on an element of an open window (update_window
-    /// `properties`): the document's safety rules, then the ActionUIVerifier on a synthetic
+    /// `properties`): the safety rules for ActionUI JSON, then the ActionUIVerifier on a synthetic
     /// element `{"type", "id", "properties": {name: value}}`. Returns the reason the property is
     /// refused, or nil, the verifier's warnings, and the value to set: a Chart's description
-    /// resolved and checked as a document is (Chart resolves platform suffixes inside it, and its
+    /// resolved and checked as ActionUI JSON is (Chart resolves platform suffixes inside it, and its
     /// annotations hold elements), any other value as given.
     static func checkProperty(type: String, id: Int, name: String, value: JSONValue)
         -> (refusal: String?, warnings: [String], value: JSONValue) {
@@ -158,7 +158,7 @@ struct AgentUI {
         return (errors.isEmpty ? nil : errors.joined(separator: "; "), warnings, checked)
     }
 
-    /// `value` with every "<key>:<platform>" override resolved as ActionUI resolves a document's.
+    /// `value` with every "<key>:<platform>" override resolved as ActionUI does.
     /// One pass strips only the last suffix ("type:macos:macos" becomes "type:macos"), and the
     /// loader resolves what it is given once more, so resolve until no suffix is left: otherwise
     /// a suffix could hide an element from the checks.
@@ -176,18 +176,18 @@ struct AgentUI {
         return resolved
     }
 
-    /// Reads `document` (object) or `path` (absolute .json file) from the arguments and checks it.
+    /// Reads `ui` (object) or `path` (absolute .json file) from the arguments and checks it.
     /// Throws MCPToolError listing every structural error found.
     init(arguments: [String: JSONValue]) throws {
         let value: JSONValue
-        if let document = arguments["ui"], document != .null {
-            guard case .object = document else {
+        if let ui = arguments["ui"], ui != .null {
+            guard case .object = ui else {
                 throw MCPToolError("'ui' must be an ActionUI element object such as {\"type\": \"VStack\", ...}, not a string")
             }
-            guard document.serialized().utf8.count <= Self.maxBytes else {
+            guard ui.serialized().utf8.count <= Self.maxBytes else {
                 throw MCPToolError("the ActionUI JSON is larger than \(Self.maxBytes / 1024 / 1024) MB")
             }
-            value = document
+            value = ui
         } else if let path = arguments["path"]?.string {
             value = try Self.load(path: path)
         } else {
@@ -197,14 +197,14 @@ struct AgentUI {
         var errors: [String] = []
         var warnings: [String] = []
         var ids: Set<Int> = []
-        // ActionUI resolves "<key>:<platform>" overrides when it loads a document, so the safety
-        // rules run on, and the window loads, the resolved document: otherwise "type:macos":
+        // ActionUI resolves "<key>:<platform>" overrides when it loads ActionUI JSON, so the safety
+        // rules run on, and the window loads, the resolved JSON: otherwise "type:macos":
         // "SecureField", "children:macos" or "userScripts:macos" would pass the checks unseen.
         let resolved = try Self.resolvingPlatformSuffixes(value)
         let checked = Self.check(resolved, at: "root", errors: &errors, warnings: &warnings, ids: &ids)
-        // Then the ActionUIVerifier checks the document as written (its platform-suffix rules
+        // Then the ActionUIVerifier checks the ActionUI JSON as written (its platform-suffix rules
         // need the suffixes): element types, property names, value types, enums, required
-        // properties, platform rules. Its errors refuse the document; its warnings go back with
+        // properties, platform rules. Its errors refuse the JSON; its warnings go back with
         // the result.
         if errors.isEmpty {
             if let validator = Verifier.validator {
@@ -228,7 +228,7 @@ struct AgentUI {
         self.warnings = warnings
     }
 
-    /// The document in the Foundation form ActionUI loads.
+    /// The ActionUI JSON in the Foundation form ActionUI loads.
     var foundation: [String: Any] {
         root.any as? [String: Any] ?? [:]
     }
@@ -336,7 +336,8 @@ struct AgentUI {
 
     /// A chart description's annotation elements (a mark's or Plot's "annotation" "content"), in
     /// its "content" entries at any depth (ForEach and Plot entries hold more), checked as
-    /// document elements are. Their ids are their own, as the verifier counts them: an annotation
+    /// the elements of a window's ActionUI JSON are.
+    /// Their ids are their own, as the verifier counts them: an annotation
     /// is built for each row and never registered.
     private static func checkAnnotations(in description: JSONValue, at location: String, errors: inout [String],
                                          warnings: inout [String]) -> JSONValue {
@@ -355,10 +356,10 @@ struct AgentUI {
     }
 }
 
-/// Standard dialog chrome around an agent document: the document, the footer, and a button row.
+/// Standard dialog chrome around the agent's ActionUI JSON: the JSON, the footer, and a button row.
 struct UIDialog {
     let buttons: [DialogButton]
-    /// actionIDs in the document that end the dialog, for agents that draw their own buttons.
+    /// actionIDs in the ActionUI JSON that end the dialog, for agents that draw their own buttons.
     let closeActions: Set<String>
     let width: Double?
 
@@ -385,12 +386,12 @@ struct UIDialog {
     static let automaticActionKeysByType: [String: Set<String>] = ["WebView": ["valueChangeActionID"],
                                                                    "Map": ["actionID"]]
 
-    /// Refuses a document in which a close action can fire with no click, so an "accept" result
+    /// Refuses ActionUI JSON in which a close action can fire with no click, so an "accept" result
     /// means a person did something: a close action bound to an automatic action property (or to a
     /// WebView's valueChangeActionID or a Map's actionID), or, with close actions given, an
     /// automatic action property holding a template column reference ("$1"), which a row could
     /// fill with a close action.
-    func checkCloseActions(in document: JSONValue) throws {
+    func checkCloseActions(in ui: JSONValue) throws {
         guard !closeActions.isEmpty else { return }
         var problems: [String] = []
         func visit(_ value: JSONValue, at location: String) {
@@ -421,15 +422,15 @@ struct UIDialog {
                 break
             }
         }
-        visit(document, at: "root")
+        visit(ui, at: "root")
         if !problems.isEmpty {
             throw MCPToolError("the dialog's close actions must come from a click:\n" + problems.joined(separator: "\n"))
         }
     }
 
-    func wrap(_ document: [String: Any], footer: String) -> [String: Any] {
+    func wrap(_ ui: [String: Any], footer: String) -> [String: Any] {
         var children: [[String: Any]] = [
-            document,
+            ui,
             ["type": "Text", "properties": ["text": footer, "font": "caption", "foregroundStyle": "secondary",
                                             "frame": ["maxWidth": "infinity", "alignment": "leading"]]],
         ]

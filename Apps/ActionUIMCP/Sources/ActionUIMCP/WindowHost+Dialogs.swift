@@ -60,10 +60,10 @@ extension WindowHost {
         return windowID
     }
 
-    /// Opens an agent document inside dialog chrome and registers its session.
-    func beginUIDialog(ui document: AgentUI, dialog: UIDialog, title: String, subtitle: String,
+    /// Opens the agent's ActionUI JSON inside dialog chrome and registers its session.
+    func beginUIDialog(ui: AgentUI, dialog: UIDialog, title: String, subtitle: String,
                              size: ContentSize?, timeout: Double) throws -> (id: String, warnings: [String]) {
-        let opened = try openWindow(ui: dialog.wrap(document.foundation, footer: Self.dialogFooter), title: title,
+        let opened = try openWindow(ui: dialog.wrap(ui.foundation, footer: Self.dialogFooter), title: title,
                                     subtitle: subtitle, sizing: size.map { .fixed($0) } ?? .fitting(resizable: true),
                                     activate: true, queuesEvents: false, rejectLoadErrors: true)
         register(DialogSession(kind: .ui(dialog)), windowID: opened.id, timeout: timeout)

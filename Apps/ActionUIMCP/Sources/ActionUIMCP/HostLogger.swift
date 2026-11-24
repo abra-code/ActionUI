@@ -5,8 +5,8 @@
 // https://polyformproject.org/licenses/small-business/1.0.0
 
 // HostLogger.swift - ActionUI's log, on stderr (stdout belongs to the protocol), with a capture
-// window: while a document loads, errors and warnings are also collected so they can be returned
-// to the agent that wrote the document.
+// window: while ActionUI JSON loads, errors and warnings are also collected so they can be returned
+// to the agent that wrote the ActionUI JSON.
 
 #if canImport(FoundationEssentials)
 import FoundationEssentials

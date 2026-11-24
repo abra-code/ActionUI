@@ -4,7 +4,7 @@
 // Licensed under the PolyForm Small Business License 1.0.0
 // https://polyformproject.org/licenses/small-business/1.0.0
 
-// WindowHost+Capture.swift - screenshots of an open window, or of a document rendered where the
+// WindowHost+Capture.swift - screenshots of an open window, or of ActionUI JSON rendered where the
 // user never sees it. The platform layer draws them; this keeps them in the server's temporary
 // folder.
 
@@ -40,13 +40,13 @@ extension WindowHost {
         return try save(await platform.capture(windowID), name: "window")
     }
 
-    /// Renders `document` where the user never sees it and captures it after `delay` seconds. With
-    /// `size` nil it takes the document's fitting size. The user keeps focus, so controls draw in
+    /// Renders `ui` where the user never sees it and captures it after `delay` seconds. With
+    /// `size` nil it takes its fitting size. The user keeps focus, so controls draw in
     /// their inactive style; the layout is the same as in a shown window. Returns the capture and
     /// the warnings ActionUI logged.
-    func renderUI(_ document: JSONValue, size: ContentSize?, delay: Double) async throws -> (Screenshot, [String]) {
+    func renderUI(_ ui: JSONValue, size: ContentSize?, delay: Double) async throws -> (Screenshot, [String]) {
         let windowID = UUID().uuidString
-        let loaded = try load(ui: document.any as? [String: Any] ?? [:], windowID: windowID)
+        let loaded = try load(ui: ui.any as? [String: Any] ?? [:], windowID: windowID)
         defer { forgetModel(windowID) }
         let errors = loaded.entries.filter { $0.level == .error }.map(\.message)
         guard errors.isEmpty else {
