@@ -8,9 +8,9 @@
  What it draws: headings (bold, at the GTK renderer's scales of the body size), paragraphs, emphasis, strong,
  strikethrough, inline code (monospaced), links (in the theme's link color; opened as a Link opens its address, after
  RichText's own scheme check), line breaks, nested quotes (indented, in the secondary text color), lists (bullets or
- numbers, nested), fenced code (monospaced, line by line). Not yet: the code card and quote bar behind the text, the
- rule's line, tables as a grid, images (an image shows its alt text in brackets), syntax colors, find, copy as HTML.
- Those follow, as on Linux.
+ numbers, nested), fenced code (monospaced, line by line, in syntax colors when the theme asks), and behind the text,
+ as on Apple platforms and Linux: code cards, quote bars, rules and the fill behind inline code. Not yet: tables as a
+ grid, images (an image shows its alt text in brackets), find, copy as HTML. Those follow, as on Linux.
 
  Built only from ActionUI's interface for add-ons (ActionUIWinUIElement, RenderNode) and the shim's C functions
  (CWinUI's rich text group). The metrics are the GTK renderer's (RichTextGtkBuilder: heading scales, code scale)
@@ -54,15 +54,60 @@ private let italicRun = UInt32(truncatingIfNeeded: ActionUIWinUIRunItalic.rawVal
 private let strikethroughRun = UInt32(truncatingIfNeeded: ActionUIWinUIRunStrikethrough.rawValue)
 private let monospaceRun = UInt32(truncatingIfNeeded: ActionUIWinUIRunMonospace.rawValue)
 
-/// What an element instance keeps (RenderNode.state): the RichTextBlock and what it shows.
+/// A shape drawn behind the text, at the place of one or more paragraphs (their indices in the block).
+enum RichTextDecoration {
+    /// A rounded card behind a code block's paragraph, from `indent` to the right edge.
+    case codeCard(paragraph: Int, indent: Double)
+    /// A bar beside a paragraph of the innermost quote it is in, at `x`, as on Apple platforms and Linux.
+    case quoteBar(paragraph: Int, x: Double)
+    /// A line through a rule's paragraph, from `indent` to the right edge.
+    case rule(paragraph: Int, indent: Double)
+    /// The fill behind inline code, the `inline`th inline of its paragraph, in three parts: its first line, the full
+    /// lines between (one shape over them), and its last line; a part it does not have gets no size.
+    case inlineCode(paragraph: Int, inline: Int, part: InlineCodePart)
+}
+
+enum InlineCodePart {
+    case first, middle, last
+}
+
+/// An inline of a paragraph: the key of its measured lines during one arrange.
+struct RichTextInlineKey: Hashable {
+    var paragraph: Int
+    var inline: Int
+}
+
+/// What an element instance keeps (RenderNode.state): a panel holding the RichTextBlock in front of the shapes
+/// drawn behind its text, and what it shows.
 @MainActor
 final class RichTextWinUIState {
+    /// The element's object: a panel laid out here (measureRichText, arrangeRichText).
+    let panel: ShimObject
     let block: ShimObject
+    /// The shapes behind the text, one per decoration, the panel's first children.
+    private var shapes: [ShimObject] = []
+    private var decorations: [RichTextDecoration] = []
+    /// Each inline code's lines, measured once per arrange for its three shapes.
+    private var inlineLines: [RichTextInlineKey: [ActionUIWinUIRect]] = [:]
     /// What the block shows: rebuilt when it changes.
     private var shown: Shown?
     private var document = RichTextDocument(blocks: [])
     private var theme = RichTextTheme.default
     private weak var node: RenderNode?
+
+    /// The fill behind code (cards and inline code) and the color of quote bars and rules: theme brushes, as the
+    /// GTK renderer derives them from the text color.
+    static let codeFillBrush = "SubtleFillColorSecondaryBrush"
+    static let separatorBrush = "DividerStrokeColorDefaultBrush"
+    /// The space between a code card's edges and its text: beside it, and above and below it.
+    static let codeInset = 10.0
+    static let codeVerticalInset = 6.0
+    /// A quote bar's width, and how far left of the quoted text it stands (Apple's and the GTK renderer's).
+    static let quoteBarWidth = 3.0
+    static let quoteBarGap = 12.0
+    /// Inline code's fill: a little wider than its text, with rounded corners, as on Apple platforms.
+    static let inlineCodeInset = 2.0
+    static let inlineCodeCornerRadius = 3.0
 
     struct Shown: Equatable {
         var markdown: String
@@ -83,8 +128,20 @@ final class RichTextWinUIState {
             logger.log("RichText: making its text block failed: \(lastShimError())", .error)
             return nil
         }
+        let layoutContext = Unmanaged.passRetained(WeakRichTextState()).toOpaque()
+        guard let panel = ShimObject(adopting: actionUIWinUIPanelCreate(measureRichText, arrangeRichText, layoutContext,
+                                                                        releaseWeakRichTextState)) else {
+            logger.log("RichText: making its panel failed: \(lastShimError())", .error)
+            return nil
+        }
         self.block = block
+        self.panel = panel
         self.node = node
+        Unmanaged<WeakRichTextState>.fromOpaque(layoutContext).takeUnretainedValue().state = self
+        guard actionUIWinUIPanelInsertChild(panel.pointer, 0, block.pointer) else {
+            logger.log("RichText: placing its text failed: \(lastShimError())", .error)
+            return nil
+        }
         let context = Unmanaged.passRetained(WeakRichTextState(self)).toOpaque()
         if !actionUIWinUIElementOnActualThemeChanged(block.pointer, richTextThemeChanged, context, releaseWeakRichTextState) {
             logger.log("RichText: following the theme failed: \(lastShimError())", .warning)
@@ -117,6 +174,127 @@ final class RichTextWinUIState {
         if let failure = builder.failure {
             ActionUIModel.shared.logger.log("RichText: \(failure)", .warning)
         }
+        replaceShapes(builder.decorations)
+        _ = actionUIWinUIElementInvalidateMeasure(panel.pointer)
+    }
+
+    /// The shapes for `decorations`, in place of the old ones, behind the text.
+    private func replaceShapes(_ newDecorations: [RichTextDecoration]) {
+        for _ in shapes {
+            _ = actionUIWinUIPanelRemoveChild(panel.pointer, 0)
+        }
+        shapes = []
+        decorations = []
+        for decoration in newDecorations {
+            let radius: Double = switch decoration {
+            case .codeCard: Double(theme.codeCornerRadius)
+            case .quoteBar: Self.quoteBarWidth / 2
+            case .rule: 0
+            case .inlineCode: Self.inlineCodeCornerRadius
+            }
+            let kind = radius > 0 ? ActionUIWinUIShapeRoundedRectangle : ActionUIWinUIShapeRectangle
+            guard let shape = ShimObject(adopting: actionUIWinUIShapeCreate(kind)) else { continue }
+            let brush = switch decoration {
+            case .codeCard, .inlineCode: Self.codeFillBrush
+            case .quoteBar, .rule: Self.separatorBrush
+            }
+            _ = actionUIWinUIElementSetBrush(shape.pointer, ActionUIWinUIBrushFill, nil, brush)
+            if radius > 0 {
+                _ = actionUIWinUIShapeSetCornerRadius(shape.pointer, radius)
+            }
+            guard actionUIWinUIPanelInsertChild(panel.pointer, Int32(shapes.count), shape.pointer) else { continue }
+            shapes.append(shape)
+            decorations.append(decoration)
+        }
+    }
+
+    // MARK: - Layout
+
+    func measure(_ available: ActionUIWinUISize) -> ActionUIWinUISize {
+        // The text's size; a "fill" element is stretched by its container (expansion), as before the panel.
+        let size = actionUIWinUIElementMeasure(block.pointer, available)
+        for shape in shapes {
+            _ = actionUIWinUIElementMeasure(shape.pointer, ActionUIWinUISize(width: 0, height: 0))
+        }
+        return size
+    }
+
+    /// The text over the whole size, then each shape where its paragraphs are, now that the text is laid out.
+    func arrange(_ size: ActionUIWinUISize) {
+        _ = actionUIWinUIElementArrange(block.pointer, ActionUIWinUIRect(x: 0, y: 0, width: size.width, height: size.height))
+        // The text is laid out anew: its inline code is measured again.
+        inlineLines = [:]
+        for (shape, decoration) in zip(shapes, decorations) {
+            _ = actionUIWinUIElementArrange(shape.pointer, frame(of: decoration, width: size.width))
+        }
+    }
+
+    /// The lines an inline takes, measured at the first ask in an arrange.
+    private func lines(of key: RichTextInlineKey) -> [ActionUIWinUIRect] {
+        if let known = inlineLines[key] {
+            return known
+        }
+        var rects = [ActionUIWinUIRect](repeating: ActionUIWinUIRect(x: 0, y: 0, width: 0, height: 0), count: 64)
+        let count = Int(actionUIWinUIRichTextBlockInlineLineBounds(block.pointer, Int32(key.paragraph), Int32(key.inline),
+                                                                  &rects, Int32(rects.count)))
+        let measured = Array(rects.prefix(max(0, count)))
+        inlineLines[key] = measured
+        return measured
+    }
+
+    private func bounds(_ paragraph: Int) -> ActionUIWinUIRect? {
+        var rect = ActionUIWinUIRect(x: 0, y: 0, width: 0, height: 0)
+        return actionUIWinUIRichTextBlockParagraphBounds(block.pointer, Int32(paragraph), &rect) ? rect : nil
+    }
+
+    private func frame(of decoration: RichTextDecoration, width: Double) -> ActionUIWinUIRect {
+        let none = ActionUIWinUIRect(x: 0, y: 0, width: 0, height: 0)
+        switch decoration {
+        case .codeCard(let paragraph, let indent):
+            guard let text = bounds(paragraph) else { return none }
+            // The card around the text with its insets (the paragraph's margins make the room).
+            let inset = Self.codeVerticalInset
+            return ActionUIWinUIRect(x: indent, y: text.y - inset, width: max(0, width - indent), height: text.height + 2 * inset)
+        case .quoteBar(let paragraph, let x):
+            guard let text = bounds(paragraph) else { return none }
+            return ActionUIWinUIRect(x: x, y: text.y, width: Self.quoteBarWidth, height: text.height)
+        case .inlineCode(let paragraph, let inline, let part):
+            let rects = lines(of: RichTextInlineKey(paragraph: paragraph, inline: inline))
+            let count = rects.count
+            let lines: ArraySlice<ActionUIWinUIRect>
+            switch part {
+            case .first: lines = rects.prefix(1)
+            case .middle: lines = count > 2 ? rects[1..<(count - 1)] : []
+            case .last: lines = count > 1 ? rects.suffix(1) : []
+            }
+            guard !lines.isEmpty else { return none }
+            let left = lines.map(\.x).min() ?? 0
+            let right = lines.map { $0.x + $0.width }.max() ?? 0
+            let top = lines.map(\.y).min() ?? 0
+            let bottom = lines.map { $0.y + $0.height }.max() ?? 0
+            let inset = Self.inlineCodeInset
+            return ActionUIWinUIRect(x: left - inset, y: top, width: max(0, right - left + 2 * inset), height: max(0, bottom - top))
+        case .rule(let paragraph, let indent):
+            guard let line = bounds(paragraph) else { return none }
+            return ActionUIWinUIRect(x: indent, y: line.y + line.height / 2, width: max(0, width - indent), height: 1)
+        }
+    }
+}
+
+/// The panel callbacks' context: the state, not kept alive by it (the node keeps the state).
+private let measureRichText: ActionUIWinUIMeasureCallback = { context, _, available in
+    let weak = context.map { Unmanaged<WeakRichTextState>.fromOpaque($0).takeUnretainedValue() }
+    return MainActor.assumeIsolated {
+        guard let size = weak?.state?.measure(available) else { return ActionUIWinUISize(width: 0, height: 0) }
+        // WinUI gets no more than it offered.
+        return ActionUIWinUISize(width: min(size.width, available.width), height: min(size.height, available.height))
+    }
+}
+
+private let arrangeRichText: ActionUIWinUIArrangeCallback = { context, _, finalSize in
+    let weak = context.map { Unmanaged<WeakRichTextState>.fromOpaque($0).takeUnretainedValue() }
+    MainActor.assumeIsolated {
+        weak?.state?.arrange(finalSize)
     }
 }
 
@@ -129,6 +307,14 @@ struct RichTextWinUIBuilder {
     weak var node: RenderNode?
     /// The first shim failure, logged once after the walk.
     private(set) var failure: String?
+    /// The shapes to draw behind the text, by paragraph index.
+    private(set) var decorations: [RichTextDecoration] = []
+    /// The paragraphs added so far: the next one's index.
+    private var paragraphCount = 0
+    /// Where the bar of the innermost quote being walked stands; nil outside quotes.
+    private var quoteBarX: Double?
+    /// Whether the block's theme is dark (the syntax colors' lighter shades): read once per build.
+    private lazy var dark: Bool = actionUIWinUIElementIsDark(block)
 
     init(block: OpaquePointer, theme: RichTextTheme, baseSize: Double, node: RenderNode?) {
         self.block = block
@@ -156,30 +342,29 @@ struct RichTextWinUIBuilder {
         case .paragraph(let inlines):
             paragraph(indent: indent, spaceAfter: blockSpacing)
             append(inlines, style: 0, size: 0, secondary: secondary)
-        case .codeBlock(_, let code):
-            paragraph(indent: indent, spaceAfter: blockSpacing)
-            var lines = code.split(separator: "\n", omittingEmptySubsequences: false)
-            if lines.last == "" {
-                lines.removeLast()
-            }
-            for (index, line) in lines.enumerated() {
-                if index > 0 {
-                    check(actionUIWinUIRichTextBlockAddLineBreak(self.block), "a line break")
-                }
-                run(String(line), style: monospaceRun, size: baseSize * RichTextWinUIState.codeScale,
-                    secondary: secondary)
-            }
+        case .codeBlock(let language, let code):
+            // In a card: the paragraph's margins leave its insets free.
+            let inset = RichTextWinUIState.codeInset
+            let vertical = RichTextWinUIState.codeVerticalInset
+            decorations.append(.codeCard(paragraph: paragraphCount, indent: indent))
+            paragraph(indent: indent + inset, rightIndent: inset, spaceBefore: vertical, spaceAfter: blockSpacing + vertical)
+            appendCode(code, language: language, secondary: secondary)
         case .blockQuote(let inner):
+            // A bar beside each of its paragraphs, left of the quoted text; a nested quote's paragraphs get only its bar.
+            let outer = quoteBarX
+            quoteBarX = indent + indentStep - RichTextWinUIState.quoteBarGap
             append(inner, indent: indent + indentStep, secondary: true)
+            quoteBarX = outer
         case .list(let ordered, let start, _, let items):
             for (index, item) in items.enumerated() {
                 let marker = ordered ? "\(start + index)." : "\u{2022}"
                 appendItem(item, marker: marker, indent: indent, secondary: secondary)
             }
         case .thematicBreak:
-            // Until the line is drawn behind the text: a row of light box-drawing strokes.
+            // A line through an empty line (a no-break space gives it the text's height, and copies as a space).
+            decorations.append(.rule(paragraph: paragraphCount, indent: indent))
             paragraph(indent: indent, spaceBefore: blockSpacing * 0.5, spaceAfter: blockSpacing)
-            run(String(repeating: "\u{2500}", count: 24), style: 0, size: 0, secondary: true)
+            run("\u{00A0}", style: 0, size: 0, secondary: true)
         case .table(let headers, _, let rows):
             // Until tables are a grid: each row a line, its cells apart.
             for (rowIndex, cells) in ([headers] + rows).enumerated() {
@@ -192,6 +377,53 @@ struct RichTextWinUIBuilder {
                 }
             }
         }
+    }
+
+    /// Fenced code, line by line in the monospaced face, its comments, strings, numbers and keywords in the syntax
+    /// colors when the theme highlights (RichText's tokenizer, as on Apple and Linux; no language: not highlighted).
+    private mutating func appendCode(_ code: String, language: String?, secondary: Bool) {
+        let scalars = Array(code.unicodeScalars)
+        var end = scalars.count
+        if end > 0, scalars[end - 1] == "\n" {
+            end -= 1
+        }
+        // Each scalar's token type, where a token covers it.
+        var types = [RichTextSyntaxHighlighter.TokenType?](repeating: nil, count: end)
+        if theme.syntaxHighlighting {
+            for token in RichTextSyntaxHighlighter.tokenize(code, profile: .profile(for: language)) {
+                for index in token.scalarRange where index < end {
+                    types[index] = token.type
+                }
+            }
+        }
+        let size = baseSize * RichTextWinUIState.codeScale
+        var segment = String.UnicodeScalarView()
+        var segmentType: RichTextSyntaxHighlighter.TokenType?
+        for index in 0..<end {
+            let scalar = scalars[index]
+            if scalar == "\n" || types[index] != segmentType {
+                codeRun(String(segment), type: segmentType, size: size, secondary: secondary)
+                segment = String.UnicodeScalarView()
+                segmentType = types[index]
+            }
+            if scalar == "\n" {
+                check(actionUIWinUIRichTextBlockAddLineBreak(block), "a line break")
+            } else {
+                segment.append(scalar)
+            }
+        }
+        codeRun(String(segment), type: segmentType, size: size, secondary: secondary)
+    }
+
+    /// A run of code in the syntax color of `type` (none: the text color).
+    private mutating func codeRun(_ text: String, type: RichTextSyntaxHighlighter.TokenType?, size: Double, secondary: Bool) {
+        guard !text.isEmpty else { return }
+        guard let type else {
+            run(text, style: monospaceRun, size: size, secondary: secondary)
+            return
+        }
+        var color = RichTextWinUISyntaxColors.color(type, dark: dark)
+        check(actionUIWinUIRichTextBlockAddRun(block, text, monospaceRun, size, &color, nil), "a run")
     }
 
     /// A list item: its first paragraph after the marker on a hanging line, the rest of its blocks one step in.
@@ -225,6 +457,13 @@ struct RichTextWinUIBuilder {
                 // The body's monospaced size wherever it is, as on Apple platforms and Linux; not bold in a heading.
                 run(text, style: (style & ~boldRun) | monospaceRun,
                     size: 0, secondary: secondary)
+                // On a light fill, as on Apple and Linux: shapes behind its first line, the lines between and its last.
+                let inline = Int(actionUIWinUIRichTextBlockLastInlineIndex(block))
+                if inline >= 0, paragraphCount > 0 {
+                    for part in [InlineCodePart.first, .middle, .last] {
+                        decorations.append(.inlineCode(paragraph: paragraphCount - 1, inline: inline, part: part))
+                    }
+                }
             case .link(let text, let url):
                 link(text.plainText, url: url, style: style, size: size)
             case .image(let alt, _):
@@ -237,9 +476,14 @@ struct RichTextWinUIBuilder {
         }
     }
 
-    private mutating func paragraph(indent: Double, firstLineIndent: Double = 0, spaceBefore: Double = 0,
-                                    spaceAfter: Double) {
-        check(actionUIWinUIRichTextBlockAddParagraph(block, indent, firstLineIndent, spaceBefore, spaceAfter), "a paragraph")
+    private mutating func paragraph(indent: Double, rightIndent: Double = 0, firstLineIndent: Double = 0,
+                                    spaceBefore: Double = 0, spaceAfter: Double) {
+        check(actionUIWinUIRichTextBlockAddParagraph(block, indent, rightIndent, firstLineIndent, spaceBefore, spaceAfter),
+              "a paragraph")
+        if let quoteBarX {
+            decorations.append(.quoteBar(paragraph: paragraphCount, x: quoteBarX))
+        }
+        paragraphCount += 1
     }
 
     private mutating func run(_ text: String, style: UInt32, size: Double, secondary: Bool) {
@@ -263,6 +507,24 @@ struct RichTextWinUIBuilder {
         if !added, failure == nil {
             failure = "adding \(what) failed: \(lastShimError())"
         }
+    }
+}
+
+/// The syntax colors: the GTK renderer's (Adwaita's purple, red, blue and green), the darker shades on a light theme
+/// and the lighter ones on a dark one.
+enum RichTextWinUISyntaxColors {
+    static func color(_ type: RichTextSyntaxHighlighter.TokenType, dark: Bool) -> ActionUIWinUIColor {
+        switch type {
+        case .keyword: return rgb(dark ? 0xDC8ADD : 0x813D9C)
+        case .string: return rgb(dark ? 0xF66151 : 0xC01C28)
+        case .number: return rgb(dark ? 0x99C1F1 : 0x1A5FB4)
+        case .comment: return rgb(dark ? 0x8FF0A4 : 0x26A269)
+        }
+    }
+
+    private static func rgb(_ hex: UInt32) -> ActionUIWinUIColor {
+        ActionUIWinUIColor(red: Double((hex >> 16) & 0xFF) / 255, green: Double((hex >> 8) & 0xFF) / 255,
+                           blue: Double(hex & 0xFF) / 255, alpha: 1)
     }
 }
 
@@ -291,12 +553,12 @@ private let releaseRichTextLink: ActionUIWinUICallback = { context in
     Unmanaged<RichTextLinkTarget>.fromOpaque(context).release()
 }
 
-/// The theme callback's context: the state, not kept alive by it.
+/// The theme and layout callbacks' context: the state, not kept alive by it.
 @MainActor
 private final class WeakRichTextState {
     weak var state: RichTextWinUIState?
 
-    init(_ state: RichTextWinUIState) {
+    init(_ state: RichTextWinUIState? = nil) {
         self.state = state
     }
 }
@@ -343,7 +605,12 @@ struct RichTextView: ActionUIWinUIElement {
         guard let state = RichTextWinUIState(node: node, logger: ActionUIModel.shared.logger) else { return nil }
         node.state = state
         // The node takes over a reference of its own; the state keeps its own.
-        return actionUIWinUIRetain(state.block.pointer)
+        return actionUIWinUIRetain(state.panel.pointer)
+    }
+
+    /// The RichTextBlock, not the panel around it and its decorations: accessibility tools see the text.
+    static func accessibleObject(_ view: OpaquePointer, _ node: RenderNode) -> OpaquePointer? {
+        (node.state as? RichTextWinUIState)?.block.pointer
     }
 
     static func update(_ view: OpaquePointer, _ node: RenderNode) {

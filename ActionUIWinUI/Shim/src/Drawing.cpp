@@ -1091,4 +1091,12 @@ bool actionUIWinUIElementOnActualThemeChanged(ActionUIWinUIObject *element, Acti
                            });
 }
 
+bool actionUIWinUIElementIsDark(ActionUIWinUIObject *element) {
+    try {
+        return objectAs<mux::FrameworkElement>(element, L"FrameworkElement").ActualTheme() == mux::ElementTheme::Dark;
+    } catch (...) {
+        return false;
+    }
+}
+
 } // extern "C"

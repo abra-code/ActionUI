@@ -41,12 +41,21 @@ public protocol ActionUIWinUIElement: ActionUIElementSpec {
     /// The axes along which a stack may make the element smaller than it asks for (a text that
     /// wraps). Read as `expansion` is. Default: none.
     static func compression(_ node: RenderNode) -> ActionUIExpansion
+
+    /// The WinUI object accessibility tools read as the element, which gets its accessibility label,
+    /// hint, identifier and hidden: for an element whose object is a panel around a control (a panel
+    /// made with actionUIWinUIPanelCreate, which accessibility tools do not see), that control. `view`
+    /// is lent for the call, and so is the result, which the element keeps alive. Default: nil, the
+    /// element's object itself.
+    static func accessibleObject(_ view: OpaquePointer, _ node: RenderNode) -> OpaquePointer?
 }
 
 extension ActionUIWinUIElement {
     public static func expansion(_ node: RenderNode) -> ActionUIExpansion { [] }
 
     public static func compression(_ node: RenderNode) -> ActionUIExpansion { [] }
+
+    public static func accessibleObject(_ view: OpaquePointer, _ node: RenderNode) -> OpaquePointer? { nil }
 }
 
 extension RenderNode {
@@ -123,6 +132,11 @@ private enum AddOnRenderer<Element: ActionUIWinUIElement>: ActionUIWinUIRenderer
 
     static func compression(_ node: RenderNode) -> Expansion {
         Element.compression(node)
+    }
+
+    static func accessibleObject(_ view: WinUIObject, _ node: RenderNode) -> WinUIObject {
+        guard let object = Element.accessibleObject(view.pointer, node), object != view.pointer else { return view }
+        return WinUIObject(retaining: object)
     }
 }
 

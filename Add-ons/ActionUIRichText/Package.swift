@@ -71,9 +71,9 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../.."),   // the ActionUI package at the repo root
-        // The first version that builds on Windows (its model, with no renderer) is not tagged yet: Windows CI builds
-        // RichText's working tree in its place (swift package edit). Raised to that version when it is tagged.
-        .package(url: "https://github.com/abra-code/RichText", from: "0.4.2"),
+        // 0.4.3 is the first version that builds on Windows (the model, with no renderer) and makes public the
+        // syntax tokenizer and the image placeholder text this element uses.
+        .package(url: "https://github.com/abra-code/RichText", from: "0.4.3"),
     ],
     targets: [
         .target(

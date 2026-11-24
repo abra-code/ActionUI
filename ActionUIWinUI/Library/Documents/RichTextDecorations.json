@@ -1,0 +1,21 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": {
+    "spacing": 8,
+    "padding": 12,
+    "alignment": "leading"
+  },
+  "children": [
+    {
+      "type": "RichText",
+      "id": 2,
+      "properties": {
+        "markdown": "## Decorations\n\nInline `code` near the start, and inline code long enough to wrap: `a_very_long_identifier_that_wraps_onto_the_next_line` then text after it.\n\n> A quote with `code` in it.\n>\n> > A nested quote: only its own bar.\n>\n> ---\n>\n> Back in the outer quote.\n\n```python\ndef greet(name):\n    # A comment\n    return f\"Hello, {name}\" + str(42)\n\n```\n\nText after a code block that ends in an empty line.\n",
+        "frame": {
+          "maxWidth": "infinity"
+        }
+      }
+    }
+  ]
+}

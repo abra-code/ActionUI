@@ -677,10 +677,12 @@ ACTIONUI_WINUI_API bool actionUIWinUIRichTextBlockClear(ActionUIWinUIObject *blo
 // The size of the block's text, in points; 0 or less: the theme's body size.
 ACTIONUI_WINUI_API bool actionUIWinUIRichTextBlockSetFontSize(ActionUIWinUIObject *block, double fontSize);
 // Starts a paragraph after the others; the runs added next go into it. Its lines start `indent` points
-// from the left, its first line `firstLineIndent` points further (negative: a hanging line, for a list
-// marker), with `spaceBefore` and `spaceAfter` points above and below it.
-ACTIONUI_WINUI_API bool actionUIWinUIRichTextBlockAddParagraph(ActionUIWinUIObject *block, double indent, double firstLineIndent,
-                                                               double spaceBefore, double spaceAfter);
+// from the left and end `rightIndent` points from the right, its first line `firstLineIndent` points
+// further in (negative: a hanging line, for a list marker), with `spaceBefore` and `spaceAfter` points
+// above and below it.
+ACTIONUI_WINUI_API bool actionUIWinUIRichTextBlockAddParagraph(ActionUIWinUIObject *block, double indent, double rightIndent,
+                                                               double firstLineIndent, double spaceBefore,
+                                                               double spaceAfter);
 typedef enum ActionUIWinUIRunStyle {
     ActionUIWinUIRunBold = 1,
     ActionUIWinUIRunItalic = 2,
@@ -703,6 +705,24 @@ ACTIONUI_WINUI_API bool actionUIWinUIRichTextBlockAddLineBreak(ActionUIWinUIObje
 ACTIONUI_WINUI_API bool actionUIWinUIRichTextBlockAddLink(ActionUIWinUIObject *block, const char *text, uint32_t style,
                                                           double fontSize, ActionUIWinUICallback handler, void *context,
                                                           ActionUIWinUICallback destroyContext);
+// The index of the last inline (a run, a line break or a link) in the block's last paragraph, from 0: with
+// the paragraph's index, it names a run for actionUIWinUIRichTextBlockInlineLineBounds. -1 when the last
+// paragraph has none, or the block has no paragraph.
+ACTIONUI_WINUI_API int32_t actionUIWinUIRichTextBlockLastInlineIndex(ActionUIWinUIObject *block);
+// The rectangles the `inlineIndex`th inline of the `paragraphIndex`th paragraph takes, one per line it is on,
+// in points from the block's top-left corner, once the block is laid out: each from its first character's
+// leading edge to its last character's trailing edge on that line, the line's height. For drawing behind
+// the text (inline code's fill). Writes up to `capacity` rectangles into `rects` and returns how many it
+// wrote: 0 when the inline is empty or not laid out yet, or on failure (no such inline).
+ACTIONUI_WINUI_API int32_t actionUIWinUIRichTextBlockInlineLineBounds(ActionUIWinUIObject *block, int32_t paragraphIndex,
+                                                                      int32_t inlineIndex, ActionUIWinUIRect *rects,
+                                                                      int32_t capacity);
+// The rectangle the `index`th paragraph (from 0, in the order added) takes in the block, in points from its
+// top-left corner, once the block is laid out: from the paragraph's indent to the block's right edge, from the
+// top of its first line to the bottom of its last. For drawing behind the text (a code card, a quote bar).
+// False when there is no such paragraph.
+ACTIONUI_WINUI_API bool actionUIWinUIRichTextBlockParagraphBounds(ActionUIWinUIObject *block, int32_t index,
+                                                                  ActionUIWinUIRect *bounds);
 
 // MARK: - Color button (a ColorPicker)
 
@@ -1310,6 +1330,9 @@ ACTIONUI_WINUI_API double actionUIWinUIElementRasterizationScale(ActionUIWinUIOb
 // changed); what it drew from the theme is to be drawn again.
 ACTIONUI_WINUI_API bool actionUIWinUIElementOnActualThemeChanged(ActionUIWinUIObject *element, ActionUIWinUICallback handler,
                                                                  void *context, ActionUIWinUICallback destroyContext);
+// Whether `element`'s theme is dark now (ActualTheme); false when it is light, or `element` is no
+// FrameworkElement. Sets no error.
+ACTIONUI_WINUI_API bool actionUIWinUIElementIsDark(ActionUIWinUIObject *element);
 // PointerEntered and PointerExited: the pointer came over `element` (or something in it) and left it;
 // a mouse or a pen, not a finger (whose press and release WinUI reports as entering and leaving).
 // A panel with no background gets a transparent one when Entered is connected, so its whole area,
