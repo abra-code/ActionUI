@@ -189,10 +189,34 @@ Package(
 )
 }
 
+// Windows: for now the protocol layer and its tests (the server itself needs a WinUI window layer, not yet
+// written). The tests parse with ActionUI, as on Linux (MCPStdio uses FoundationEssentials there too).
+func windowsPackage() -> Package {
+Package(
+    name: "ActionUIMCP",
+    dependencies: [
+        .package(path: "../.."),
+    ],
+    targets: [
+        .target(
+            name: "MCPStdio",
+            path: "Sources/MCPStdio"
+        ),
+        .testTarget(
+            name: "MCPStdioTests",
+            dependencies: ["MCPStdio", .product(name: "ActionUIStatic", package: "ActionUI")],
+            path: "Tests/MCPStdioTests"
+        ),
+    ]
+)
+}
+
 // Only the chosen package may be constructed: PackageDescription takes the last Package created as
 // the manifest.
 #if os(Linux)
 let package = linuxPackage()
+#elseif os(Windows)
+let package = windowsPackage()
 #else
 let package = applePackage()
 #endif

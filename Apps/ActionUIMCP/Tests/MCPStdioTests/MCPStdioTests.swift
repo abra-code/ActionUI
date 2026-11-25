@@ -13,12 +13,23 @@ import Foundation
 import ActionUI
 import Glibc
 #endif
+#if !os(Windows)
+private func closeDescriptor(_ fd: Int32) { _ = close(fd) }
+#else
+import ActionUI
+import ucrt
+
+// The pipe the reader test writes into, from the Microsoft C runtime: binary, so nothing is translated.
+private func pipe(_ ends: inout [Int32]) -> Int32 { _pipe(&ends, 65_536, _O_BINARY) }
+private func write(_ fd: Int32, _ buffer: UnsafeRawPointer?, _ count: Int) -> Int { Int(_write(fd, buffer, UInt32(count))) }
+private func closeDescriptor(_ fd: Int32) { _ = _close(fd) }
+#endif
 import Testing
 @testable import MCPStdio
 
 /// What a host passes the server to parse JSON text, on each platform.
 private let parseJSON: @Sendable (String) -> JSONValue? = { text in
-    #if os(Linux)
+    #if os(Linux) || os(Windows)
     return (try? ActionUIJSON.value(from: text)).map { JSONValue(any: $0) }
     #else
     return JSONValue.parsedByFoundation(text)
@@ -224,9 +235,9 @@ private func line(_ value: JSONValue) -> String { value.serialized() }
     send(line(["jsonrpc": "2.0", "id": 4, "method": "tools/call", "params": ["name": "echo", "arguments": ["text": .string(long)]]]) + "\n")
     // A last line with no newline.
     send(ping(5))
-    close(writer)
+    closeDescriptor(writer)
     await finished.wait()
-    close(reader)
+    closeDescriptor(reader)
     await server.waitUntilIdle()
     server.flush()
     #expect(sink.messages.count == 5)
@@ -258,7 +269,7 @@ private func line(_ value: JSONValue) -> String { value.serialized() }
     #expect(JSONValue.string("").serialized() == "\"\"")
 }
 
-#if !os(Linux)
+#if !os(Linux) && !os(Windows)
 /// The text JSONSerialization wrote before JSONValue wrote its own.
 @Test func serializedMatchesJSONSerialization() throws {
     let values: [JSONValue] = [

@@ -44,6 +44,7 @@ import Dispatch
 
 // MARK: - Lock
 
+#if !os(Windows)
 /// A mutual-exclusion lock over a pthread mutex, not reentrant: FoundationEssentials has no NSLock,
 /// and Synchronization's Mutex needs macOS 15. The mutex lives in allocated memory because a pthread
 /// mutex must not move, and Swift may move a stored value.
@@ -76,6 +77,7 @@ public final class MCPLock: @unchecked Sendable {
         return try body()
     }
 }
+#endif
 
 // MARK: - JSONValue
 
@@ -96,7 +98,7 @@ public enum JSONValue: Sendable, Equatable {
     /// null value on Linux, which this file does not know.
     public init(any value: Any?) {
         switch value {
-        #if os(Linux)
+        #if os(Linux) || os(Windows)
         case nil:
             self = .null
         case let flag as Bool:
@@ -141,7 +143,7 @@ public enum JSONValue: Sendable, Equatable {
     public var any: Any {
         switch self {
         case .null:
-            #if os(Linux)
+            #if os(Linux) || os(Windows)
             let none: Any? = nil
             return none as Any
             #else
@@ -268,7 +270,7 @@ public enum JSONValue: Sendable, Equatable {
     }
 }
 
-#if !os(Linux)
+#if !os(Linux) && !os(Windows)
 extension JSONValue {
     /// Parses JSON text with JSONSerialization, for `MCPServer`'s `parse`; nil for text that is not
     /// an object or array in JSON. Linux has no JSONSerialization: a host there passes its own.
@@ -495,6 +497,7 @@ public final class MCPServer: @unchecked Sendable {
     /// then descriptor 1 is pointed at stderr, so a stray print() from any library lands in the log
     /// instead of in the middle of a JSON-RPC message. Call once, before anything can print.
     /// Also ignores SIGPIPE, so a client that has gone away cannot kill the process mid-write.
+    #if !os(Windows)
     public static func reserveStandardOutput() -> @Sendable (Data) -> Void {
         signal(SIGPIPE, SIG_IGN)
         fflush(nil)
@@ -526,11 +529,12 @@ public final class MCPServer: @unchecked Sendable {
             }
         }
     }
+    #endif
 
     /// Starts reading `descriptor` (stdin unless a test passes another) on a background queue of
     /// its own. `onEndOfInput` runs on that queue after it closes, which is how a stdio client ends
     /// the session. The descriptor stays open.
-    public func startReading(from descriptor: Int32 = STDIN_FILENO, onEndOfInput: @escaping @Sendable () -> Void) {
+    public func startReading(from descriptor: Int32 = 0, onEndOfInput: @escaping @Sendable () -> Void) {
         DispatchQueue(label: "MCPServer.reader").async { [self] in
             readLines(from: descriptor)
             onEndOfInput()
@@ -544,8 +548,7 @@ public final class MCPServer: @unchecked Sendable {
         var chunk = [UInt8](repeating: 0, count: 65_536)
         var line: [UInt8] = []
         while true {
-            let count = read(descriptor, &chunk, chunk.count)
-            if count < 0 && errno == EINTR { continue }
+            let count = Self.readChunk(descriptor, &chunk)
             if count <= 0 { break }
             var start = 0
             while let newline = chunk[start..<count].firstIndex(of: UInt8(ascii: "\n")) {
@@ -560,9 +563,21 @@ public final class MCPServer: @unchecked Sendable {
         if !line.isEmpty { handle(bytes: line) }
     }
 
+    #if !os(Windows)
+    /// Up to `chunk.count` bytes of `descriptor` into `chunk`, an interrupted read retried: 0 at its end,
+    /// -1 on failure.
+    static func readChunk(_ descriptor: Int32, _ chunk: inout [UInt8]) -> Int {
+        while true {
+            let count = read(descriptor, &chunk, chunk.count)
+            if count < 0 && errno == EINTR { continue }
+            return count
+        }
+    }
+    #endif
+
     private func handle(bytes: [UInt8]) {
         let text = String(decoding: bytes, as: UTF8.self)
-        #if os(Linux)
+        #if os(Linux) || os(Windows)
         handle(line: text)
         #else
         // The reader's block does not return while the session lasts, so its queue's pool never
@@ -800,7 +815,7 @@ public final class MCPServer: @unchecked Sendable {
             } catch is CancellationError {
                 result = .error("cancelled")
             } catch {
-                #if os(Linux)
+                #if os(Linux) || os(Windows)
                 result = .error(String(describing: error))
                 #else
                 result = .error(error.localizedDescription)

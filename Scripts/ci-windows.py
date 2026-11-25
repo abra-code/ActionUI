@@ -1805,6 +1805,7 @@ def check_swift_smoke(shim_out, bootstrap, results, summary, msvc, host_build):
         passed = check_c_app(bin_path, results, summary, msvc, env) and passed
         passed = check_host_app(bin_path, results, summary, msvc, env, host_build) and passed
     passed = check_viewer(shim_out, bin_path, results, summary, env) and passed
+    passed = check_mcp(shim_out, results, summary, env) and passed
     if library_built:
         package = make_library_package(bin_path, results, summary, msvc, host_build["webview2_license"])
         passed = package is not None and passed
@@ -1823,6 +1824,29 @@ def check_swift_smoke(shim_out, bootstrap, results, summary, msvc, host_build):
                                bin_path, results, summary, env) and passed
     passed = check_ambient_identity(preview, bin_path, results, summary, env) and passed
     return passed
+
+
+def check_mcp(shim_out, results, summary, env):
+    """Builds the MCP server's package (Apps/ActionUIMCP) for Windows and runs its tests: for now the protocol
+    layer's (MCPStdioTests), which link ActionUI (they parse JSON with it, as on Linux), so the shim's import
+    library is on the linker path and its folder on PATH. True when they built without warnings and passed."""
+    scratch = ["--package-path", str(REPO_DIR / "Apps" / "ActionUIMCP"),
+               "--scratch-path", str(REPO_DIR / ".build" / "ci-windows-mcp"), "--manifest-cache", "none"]
+    build = run_step("mcp-build", ["swift", "build", "--build-tests"] + scratch + ["-Xswiftc", f"-L{shim_out}"], results, env)
+    summary["steps"].append(build)
+    if build["status"] != 0:
+        summary["errors"] = first_errors(results / build["log"])
+        return False
+    if fails_on_warnings(build, results, summary):
+        return False
+    test_env = dict(env, PATH=f"{shim_out};{env.get('PATH', '')}")
+    test = run_step("mcp-test", ["swift", "test", "--skip-build"] + scratch, results, test_env)
+    summary["steps"].append(test)
+    if test["status"] != 0:
+        summary["errors"] = first_errors(results / test["log"])
+    counts = testing_counts(results / test["log"])
+    summary["findings"].append(f"MCP server tests: {counts}" if counts else "MCP server tests: no Swift Testing total")
+    return test["status"] == 0
 
 
 def check_diff_files(add_on_preview, results, summary, env):
