@@ -1,6 +1,6 @@
 # ActionUI on Windows (WinUI 3)
 
-ActionUI renders its JSON documents on Windows as native **WinUI 3** interfaces (the Windows App SDK's UI framework), written in **Swift** and built from the same Swift package as the Apple frameworks and the Linux renderer. A document written for macOS opens on Windows unchanged, with the same element and property names, the same values and actions. Where Windows has a control of its own (a ListView, a NavigationView's pane toggle, the share sheet, WebView2), the renderer uses it, so a document looks like a Windows app rather than a copy of macOS.
+ActionUI renders its JSON UI descriptions on Windows as native **WinUI 3** interfaces (the Windows App SDK's UI framework), written in **Swift** and built from the same Swift package as the Apple frameworks and the Linux renderer. ActionUI JSON written for macOS opens on Windows unchanged, with the same element and property names, the same values and actions. Where Windows has a control of its own (a ListView, a NavigationView's pane toggle, the share sheet, WebView2), the renderer uses it, so the UI looks like a Windows app rather than a copy of macOS.
 
 The renderer has two parts:
 
@@ -32,14 +32,14 @@ ActionUIWinUIPreview renders one ActionUI JSON file into a PNG of the window's c
 
 ## What a program ships
 
-An unpackaged Windows program that shows ActionUI documents carries, beside its `.exe`:
+An unpackaged Windows program that shows ActionUI UIs carries, beside its `.exe`:
 
 | File | Where it comes from | Needed |
 |---|---|---|
 | `ActionUIWinUIShim.dll` | built by `Scripts/ci-windows.py` | always |
 | `Microsoft.WindowsAppRuntime.Bootstrap.dll` | NuGet `microsoft.windowsappsdk.foundation`, `runtimes/win-<arch>/native/` | always: it attaches the Windows App SDK runtime (`actionUIWinUIInitialize`) |
 | `<program>.exe.manifest` | as `Apps/Smoke/ActionUIWinUISmoke.exe.manifest` | always: the Windows versions tested and per-monitor DPI awareness |
-| `Microsoft.Web.WebView2.Core.dll` | NuGet `microsoft.web.webview2`, `runtimes/win-<arch>/native_uap/` | only when a document shows a WebView (below) |
+| `Microsoft.Web.WebView2.Core.dll` | NuGet `microsoft.web.webview2`, `runtimes/win-<arch>/native_uap/` | only when the ActionUI JSON shows a WebView (below) |
 
 And on the machine: the Windows App SDK runtime 2.7, and for WebView the WebView2 runtime.
 

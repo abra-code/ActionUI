@@ -14,7 +14,7 @@
    GridCellsLayout. A line far out of view is let go, its instances with it. Lines are kept by their
    content: a line whose rows' data changes is made again, lines are added at and removed from the
    end; a change in the number of tracks makes every line again. The form is chosen when the grid is
-   made (a template in the document).
+   made (a template in the ActionUI JSON).
 
  Each line of the template form is laid out on its own, for the same length along the tracks (the
  grid's width), so the columns line up; a flexible column's ideal width (a LazyVGrid in a row that
@@ -134,7 +134,7 @@ enum LazyGrids {
         size.map { .fixed(StackSolver.length($0)) } ?? .flexible
     }
 
-    /// The grid's view: a repeater of lines for a grid whose document gives it a template, else a
+    /// The grid's view: a repeater of lines for a grid whose ActionUI JSON gives it a template, else a
     /// layout of all its children.
     static func makeView(_ node: RenderNode, vertical: Bool) throws(WinUIError) -> WinUIObject {
         if node.element.subviews?["template"] is any ActionUIElementBase {

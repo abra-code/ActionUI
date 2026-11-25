@@ -659,7 +659,7 @@ static void CALLBACK onRemoteShown(HWND window, UINT message, UINT_PTR timer, DW
     remoteChecked = true;
     // Remote.json's Text (id 130), loaded from the server.
     char *value = actionUIGetStringValue("remote-window", 130, 0);
-    check(value != NULL && strcmp(value, "Loaded over HTTPS") == 0, "the window from a server shows its document");
+    check(value != NULL && strcmp(value, "Loaded over HTTPS") == 0, "the window from a server shows its ActionUI JSON");
     if (value != NULL) {
         actionUIFreeString(value);
     }

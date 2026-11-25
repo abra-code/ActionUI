@@ -17,7 +17,7 @@
    network error, a URL that is not absolute).
  - A local file (a file: address, or a drive path such as C:/v.mp4, which Windows' player reads as
    one) that is something other than a regular file (a device, a named pipe) is not opened, and that
-   is logged as an error: the document names the address.
+   is logged as an error: the ActionUI JSON names the address.
  - An address that is not a local file plays only when the trust policy allows it (.playMedia, asked
    before the player opens it; a refusal is logged once), as on Apple and Linux. By default trusted
    content plays any, and less-trusted content (ActionUI JSON from a server or from a file outside the
@@ -163,7 +163,7 @@ extension VideoPlayer: ActionUIWinUIRenderer {
             }
             return
         }
-        // A document names the address: a local file must be a regular file, not a device or a named
+        // ActionUI JSON names the address: a local file must be a regular file, not a device or a named
         // pipe. A missing file goes on to the player, which reports it.
         if let localPath, FileManager.default.fileExists(atPath: localPath),
            ActionUIContentLoader.regularFilePath(URL(filePath: localPath, directoryHint: .notDirectory)) == nil {

@@ -1313,7 +1313,7 @@ ACTIONUI_WINUI_API bool actionUIWinUIImageOnFailed(ActionUIWinUIObject *image, A
                                                    ActionUIWinUICallback destroyContext);
 // Whether `path` (absolute, or relative to the current folder) names a regular file, symbolic links
 // followed: false for a missing file, a folder, a device (NUL, CON, COM1, anything under \\.\) and a
-// pipe, which an image decoder would read forever or wait on (a document names the path). False for
+// pipe, which an image decoder would read forever or wait on (ActionUI JSON names the path). False for
 // NULL. Any thread; sets no error.
 ACTIONUI_WINUI_API bool actionUIWinUIIsRegularFile(const char *path);
 // The pixel size the image file at `path` (UTF-8) declares, read from its header by Windows' image

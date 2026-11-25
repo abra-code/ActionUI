@@ -150,7 +150,7 @@ Package(
 )
 }
 
-// The program on Windows: a document in a window through WinUIApplication, ActionUI's application on
+// The program on Windows: ActionUI JSON in a window through WinUIApplication, ActionUI's application on
 // WinUI. The add-ons are not on Windows yet. The WinUI shim's import library is passed to the linker
 // (-Xswiftc -L<folder>), as Scripts/ci-windows.py builds the root package; the program runs with the
 // shim's DLL, the Windows App SDK bootstrapper and its manifest beside it (Scripts/ci-windows.py).

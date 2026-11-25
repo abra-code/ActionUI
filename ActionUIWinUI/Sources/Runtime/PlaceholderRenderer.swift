@@ -1,6 +1,6 @@
 // Sources/Runtime/PlaceholderRenderer.swift
 /*
- What an element type without a WinUI renderer shows: its type name in brackets, so a document
+ What an element type without a WinUI renderer shows: its type name in brackets, so a UI
  still opens and shows where the missing element is (Linux shows a placeholder too).
 */
 

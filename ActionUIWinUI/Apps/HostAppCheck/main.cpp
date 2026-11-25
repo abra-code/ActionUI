@@ -52,7 +52,7 @@ void check(bool passed, const char *what) {
     }
 }
 
-const char *kDocument =
+const char *kUIJSON =
     "{\"type\": \"VStack\", \"id\": 1, \"properties\": {\"padding\": 16, \"spacing\": 8}, \"children\": ["
     "{\"type\": \"Text\", \"id\": 2, \"properties\": {\"text\": \"In the host's own window\"}},"
     "{\"type\": \"Button\", \"id\": 3, \"properties\": {\"title\": \"OK\"}}]}";
@@ -81,7 +81,7 @@ struct HostApp : mux::ApplicationT<HostApp, muxm::IXamlMetadataProvider> {
         actionUIInstallMainLoopBridge();
         hostWindow = mux::Window();
         hostWindow.Title(L"A host's window");
-        check(actionUILoadIntoHostWindowFromJSON(winrt::get_abi(hostWindow), kDocument, "host-window", nullptr),
+        check(actionUILoadIntoHostWindowFromJSON(winrt::get_abi(hostWindow), kUIJSON, "host-window", nullptr),
               "ActionUI JSON fills the host's window");
         hostWindow.Activate();
         check(valueIs("In the host's own window"), "the window's value reads");

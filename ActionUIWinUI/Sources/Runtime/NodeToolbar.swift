@@ -22,7 +22,7 @@
 
  In a NavigationSplitView the items show in their column's header (NavigationSplitView+WinUI.swift).
 
- Not yet: searchable; a toolbar inserted at run time into a window whose document had none (logged
+ Not yet: searchable; a toolbar inserted at run time into a window whose ActionUI JSON had none (logged
  once).
 */
 
@@ -132,8 +132,8 @@ final class NodeToolbar {
             self.bar = bar
         }
         bar?.set(owner: ObjectIdentifier(self), items: shown)
-        // No bar: a toolbar inserted into a window whose document had none (the window makes its bar
-        // when the document is loaded).
+        // No bar: a toolbar inserted into a window whose ActionUI JSON had none (the window makes its bar
+        // when its ActionUI JSON is loaded).
         if bar == nil, !shown.isEmpty, !Self.reportedWithoutBar {
             Self.reportedWithoutBar = true
             ActionUIModel.shared.logger.log("Toolbar: a toolbar with no bar to show in (added after the window was made) is not shown on Windows yet", .warning)

@@ -10,7 +10,7 @@
  Their template form (one instance per content row) is lazy (LazyRows): an ItemsRepeater makes a row
  only when it comes in or near the part its ScrollView shows, and lets it go when it is far out of
  view, as SwiftUI's lazy stacks do. The form is chosen when the stack is made (a template in the
- document); the children form is laid out by StackLayout, every child made at once, as on Linux.
+ ActionUI JSON); the children form is laid out by StackLayout, every child made at once, as on Linux.
 */
 
 extension LazyVStack: ActionUIWinUIRenderer {
@@ -89,7 +89,7 @@ extension LazyHStack: ActionUIWinUIRenderer {
         node.state is LazyRows
     }
 
-    /// The repeater of a lazy stack whose document gives it a template (its node's state is then a
+    /// The repeater of a lazy stack whose ActionUI JSON gives it a template (its node's state is then a
     /// LazyRows); nil for one with children.
     static func makeRows(_ node: RenderNode, axis: StackLayout.Axis) throws(WinUIError) -> WinUIObject? {
         guard node.element.subviews?["template"] is any ActionUIElementBase else { return nil }

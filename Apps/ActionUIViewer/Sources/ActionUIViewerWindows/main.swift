@@ -1,21 +1,21 @@
 // Apps/ActionUIViewer/Sources/ActionUIViewerWindows/main.swift
 /*
- ActionUIViewer: opens an ActionUI document in a window on Windows, through WinUIApplication, as
+ ActionUIViewer: opens ActionUI JSON in a window on Windows, through WinUIApplication, as
  the Linux program does through AdwaitaApplication. The add-ons are not on Windows yet.
 
- Usage: ActionUIViewer <document.json> [--screenshot <file.png>] [--rows <id> <rows.json>]...
+ Usage: ActionUIViewer <ui.json> [--screenshot <file.png>] [--rows <id> <rows.json>]...
 
- The document is a path, a file URL, or an http or https URL (the window appears once it loads).
+ The JSON is a path, a file URL, or an http or https URL (the window appears once it loads).
  - --screenshot: once the window has drawn, saves what it shows below its title bar as a PNG file
    (drawn by WinUI itself) and quits; the exit status says whether it was written.
- - A document that cannot be loaded shows its error in the window (saved too with --screenshot),
+ - JSON that cannot be loaded shows its error in the window (saved too with --screenshot),
    and the exit status is 65.
  - --rows: sets the rows of the element with that id (a List, Table or Chart) from a JSON file
    holding an array of rows, each an array of strings, as a host's setElementRows does; for
    screenshots of data. A file that cannot be read or holds no such array stops the viewer (exit
    status 66).
  - --dark is accepted, as on Linux, and does nothing yet: the window follows the system's theme.
- Actions the document fires have no handler here; they are logged.
+ Actions its UI fires have no handler here; they are logged.
 */
 
 import Dispatch
@@ -27,7 +27,7 @@ import ActionUIWinUIApplication
 // Before anything loads a DLL by name: a file named like one in the current folder is never loaded.
 WinUIApplication.removeCurrentFolderFromDLLSearch()
 
-let usage = "usage: ActionUIViewer <document.json> [--screenshot <file.png>] [--rows <id> <rows.json>]..."
+let usage = "usage: ActionUIViewer <ui.json> [--screenshot <file.png>] [--rows <id> <rows.json>]..."
 let windowUUID = "viewer"
 /// How long the window has to draw before a screenshot is taken.
 let screenshotDelay = DispatchTimeInterval.milliseconds(600)
@@ -70,14 +70,14 @@ guard let jsonPath else {
     exit(64)
 }
 
-/// The Viewer shows the document the user names, wherever it is: that local file is trusted (no
+/// The Viewer shows the ActionUI JSON the user names, wherever it is: that local file is trusted (no
 /// less than the program's resources would be), and so is a local file it names, though never above
-/// the content around it, so a remote document that names a local file keeps that file less trusted.
-/// Remote documents and any other local file with no known parent keep ActionUI's default (as on
+/// the content around it, so remote JSON that names a local file keeps that file less trusted.
+/// Remote JSON and any other local file with no known parent keep ActionUI's default (as on
 /// Linux).
 struct ViewerTrustPolicy: ActionUITrustPolicy {
-    /// The resolved path of the local document the user named, as JSONContentOrigin.Source.file
-    /// gives it; nil for a remote document.
+    /// The resolved path of the local JSON file the user named, as JSONContentOrigin.Source.file
+    /// gives it; nil for remote JSON.
     let jsonPath: String?
 
     func trust(for source: JSONContentOrigin.Source, inside parent: JSONContentOrigin?,
@@ -88,7 +88,7 @@ struct ViewerTrustPolicy: ActionUITrustPolicy {
     }
 }
 
-/// The named document's path as presentWindow(url:) reads it: a file URL or a path; nil for an
+/// The named JSON file's path as presentWindow(url:) reads it: a file URL or a path; nil for an
 /// http or https address.
 let localJSONPath: String? = {
     let lowered = jsonPath.lowercased()
@@ -110,13 +110,13 @@ MainActor.assumeIsolated {
     ActionUIModel.shared.trustPolicy = ViewerTrustPolicy(jsonPath: localJSONPath)
     let app = WinUIApplication.shared
     app.name = "ActionUI Viewer"
-    // When the window is presented, which an http or https document makes later than the launch. The
-    // handler runs before the document loads into the window: what follows waits for the next turn.
+    // When the window is presented, which http or https JSON makes later than the launch. The
+    // handler runs before the JSON loads into the window: what follows waits for the next turn.
     app.handlers.windowWillPresent = { _ in
         DispatchQueue.main.async {
             MainActor.assumeIsolated {
-                // A document that could not be loaded shows its error in the window; the run still fails.
-                if !app.showsDocument(windowUUID) {
+                // JSON that could not be loaded shows its error in the window; the run still fails.
+                if !app.showsContent(windowUUID) {
                     print("ActionUIViewer: \(jsonPath) could not be loaded")
                     status = 65
                 }

@@ -113,12 +113,12 @@ def watch():
 
 @app.did_finish_launching
 def launched():
-    document = {"type": "WebView", "id": 1,
+    ui = {"type": "WebView", "id": 1,
                 "properties": {"html": f"<title>{TITLE}</title><p>A page from Python.</p>"}}
     folder = tempfile.mkdtemp(prefix="actionui-elsewhere-")
     path = os.path.join(folder, "WebView.json")
     with open(path, "w", encoding="utf-8") as file:
-        json.dump(document, file)
+        json.dump(ui, file)
     state["window"] = app.load_and_present_window(path, title="Python elsewhere")
     threading.Thread(target=watch, daemon=True).start()
 

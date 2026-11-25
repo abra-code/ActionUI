@@ -1,11 +1,11 @@
 // Sources/Runtime/HostWindow.swift
 /*
- An ActionUI document in a window a host made in its own WinUI application (the C adapter's
+ ActionUI JSON in a window a host made in its own WinUI application (the C adapter's
  actionUILoadIntoHostWindowFromURL and FromJSON), as Linux's HostWindow fills a host's GTK window and
- Apple's hosting controller goes into a host's AppKit window: the document becomes the window's content
+ Apple's hosting controller goes into a host's AppKit window: its root element becomes the window's content
  and the window's size is set from it (WinUIWindow.openingSize). The host shows the window and owns
- its title, closing and focus. When the window closes, the document's nodes leave the tree; its model
- stays until the host removes it (actionUIRemoveWindow), as on Linux. A document that cannot be loaded
+ its title, closing and focus. When the window closes, the UI's nodes leave the tree; its model
+ stays until the host removes it (actionUIRemoveWindow), as on Linux. ActionUI JSON that cannot be loaded
  is logged and shown as its error text in the window.
 
  Main-actor work runs under the host's loop once MainLoopBridge is installed: filling a window
@@ -23,7 +23,7 @@ import CWinUI
 
 @MainActor
 package enum HostWindow {
-    /// One host window and the document's tree in it.
+    /// One host window and the tree of its ActionUI JSON.
     private final class Filled {
         let window: WinUIObject
         let tree: WinUIWindow
@@ -37,8 +37,8 @@ package enum HostWindow {
     /// The host windows filled, by window UUID.
     private static var filled: [String: Filled] = [:]
 
-    /// Loads the document at `url` (a path or a file URL) into the host's window `window` (a
-    /// Microsoft.UI.Xaml.Window's IInspectable pointer): false when the document cannot be loaded (the
+    /// Loads the ActionUI JSON at `url` (a path or a file URL) into the host's window `window` (a
+    /// Microsoft.UI.Xaml.Window's IInspectable pointer): false when the ActionUI JSON cannot be loaded (the
     /// window then shows why) or `window` is no WinUI window (nothing done).
     package static func load(url text: String, into window: UnsafeMutableRawPointer, windowUUID: String) -> Bool {
         let fileURL: URL
@@ -58,7 +58,7 @@ package enum HostWindow {
         }
     }
 
-    /// As load(url:into:windowUUID:), with the document's JSON (the host's own).
+    /// As load(url:into:windowUUID:), with the ActionUI JSON itself (the host's own).
     package static func load(json: String, into window: UnsafeMutableRawPointer, windowUUID: String) -> Bool {
         fill(window, windowUUID: windowUUID) { try WinUIWindow.load(json: json, windowUUID: windowUUID) }
     }
@@ -74,7 +74,7 @@ package enum HostWindow {
         }
         // The host runs the loop: main-actor work runs under it from now on.
         MainLoopBridge.install()
-        // A window already filled under the UUID leaves first (the same WindowModel takes the new document).
+        // A window already filled under the UUID leaves first (the same WindowModel takes the new ActionUI JSON).
         if let earlier = filled.removeValue(forKey: windowUUID) {
             earlier.tree.detach()
         }
@@ -98,7 +98,7 @@ package enum HostWindow {
         let entry = Filled(window: window, tree: tree)
         filled[windowUUID] = entry
         WinUIEvents.connect(window, actionUIWinUIWindowOnClosed, "a host window's closing") { [weak entry] in
-            // Only the document still in it: one filled again under the UUID is the newer one's.
+            // Only the ActionUI JSON still in it: one filled again under the UUID is the newer one's.
             guard let entry, filled[windowUUID] === entry else { return }
             filled[windowUUID] = nil
             entry.tree.detach()

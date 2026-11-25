@@ -18,7 +18,7 @@
    ones); the same source is not loaded again.
  - name is a file of that name (with .json, else .plist, when it has no extension) in the folder of
    the file an enclosing LoadableView loaded, else in the current folder (where a Windows host's
-   documents are; Windows has no app bundle).
+   ActionUI JSON files are; Windows has no app bundle).
  - A source that a LoadableView around this one already shows, or one nested more than 16 deep, is
    refused with "Failed to load view: ..." by Core's nesting rule, as SwiftUI's LoadableNestingGuard.
  - Downloaded JSON is judged by the address it finally came from, after redirects (a trusted origin of
@@ -123,7 +123,7 @@ extension LoadableView: ActionUIWinUIRenderer {
             state.status = message("No valid source provided", error: false)
             return
         }
-        let folder = documentFolder(of: node)
+        let folder = contentFolder(of: node)
         let trusted = LinkTrust.isTrusted(node)
         // Less-trusted content loads no file on a share or a device: opening it, even asking whether
         // it is a folder (as URL(fileURLWithPath:) does), reaches the server with the user's Windows
@@ -335,7 +335,7 @@ extension LoadableView: ActionUIWinUIRenderer {
     }
 
     /// The folder of the file the nearest enclosing LoadableView loaded; nil: the current folder.
-    private static func documentFolder(of node: RenderNode) -> URL? {
+    private static func contentFolder(of node: RenderNode) -> URL? {
         var ancestor = node.parent
         while let current = ancestor {
             if let state = current.state as? LoadableState {

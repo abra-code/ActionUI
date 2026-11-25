@@ -26,7 +26,7 @@ enum ColorRGBA {
         }
     }
 
-    /// The color a document's color string names; nil when it is not a color (a semantic style, or
+    /// The color a color string in ActionUI JSON names; nil when it is not a color (a semantic style, or
     /// not a color at all).
     static func parse(_ text: String?) -> ActionUIWinUIColor? {
         ColorSpec.parse(text).map(resolve)

@@ -419,7 +419,7 @@ extension Image: ActionUIWinUIRenderer {
     }
 
     /// Whether `path` names a regular file (not a folder, a device such as NUL or COM1, or a pipe),
-    /// links followed: a document names the path, and WinUI would read a device or a pipe forever.
+    /// links followed: ActionUI JSON names the path, and WinUI would read a device or a pipe forever.
     static func isRegularFile(_ path: String) -> Bool {
         actionUIWinUIIsRegularFile(path)
     }

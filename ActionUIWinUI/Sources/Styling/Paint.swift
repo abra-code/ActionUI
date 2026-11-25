@@ -1,6 +1,6 @@
 // Sources/Styling/Paint.swift
 /*
- What a document's style string paints with on WinUI (Core's ShapeStyleSpec): a color of its own
+ What a style string in ActionUI JSON paints with on WinUI (Core's ShapeStyleSpec): a color of its own
  (ColorRGBA), or one of the WinUI theme's brushes, so a semantic style looks as a WinUI app looks
  (platform-native): the text colors (TextFillColor...), the accent (Accent...), the control fills
  (ControlFillColor...), the window backgrounds (SolidBackgroundFillColor...) and the divider.

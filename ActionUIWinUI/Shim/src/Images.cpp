@@ -84,7 +84,7 @@ std::wstring lowercased(std::wstring text) {
 
 // Whether `path` (absolute, or relative to the current folder) names a regular file, symbolic links
 // and junctions followed: not missing, not a folder, not a device (NUL, CON, COM1, \\.\...), not a
-// pipe. A document names the path, and WinUI would read a device or a pipe forever, or wait on it.
+// pipe. ActionUI JSON names the path, and WinUI would read a device or a pipe forever, or wait on it.
 // The name rules come first, so a device or a pipe the path names directly is never opened; one
 // reached through a link is opened for its attributes only, and refused.
 bool isRegularFile(std::wstring const &path) {

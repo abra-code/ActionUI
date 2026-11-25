@@ -1,10 +1,10 @@
-// ActionUIWinUI/Apps/PreviewSupport/Preview.swift - the preview tool: renders an ActionUI document with
+// ActionUIWinUI/Apps/PreviewSupport/Preview.swift - the preview tool: renders ActionUI JSON with
 // the WinUI renderer into a PNG of the window's whole content area (below the title bar), in a
 // window of the given content size, and prints where WinUI placed each element (its frame in its
 // parent), so a run can be compared with SwiftUI's and GTK's.
 //
-// Usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [options]
-//   Relative image paths in the document are taken from the document's folder.
+// Usage: ActionUIWinUIPreview UI.json PNG_PATH [WIDTH HEIGHT] [options]
+//   Relative image paths in the JSON are taken from the JSON file's folder.
 //   --invoke ID              after the first layout, operates element ID as an accessibility tool
 //                            does (UI Automation's Invoke: a Button is pressed); repeatable, in order
 //   --toggle ID              the same with UI Automation's Toggle (a Toggle turns over)
@@ -68,14 +68,14 @@
 //                            placeholder); repeatable
 //   --on-action ACTION ID TEXT  when ACTION fires, sets element ID's value to TEXT (a Text shows it)
 //   --fetch-limit BYTES      a LoadableView's download is refused past BYTES (default: 16 MB)
-//   --configuration JSON     the host's configuration (ActionUIConfiguration), before the document loads
+//   --configuration JSON     the host's configuration (ActionUIConfiguration), before the JSON loads
 //   --refuse-remote-loads    a host trust policy that refuses LoadableViews' remote loads
 //   --allow-user-scripts     a host trust policy that lets any content's WebViews run their user scripts
 //   --refuse-media           a host trust policy that refuses every VideoPlayer address but a local file
 //                            (of the trust policy options, the last one given wins)
 //   --no-launch              a Link the trust policy lets open logs its address and opens nothing (no
 //                            browser or other app starts)
-// Every action that fires is printed. Prints "preview:" lines; exit status 0 when the document
+// Every action that fires is printed. Prints "preview:" lines; exit status 0 when the JSON
 // loaded and rendered, the PNG is not empty, every operation worked, every expected action fired
 // at least once, every expected log message was logged and no element held more template instances
 // than --max-instances allows. Built and run by Scripts/ci-windows.py winui.
@@ -95,7 +95,7 @@ import Synchronization
 final class Preview {
     static let shared = Preview()
 
-    var documentPath = ""
+    var jsonPath = ""
     var pngPath = ""
     var contentSize = ActionUIWinUISize(width: 480, height: 320)
     var window: WinUIObject?
@@ -162,17 +162,17 @@ final class Preview {
             finish()
             return
         }
-        guard let json = readFile(documentPath) else {
-            say("cannot read \(documentPath)")
+        guard let json = readFile(jsonPath) else {
+            say("cannot read \(jsonPath)")
             finish()
             return
         }
-        // Relative image paths in the document are taken from its folder (the PNG path was made
+        // Relative image paths in the JSON are taken from its folder (the PNG path was made
         // absolute before).
-        if let folder = documentFolder(documentPath) {
+        if let folder = jsonFolder(jsonPath) {
             let changed = folder.withCString(encodedAs: UTF16.self) { _wchdir($0) }
             if changed != 0 {
-                say("cannot change to the document's folder \(folder)")
+                say("cannot change to the JSON file's folder \(folder)")
             }
         }
         do {
@@ -181,7 +181,7 @@ final class Preview {
             // No view: no element loaded, no view model for the root, or its WinUI object could not
             // be made (the log says which).
             guard let content = tree.view else {
-                say("the document has no root element to show")
+                say("the ActionUI JSON has no root element to show")
                 finish()
                 return
             }
@@ -200,7 +200,7 @@ final class Preview {
                 return
             }
         } catch {
-            say("the document did not load: \(error)")
+            say("the ActionUI JSON did not load: \(error)")
             finish()
             return
         }
@@ -477,7 +477,7 @@ final class Preview {
         }
     }
 
-    /// Prints the node's element and frame, then its children's, in document order.
+    /// Prints the node's element and frame, then its children's, in the order of the ActionUI JSON.
     func report(_ node: RenderNode, indent: String) {
         // The box's frame in its parent: the element with its padding and frame, as SwiftUI reports one.
         let frame = node.outerView?.layoutFrame ?? ActionUIWinUIRect(x: 0, y: 0, width: 0, height: 0)
@@ -526,7 +526,7 @@ func absolutePath(_ path: String) -> String {
 }
 
 /// The folder holding the file at `path` (its absolute form), or nil when it has none.
-func documentFolder(_ path: String) -> String? {
+func jsonFolder(_ path: String) -> String? {
     let absolute = absolutePath(path)
     guard let slash = absolute.lastIndex(where: { $0 == "\\" || $0 == "/" }) else { return nil }
     let folder = String(absolute[..<slash])
@@ -635,7 +635,7 @@ final class RecordingLogger: ActionUILogger {
 
 
 /// Runs the preview tool on CommandLine.arguments and exits with its status. `registerElements` registers the
-/// program's own element types, once, before the document loads.
+/// program's own element types, once, before the JSON loads.
 @MainActor
 public func runActionUIWinUIPreview(registeringElements registerElements: () -> Void) -> Never {
     // Before anything loads a DLL by name: a file named like one in the current folder is never loaded.
@@ -644,20 +644,20 @@ public func runActionUIWinUIPreview(registeringElements registerElements: () -> 
 
     let arguments = CommandLine.arguments
 
-    let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --select-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --scroll-row ID ROW | --expect-row-name ID ROW NAME | --drag ID X1 Y1 X2 Y2 | --wheel ID X Y DX DY | --expect-width ID W | --expect-height ID H | --invoke-menu-item ID N | --toggle-menu-item ID N | --set-value ID VALUE | --set-property ID NAME VALUE | --set-path ID IDS | --add-row ID TEXT | --add-rows ID N TEXT | --set-state ID KEY VALUE | --expect-state ID KEY VALUE | --expect-automation ID FIELD TEXT | --delay MS | --wait]... [--max-instances ID N]... [--expect-action ACTION]... [--expect-log TEXT]... [--forbid-log TEXT]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]... [--no-launch] [--fetch-limit BYTES] [--refuse-remote-loads] [--refuse-media] [--allow-user-scripts] [--configuration JSON]"
+    let usage = "usage: ActionUIWinUIPreview UI.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --select-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --scroll-row ID ROW | --expect-row-name ID ROW NAME | --drag ID X1 Y1 X2 Y2 | --wheel ID X Y DX DY | --expect-width ID W | --expect-height ID H | --invoke-menu-item ID N | --toggle-menu-item ID N | --set-value ID VALUE | --set-property ID NAME VALUE | --set-path ID IDS | --add-row ID TEXT | --add-rows ID N TEXT | --set-state ID KEY VALUE | --expect-state ID KEY VALUE | --expect-automation ID FIELD TEXT | --delay MS | --wait]... [--max-instances ID N]... [--expect-action ACTION]... [--expect-log TEXT]... [--forbid-log TEXT]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]... [--no-launch] [--fetch-limit BYTES] [--refuse-remote-loads] [--refuse-media] [--allow-user-scripts] [--configuration JSON]"
     guard arguments.count >= 3 else {
         print(usage)
         exit(64)
     }
     let preview = Preview.shared
-    // The program's own element types (the preview's add-on probe), before the document loads.
+    // The program's own element types (the preview's add-on probe), before the JSON loads.
     registerElements()
     /// --expect-log: the texts some logged message must contain.
     var expectedLogs: [String] = []
     /// --forbid-log: the texts no logged message may contain.
     var forbiddenLogs: [String] = []
-    preview.documentPath = arguments[1]
-    // Absolute, since the program changes to the document's folder once it has read it.
+    preview.jsonPath = arguments[1]
+    // Absolute, since the program changes to the JSON file's folder once it has read it.
     preview.pngPath = absolutePath(arguments[2])
     var index = 3
     if arguments.count >= 5, let width = Double(arguments[3]), let height = Double(arguments[4]) {
@@ -780,7 +780,7 @@ public func runActionUIWinUIPreview(registeringElements registerElements: () -> 
             LoadableFetch.maximumBytes = bytes
             index += 2
         } else if option == "--configuration", index + 1 < arguments.count {
-            // The host's configuration, as JSON (ActionUIConfiguration.set(json:)), before the document loads.
+            // The host's configuration, as JSON (ActionUIConfiguration.set(json:)), before the JSON loads.
             do {
                 try ActionUIConfiguration.set(json: arguments[index + 1])
             } catch {

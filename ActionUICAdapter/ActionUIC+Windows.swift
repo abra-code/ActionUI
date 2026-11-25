@@ -3,7 +3,7 @@
 //  The Windows side of hostNative (the Apple side is in ActionUIC+Apple.swift, Linux's in
 //  ActionUIC+Linux.swift): Windows builds with FoundationEssentials, which has no Foundation
 //  objects, so a host's values are already Swift-native. And, as on Linux, the functions for a host
-//  that runs its own WinUI application: a document in a window the host made, and the main-loop
+//  that runs its own WinUI application: ActionUI JSON in a window the host made, and the main-loop
 //  bridge.
 //
 
@@ -19,14 +19,14 @@ func hostNative(_ value: Any) -> Any {
     value
 }
 
-// MARK: - A document in a window the host made
+// MARK: - ActionUI JSON in a window the host made
 
-/// Loads the document at `urlString` (a path or a file URL) into the model under `windowUUID` and
+/// Loads the ActionUI JSON at `urlString` (a path or a file URL) into the model under `windowUUID` and
 /// makes it the content of `xamlWindow`, a Microsoft.UI.Xaml.Window the host made in its own WinUI
 /// application (its IInspectable pointer: winrt::get_abi(window)), and sets the window's size from the
-/// document. The host shows the window and owns its title, closing and focus; closing it keeps the
+/// UI. The host shows the window and owns its title, closing and focus; closing it keeps the
 /// model, which the host removes with actionUIRemoveWindow. `subtitle` is accepted and not shown yet.
-/// Returns false, with an error set, when the document cannot be read or loaded (the window then shows
+/// Returns false, with an error set, when the JSON cannot be read or loaded (the window then shows
 /// why) or the window is not a WinUI window (nothing done). Call it on the UI thread, or while it runs
 /// the main queue.
 @c
@@ -49,7 +49,7 @@ public func actionUILoadIntoHostWindowFromURL(_ xamlWindow: UnsafeMutableRawPoin
     return loaded
 }
 
-/// As actionUILoadIntoHostWindowFromURL, with the document's JSON.
+/// As actionUILoadIntoHostWindowFromURL, with the ActionUI JSON itself.
 @c
 public func actionUILoadIntoHostWindowFromJSON(_ xamlWindow: UnsafeMutableRawPointer?, _ jsonString: UnsafePointer<CChar>?,
                                                _ windowUUID: UnsafePointer<CChar>?, _ subtitle: UnsafePointer<CChar>?) -> CBool {

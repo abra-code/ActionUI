@@ -9,15 +9,15 @@
    process (WinUI starts once); a second run is refused and logged.
  - Windows presented before the application has started wait, and appear when it starts, after the
    willFinishLaunching handler and before didFinishLaunching, as on Linux.
- - A window holds an ActionUI document, its root element's box as the window's content. It opens at
-   the document's size (WinUIWindow.openingSize: its measured size, no wider than 900 unless its
+ - A window holds a UI from ActionUI JSON, its root element's box as the window's content. It opens at
+   the UI's size (WinUIWindow.openingSize: its measured size, no wider than 900 unless its
    minimum needs more, at least 418 tall when it grows vertically, 480 x 320 when too small to say).
    Its title is the one given, else the application's name.
- - A file's document is loaded as from that file, so it is the app's own only inside the app's
-   resources (JSONContentOrigin); JSON the host passes is the host's own. A document at an http or https
+ - A file's ActionUI JSON is loaded as from that file, so it is the app's own only inside the app's
+   resources (JSONContentOrigin); JSON the host passes is the host's own. ActionUI JSON at an http or https
    address loads first (RemoteFetch: the cap on ActionUI JSON, 120 seconds, redirects only to http and
    https) and its window appears once it has, judged by the address it finally came from, as on Linux;
-   closing the UUID meanwhile drops it, presenting it again replaces the load. A document that cannot
+   closing the UUID meanwhile drops it, presenting it again replaces the load. ActionUI JSON that cannot
    be loaded is logged and shown as its error text in the window, as on Apple.
  - Closing a window (by the user or closeWindow) fires windowWillClose, then its model is removed.
    The user closing the last window (none other loading from a server) asks shouldTerminate (false
@@ -83,19 +83,19 @@ public final class WinUIApplication {
         set { ActionUIResourceFolder.path = newValue }
     }
 
-    /// One window on screen: its WinUI window and its document's tree.
+    /// One window on screen: its WinUI window and the tree of its ActionUI JSON.
     private final class Shown {
         let window: WinUIObject
         let tree: WinUIWindow
-        /// False when the window shows the error its document could not be loaded with.
-        let showsDocument: Bool
+        /// False when the window shows the error its ActionUI JSON could not be loaded with.
+        let showsContent: Bool
         /// When it was presented, among the windows: the latest is the largest.
         let order: Int
 
-        init(window: WinUIObject, tree: WinUIWindow, showsDocument: Bool, order: Int) {
+        init(window: WinUIObject, tree: WinUIWindow, showsContent: Bool, order: Int) {
             self.window = window
             self.tree = tree
-            self.showsDocument = showsDocument
+            self.showsContent = showsContent
             self.order = order
         }
     }
@@ -207,7 +207,7 @@ public final class WinUIApplication {
 
     // MARK: Windows
 
-    /// Loads the document at `url` (a file URL or a path) into a new window showing `windowUUID`, titled
+    /// Loads the ActionUI JSON at `url` (a file URL or a path) into a new window showing `windowUUID`, titled
     /// `title`, else the file's name.
     public func presentWindow(url text: String, windowUUID: String, title: String?) {
         // A file URL, an http or https address, else a path (a one-letter scheme is a drive,
@@ -234,7 +234,7 @@ public final class WinUIApplication {
         }
     }
 
-    /// Fetches the document at the http or https `url`, then presents it in a new window showing
+    /// Fetches the ActionUI JSON at the http or https `url`, then presents it in a new window showing
     /// `windowUUID` (titled `title`, else the address's last part), judged by the address it finally
     /// came from; before the start it waits, as other windows do.
     private func presentRemote(_ url: URL, windowUUID: String, title: String?) {
@@ -266,7 +266,7 @@ public final class WinUIApplication {
         }
     }
 
-    /// Loads the document in `json` (the host's own) into a new window showing `windowUUID`, titled
+    /// Loads the ActionUI JSON in `json` (the host's own) into a new window showing `windowUUID`, titled
     /// `title`, else the application's name.
     public func presentWindow(json: String, windowUUID: String, title: String?) {
         present(windowUUID: windowUUID, title: title) {
@@ -286,7 +286,7 @@ public final class WinUIApplication {
         // A newer presentation replaces a load still under way.
         loading[windowUUID] = nil
         let logger = ActionUIModel.shared.logger
-        // The replaced window's tree leaves the model before the new document loads into it (the
+        // The replaced window's tree leaves the model before the new ActionUI JSON loads into it (the
         // same WindowModel); its WinUI window closes only once the new one is up, so the application
         // never has no window in between, which would end it. Out of `windows`, its Closed does nothing.
         let replaced = windows.removeValue(forKey: windowUUID)
@@ -329,7 +329,7 @@ public final class WinUIApplication {
             return
         }
         presentCount += 1
-        let shown = Shown(window: window, tree: tree, showsDocument: loaded, order: presentCount)
+        let shown = Shown(window: window, tree: tree, showsContent: loaded, order: presentCount)
         windows[windowUUID] = shown
         WinUIEvents.connect(window, actionUIWinUIWindowOnClosed, "a window's closing") { [weak self, weak shown] in
             guard let self, let shown else { return }
@@ -367,10 +367,10 @@ public final class WinUIApplication {
         return (shown.window, content)
     }
 
-    /// Whether the window showing `windowUUID` shows its document (false: it shows the error the
-    /// document could not be loaded with, or there is no such window), as on Linux.
-    public func showsDocument(_ windowUUID: String) -> Bool {
-        windows[windowUUID]?.showsDocument ?? false
+    /// Whether the window showing `windowUUID` shows its ActionUI JSON (false: it shows the error the
+    /// ActionUI JSON could not be loaded with, or there is no such window), as on Linux.
+    public func showsContent(_ windowUUID: String) -> Bool {
+        windows[windowUUID]?.showsContent ?? false
     }
 
     /// Saves what the window showing `windowUUID` shows below its title bar, popups open over it
@@ -392,7 +392,7 @@ public final class WinUIApplication {
 
     /// Closes the window showing `windowUUID` (its windowWillClose handler fires as it closes).
     public func closeWindow(_ windowUUID: String) {
-        // A window still waiting for the start, or for its document from a server, is dropped, as on Linux.
+        // A window still waiting for the start, or for its ActionUI JSON from a server, is dropped, as on Linux.
         pending.removeAll { $0.windowUUID == windowUUID }
         loading[windowUUID] = nil
         guard let shown = windows[windowUUID] else { return }

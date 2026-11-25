@@ -773,7 +773,7 @@ bool actionUIWinUIDrawingImageFile(ActionUIWinUIDrawing *drawing, const char *pa
     return guarded("drawing image file", [&]() {
         ActionUIWinUIDrawing *typed = drawingOf(drawing);
         takePath(typed);
-        // A document names the path: a device or a pipe is never opened (Images.cpp).
+        // ActionUI JSON names the path: a device or a pipe is never opened (Images.cpp).
         if (!actionUIWinUIIsRegularFile(path)) {
             return fail("drawing image file", "the path names no regular file");
         }

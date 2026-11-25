@@ -21,7 +21,7 @@ package final class WinUIWindow {
 
     package var windowUUID: String { windowModel.windowUUID }
 
-    /// The command rows around the root, when the document declares a toolbar outside a navigation
+    /// The command rows around the root, when the ActionUI JSON declares a toolbar outside a navigation
     /// container (WindowCommandBar).
     private var commandBar: WindowCommandBar?
 
@@ -29,7 +29,7 @@ package final class WinUIWindow {
     /// object with its padding and frame).
     package var view: WinUIObject? { commandBar?.panel.object ?? root?.outerView }
 
-    /// Loads `json` (an ActionUI document) into the window model `windowUUID` and builds its tree.
+    /// Loads `json` (ActionUI JSON) into the window model `windowUUID` and builds its tree.
     package static func load(json: String, windowUUID: String) throws -> WinUIWindow {
         _ = try ActionUIModel.shared.loadDescription(from: Data(json.utf8), format: "json", windowUUID: windowUUID)
         guard let windowModel = ActionUIModel.shared.windowModels[windowUUID] else {

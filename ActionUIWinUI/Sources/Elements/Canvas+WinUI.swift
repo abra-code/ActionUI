@@ -545,7 +545,7 @@ final class CanvasPath {
         guard let values, values.count == 4 else { return nil }
         let rect = points ? Rect(x: values[0], y: values[1], width: values[2], height: values[3])
             : Rect(x: values[0] * size.width, y: values[1] * size.height, width: values[2] * size.width, height: values[3] * size.height)
-        // An infinite frame ("inf" in a document) draws nothing.
+        // An infinite frame ("inf" in the ActionUI JSON) draws nothing.
         guard [rect.x, rect.y, rect.width, rect.height].allSatisfy({ Float($0).isFinite }) else { return nil }
         return rect
     }
@@ -648,7 +648,7 @@ final class CanvasPath {
         if operation["alignment"] as? String != nil {
             logger.log("Text alignment currently not supported in Canvas - default alignment used", .info)
         }
-        // At most 4096 points, as on Linux (FontCSS.maximumSize): a document's size could be any number.
+        // At most 4096 points, as on Linux (FontCSS.maximumSize): a size in ActionUI JSON could be any number.
         let size = operation.double(forKey: "fontSize").flatMap { $0 > 0 && $0.isFinite ? min($0, 4096) : nil } ?? Self.defaultFontSize
         let weight = (operation["fontWeight"] as? String).flatMap { name in
             FontWeight.allCases.first { $0.rawValue.lowercased() == name.lowercased() }

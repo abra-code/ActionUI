@@ -13,10 +13,10 @@
  - The bottom row: its items centered, with the same insets.
  - A row with no items takes no room. The content (the window's root element) fills what the rows
    leave, as it fills the window without them.
- - Several views' toolbars share the rows, in the order their toolbars registered (document order).
+ - Several views' toolbars share the rows, in the order their toolbars registered (the order of the ActionUI JSON).
 
- The window has a command bar only when its document declares a toolbar outside a navigation
- container (WinUIWindow), so a document without one lays out as before.
+ The window has a command bar only when its ActionUI JSON declares a toolbar outside a navigation
+ container (WinUIWindow), so a UI without one lays out as before.
 */
 
 import CWinUI

@@ -523,7 +523,7 @@ final class ModifierBox {
             let top = corners.map(\.y).min() ?? 0
             let right = corners.map(\.x).max() ?? 0
             let bottom = corners.map(\.y).max() ?? 0
-            // Measured with the ShadowBlur preview document: SwiftUI's shadow blur has a deviation of
+            // Measured with the ShadowBlur preview test file: SwiftUI's shadow blur has a deviation of
             // 0.95 of its radius (macOS 27), Composition's is a third of its blur radius (0.67 to 0.72
             // at twice the radius, on both architectures), so 2.85 times the radius blurs as SwiftUI does.
             shown = actionUIWinUIElementSetShadow(host.pointer, frameView.pointer, &color, shadow.radius * ModifierBox.shadowBlurScale,
@@ -720,7 +720,7 @@ final class ModifierBox {
         }
     }
 
-    // MARK: From the document's modifiers (as the GTK renderer's ModifierBox reads them)
+    // MARK: From the element's modifiers in the ActionUI JSON (as the GTK renderer's ModifierBox reads them)
 
     nonisolated static func paddingAxes(_ padding: BaseModifiers.Padding?) -> (horizontal: PaddingAxis, vertical: PaddingAxis) {
         switch padding {

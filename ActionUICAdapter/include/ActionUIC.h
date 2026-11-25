@@ -264,9 +264,9 @@ double actionUIGetWindowBarsHeight(const char *windowUUID) ACTIONUI_NOEXCEPT;
 #endif
 // Windows only (ActionUIC+Windows.swift), the same for a host that runs its own WinUI application: fills
 // xamlWindow (a Microsoft.UI.Xaml.Window the host made, its IInspectable pointer, winrt::get_abi(window))
-// with the document as its content and sets its size from it; subtitle is accepted, not shown yet. The host
-// shows and closes the window; closing it keeps the model, which actionUIRemoveWindow removes. false (error
-// set) when the document cannot be loaded (the window shows why) or xamlWindow is no WinUI window. The host's
+// with the ActionUI JSON's UI as its content and sets its size from it; subtitle is accepted, not shown
+// yet. The host shows and closes the window; closing it keeps the model, which actionUIRemoveWindow removes.
+// false (error set) when the JSON cannot be loaded (the window shows why) or xamlWindow is no WinUI window. The host's
 // Application is set up as a XAML app's is (XamlControlsResources merged into its resources, IXamlMetadataProvider
 // forwarding to the controls' provider): ActionUI's controls take their styles from it. While it runs,
 // actionUIAppRun is refused (a process has one WinUI Application).
