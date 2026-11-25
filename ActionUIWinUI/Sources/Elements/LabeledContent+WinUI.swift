@@ -43,6 +43,7 @@ final class LabeledContentLayout: FormLabeledLayout {
             return
         }
         shownTitle = text
+        steadyTitle.reset()
         panel.invalidateLayout()
         // In a Form its row keeps its size; the Form works its column out again.
         formChanged?()
@@ -51,9 +52,18 @@ final class LabeledContentLayout: FormLabeledLayout {
     /// Asks the Form this row is in to lay its rows out again (FormColumn sets it).
     var formChanged: (() -> Void)?
 
-    /// The title's width (an empty title is 0 wide, and still a title: its gap stays).
+    /// The title's width as the row lays it out (an empty title is 0 wide, and still a title: its gap
+    /// stays).
     func formTitleWidth() -> Double? {
-        title.measure(ActionUIWinUISize(width: .infinity, height: .infinity)).width
+        titleSize().width
+    }
+
+    /// The width the title is laid out with: steady from one measure to the next (SteadyTitleWidth).
+    private var steadyTitle = SteadyTitleWidth()
+
+    private func titleSize() -> ActionUIWinUISize {
+        let size = title.measure(ActionUIWinUISize(width: .infinity, height: .infinity))
+        return ActionUIWinUISize(width: steadyTitle.width(size.width), height: size.height)
     }
 
     private var left: Double { measuredTitle.width + Self.spacing }
@@ -61,7 +71,7 @@ final class LabeledContentLayout: FormLabeledLayout {
     private func measure(_ available: ActionUIWinUISize) -> ActionUIWinUISize {
         // Unbounded: its one line, even when its stack probes the row's smallest height with nothing
         // offered (WinUI caps a desired size at the offer, which would lose the title's line).
-        measuredTitle = title.measure(ActionUIWinUISize(width: .infinity, height: .infinity))
+        measuredTitle = titleSize()
         let offer = ActionUIWinUISize(width: available.width.isFinite ? max(available.width - left, 0) : .infinity,
                                       height: available.height)
         measuredContent = content.panel.object.measureRequested(offer)

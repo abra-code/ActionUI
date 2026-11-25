@@ -66,10 +66,13 @@ final class TitledControlLayout: FormLabeledLayout {
     private var measuredTitle = ActionUIWinUISize(width: 0, height: 0)
     private var measuredControl = ActionUIWinUISize(width: 0, height: 0)
 
-    /// The title's width, nil when labelsHidden hides it.
+    /// The title's width as the row lays it out, nil when labelsHidden hides it.
     func formTitleWidth() -> Double? {
-        titleHidden ? nil : title.measure(ActionUIWinUISize(width: .infinity, height: .infinity)).width
+        titleHidden ? nil : steadyTitle.width(title.measure(ActionUIWinUISize(width: .infinity, height: .infinity)).width)
     }
+
+    /// The width the title is laid out with: steady from one measure to the next (SteadyTitleWidth).
+    private var steadyTitle = SteadyTitleWidth()
 
     init(control: WinUIObject) throws(WinUIError) {
         panel = try LayoutPanel()
@@ -91,6 +94,7 @@ final class TitledControlLayout: FormLabeledLayout {
             return
         }
         shownTitle = text
+        steadyTitle.reset()
         panel.invalidateLayout()
         // In a Form its row keeps its size; the Form works its column out again.
         formChanged?()
@@ -103,7 +107,8 @@ final class TitledControlLayout: FormLabeledLayout {
 
     private func measure(_ available: ActionUIWinUISize) -> ActionUIWinUISize {
         let titleSize = title.measure(ActionUIWinUISize(width: .infinity, height: .infinity))
-        measuredTitle = titleHidden ? ActionUIWinUISize(width: 0, height: 0) : titleSize
+        measuredTitle = titleHidden ? ActionUIWinUISize(width: 0, height: 0)
+                                    : ActionUIWinUISize(width: steadyTitle.width(titleSize.width), height: titleSize.height)
         let offer = ActionUIWinUISize(width: available.width.isFinite ? max(available.width - leading, 0) : .infinity,
                                       height: available.height)
         measuredControl = control.measure(offer)
