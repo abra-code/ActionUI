@@ -356,7 +356,7 @@ final class HostSurfaceLifecycleTests: XCTestCase {
         ActionUIHostSurface.setDelegate(client, forSurfaceName: "viewport")
         let old = element(5, name: "viewport")
         TestHost.place(old, in: window)
-        // A new document in the same window reuses id 5 for another surface, and SwiftUI makes the new
+        // New JSON in the same window reuses id 5 for another surface, and SwiftUI makes the new
         // container before it dismantles the old one.
         let new = element(5, name: "other")
         XCTAssertFalse(new.surface === old.surface)

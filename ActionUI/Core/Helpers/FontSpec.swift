@@ -1,6 +1,6 @@
 // Core/Helpers/FontSpec.swift
 /*
- A font as an ActionUI document writes it, parsed into a portable description that each renderer
+ A font as ActionUI JSON writes it, parsed into a portable description that each renderer
  turns into its own font (SwiftUI: Helpers/FontHelper.swift).
 
  Two forms:

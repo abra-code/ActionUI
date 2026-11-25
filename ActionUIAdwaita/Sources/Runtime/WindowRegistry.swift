@@ -1,6 +1,6 @@
 // Sources/Runtime/WindowRegistry.swift
 /*
- The windows showing ActionUI documents, by window UUID: the GTK window and its render tree. The
+ The windows showing ActionUI JSON, by window UUID: the GTK window and its render tree. The
  renderer finds a window's content, its presentations and the active window here, whoever made the
  window: ActionUI's own application (AdwaitaApplication) registers each window it presents, and a
  host that makes its own windows registers those it fills. So nothing in the renderer depends on
@@ -8,10 +8,10 @@
 
  The active window is the active window of the application in use: the one AppCommands was started
  with (ActionUI's own), else the process's default GApplication (a host's own application, found
- as AppKit code finds NSApp), mapped back to its UUID here; "" when it shows no ActionUI document.
+ as AppKit code finds NSApp), mapped back to its UUID here; "" when it shows no ActionUI JSON.
 
  Registering also makes sure main-actor work runs under GTK's main loop (MainLoopBridge), as every
- window showing a document needs it. A window destroyed is forgotten by itself ("destroy"), so a
+ window showing ActionUI JSON needs it. A window destroyed is forgotten by itself ("destroy"), so a
  host that does not unregister one leaves no pointer to a freed window behind.
 */
 
@@ -97,7 +97,7 @@ package final class WindowRegistry {
         entries[windowUUID]?.barsHeight
     }
 
-    /// The document's content in the window showing `windowUUID`: the root element's widget,
+    /// The JSON's content in the window showing `windowUUID`: the root element's widget,
     /// without the window's header bar and toast overlay.
     func contentWidget(_ windowUUID: String) -> WidgetPointer? {
         entries[windowUUID]?.renderTree?.contentWidget
@@ -123,7 +123,7 @@ package final class WindowRegistry {
         return gtk_application_get_active_window(typed(application))
     }
 
-    /// The UUID of `application`'s active window, "" when it shows no registered document.
+    /// The UUID of `application`'s active window, "" when it shows no registered ActionUI JSON.
     func activeWindowUUID(of application: OpaquePointer?) -> String {
         windowUUID(of: Self.activeWindow(of: application))
     }

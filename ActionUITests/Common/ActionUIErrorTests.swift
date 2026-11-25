@@ -56,10 +56,10 @@ final class ActionUIErrorTests: XCTestCase {
         XCTAssertEqual(logger.errors, ["Unsupported format: yaml"])
     }
 
-    // A document that does not parse reads as it did when JSONDecoder parsed it, in a
+    // ActionUI JSON that does not parse reads as it did when JSONDecoder parsed it, in a
     // LoadableView's "Failed to load view: ..." among others; the parser's own message stays the
     // description.
-    func testADocumentThatDoesNotParseHasJSONDecodersDescription() throws {
+    func testJSONThatDoesNotParseHasJSONDecodersDescription() throws {
         ActionUIModel.resetForTesting()
         defer { ActionUIModel.resetForTesting() }
         XCTAssertThrowsError(try ActionUIModel.shared.loadDescription(from: Data("not json".utf8), format: "json", windowUUID: UUID().uuidString)) { error in

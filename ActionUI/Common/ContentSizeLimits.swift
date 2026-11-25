@@ -22,7 +22,7 @@ extension ActionUIModel {
     /// FileLoadableView/RemoteLoadableView attach for content views
     /// (WindowModalView): its toast overlay anchoring expands to fill any
     /// proposal, so probing the wrapped view would report an unbounded maximum
-    /// for every document. The bare root element view is built here instead and
+    /// for every JSON file. The bare root element view is built here instead and
     /// probed with a zero and an infinite proposal.
     ///
     /// An AppKit client hosting an ActionUI window can apply the result as the

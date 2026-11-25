@@ -19,11 +19,11 @@ enum ActionUIRendererHooks {
     static var structuralMutation: (_ animated: Bool, _ body: () -> Void) -> Void = { _, body in body() }
 
     /// Registers the add-ons linked into the program, for a host that cannot do it itself. ActionUIModel
-    /// runs it once, before the first document loads: not in its own init or the registry's, which run
+    /// runs it once, before the first ActionUI JSON loads: not in its own init or the registry's, which run
     /// inside `shared`'s one-time initializer, so an add-on using either there would hang.
     static var registerLinkedAddOns: () -> Void = {}
 
-    /// The folders of the app's own resources, whose documents are trusted (JSONContentOrigin): the
+    /// The folders of the app's own resources, whose JSON files are trusted (JSONContentOrigin): the
     /// host's resource folder, and the renderer's bundle folder. The default knows only the first.
     static var resourceFolders: () -> [String] = { ActionUIResourceFolder.path.map { [$0] } ?? [] }
 

@@ -206,7 +206,7 @@ struct Chart: ActionUIElementSpec {
     static var insertableContainers: [String: ContainerShape]? = nil
 
     // The description as Chart stores it: filtered for this platform (a description set at runtime has
-    // not been through the document's platform filter) and cleaned by the parse, which also logs what it
+    // not been through the JSON's platform filter) and cleaned by the parse, which also logs what it
     // drops. nil when the value is not an object.
     static func normalizedDescription(_ value: Any, logger: any ActionUILogger) -> [String: Any]? {
         guard let object = value as? [String: Any] else {

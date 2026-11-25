@@ -89,7 +89,7 @@ final class NodeContextMenuTests: XCTestCase {
         for index in values.indices { g_value_unset(&values[index]) }
     }
 
-    private let document = #"""
+    private let windowJSON = #"""
         {"type": "VStack", "id": 1, "children": [{"type": "Text", "id": 2, "properties": {"text": "A row"},
           "contextMenu": [
             {"type": "Button", "id": 10, "properties": {"title": "Rename", "actionID": "test.rename"}},
@@ -98,7 +98,7 @@ final class NodeContextMenuTests: XCTestCase {
         """#
 
     func testARightClickOpensTheMenuAndAnItemFiresItsAction() throws {
-        let root = try present(document)
+        let root = try present(windowJSON)
         let text = try XCTUnwrap(root.childNodes[2])
         XCTAssertNil(root.contextMenu, "no contextMenu, no menu")
         let contextMenu = try XCTUnwrap(text.contextMenu)
@@ -116,7 +116,7 @@ final class NodeContextMenuTests: XCTestCase {
     }
 
     func testAChangedItemChangesTheMenu() throws {
-        let root = try present(document)
+        let root = try present(windowJSON)
         let text = try XCTUnwrap(root.childNodes[2])
         let contextMenu = try XCTUnwrap(text.contextMenu)
         press(try XCTUnwrap(rightClickGesture(try XCTUnwrap(ModifierBox.content(of: text.outerWidget)))), x: 5, y: 5)
@@ -137,7 +137,7 @@ final class NodeContextMenuTests: XCTestCase {
 
     func testADisabledViewOpensNoMenu() throws {
         // GTK picks the box, which is not insensitive, when a right click lands on a disabled view.
-        let root = try present(document)
+        let root = try present(windowJSON)
         let text = try XCTUnwrap(root.childNodes[2])
         ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 2, propertyName: "disabled", value: true)
         AdwaitaTestHost.drainMainLoop()

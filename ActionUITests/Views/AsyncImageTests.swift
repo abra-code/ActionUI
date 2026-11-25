@@ -176,7 +176,7 @@ final class AsyncImageTests: XCTestCase {
     }
 }
 
-// A file: URL a document names could be a device or a named pipe; URLSession would read /dev/zero
+// A file: URL ActionUI JSON names could be a device or a named pipe; URLSession would read /dev/zero
 // until memory runs out, or hold a thread on a pipe for good. Only a regular file is loaded.
 extension AsyncImageTests {
     func testAFileURLThatIsNotARegularFileIsNotLoaded() throws {

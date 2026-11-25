@@ -1,6 +1,6 @@
 // Core/ColorSpecTests.swift
 /*
- Tests for ColorSpec and ShapeStyleSpec: every form a document's color string can take, and the
+ Tests for ColorSpec and ShapeStyleSpec: every form a color string in ActionUI JSON can take, and the
  strings that describe no color.
 */
 

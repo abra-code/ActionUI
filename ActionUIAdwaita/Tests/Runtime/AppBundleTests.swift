@@ -67,7 +67,7 @@ final class AppBundleTests: XCTestCase {
         XCTAssertEqual(AppBundle.defaultFolder(), program, "whatever the folder is named")
     }
 
-    func testALoadableViewNameIsFoundBesideTheWindowsDocument() throws {
+    func testALoadableViewNameIsFoundBesideTheWindowsJSON() throws {
         let windowFolder = try folder()
         try write(#"{"type": "Text", "id": 10, "properties": {"text": "Beside"}}"#, "Inner.json", in: windowFolder)
         AppBundle.setContentFolder(windowFolder, window: windowUUID)

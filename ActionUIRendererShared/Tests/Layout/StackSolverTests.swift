@@ -124,7 +124,7 @@ final class StackSolverTests: XCTestCase {
         XCTAssertEqual(StackSolver.length(of: result, gaps: gaps), 200)
     }
 
-    func testDocumentLengthsAreRoundedClampedAndNeverTrap() {
+    func testJSONLengthsAreRoundedClampedAndNeverTrap() {
         XCTAssertEqual(StackSolver.length(7.5), 8)
         XCTAssertEqual(StackSolver.length(7.4), 7)
         XCTAssertEqual(StackSolver.length(7.2, rounding: .up), 8)

@@ -1,5 +1,5 @@
 /*
- ColorHelper turns ColorSpec and ShapeStyleSpec (Core/Helpers/ColorSpec.swift), parsed from a document's color strings, into SwiftUI colors and shape styles, and a SwiftUI Color into hex.
+ ColorHelper turns ColorSpec and ShapeStyleSpec (Core/Helpers/ColorSpec.swift), parsed from the JSON's color strings, into SwiftUI colors and shape styles, and a SwiftUI Color into hex.
  Used by ColorPicker and other views requiring color manipulation.
  */
 

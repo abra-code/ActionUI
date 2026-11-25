@@ -1,7 +1,7 @@
 // Common/ActionUIRegistryTablesTests.swift
 /*
  The registry's two tables: element specs and SwiftUI renderers. Their keys are the JSON "type"
- tokens documents use, so they must stay exactly the names registered before the tables existed.
+ tokens JSON files use, so they must stay exactly the names registered before the tables existed.
 */
 
 import XCTest

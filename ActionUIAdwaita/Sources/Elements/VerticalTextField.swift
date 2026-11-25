@@ -196,7 +196,7 @@ enum VerticalTextField {
     private static func height(_ view: WidgetPointer, _ range: (min: Int, max: Int?), width: Int?, chrome: Int) -> (minimum: Int, natural: Int) {
         let line = lineHeight(view)
         let insets = Int(inset.vertical) * 2
-        // Clamped: a document's lineLimit can be any Int, and a product past Int traps.
+        // Clamped: the JSON's lineLimit can be any Int, and a product past Int traps.
         let lines = { (count: Int) in min(count, Int(Int32.max)) * line + insets }
         let least = lines(range.min)
         let most = range.max.map(lines) ?? Int.max

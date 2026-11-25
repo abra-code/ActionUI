@@ -1,10 +1,10 @@
 // Tests/Runtime/PrimaryMenuTests.swift
 /*
- Tests for where the primary menu (AppCommands) goes in a window whose document brings its own
+ Tests for where the primary menu (AppCommands) goes in a window whose JSON brings its own
  header bars (RenderNode.showsPrimaryMenu): a NavigationStack's root page shows it, not its pushed
  pages; a NavigationSplitView's sidebar shows it, or passes it to a sidebar that is a
  NavigationStack, and the detail only while the sidebar is hidden; nothing shows it unless the
- window's document asks.
+ window's JSON asks.
 */
 
 import XCTest

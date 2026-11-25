@@ -1,7 +1,7 @@
 // Tests/Runtime/RenderTreeTests.swift
 /*
  Tests for the render tree (RenderNode, SyncScheduler, AdwaitaWindow, the renderer table), with
- test renderers for Text and VStack so they hold no rendering details: a document builds one node
+ test renderers for Text and VStack so they hold no rendering details: ActionUI JSON builds one node
  and widget per element; a model change re-syncs the node that read it, once per flush, and not
  its parent; inserted and removed children are reconciled by id; an element type without a
  renderer shows the placeholder; actions fire only outside renderer updates.
@@ -78,7 +78,7 @@ final class RenderTreeTests: XCTestCase {
         ActionUIRegistry.shared.loadBuiltIns()
     }
 
-    private let document = """
+    private let windowJSON = """
         {"type": "VStack", "id": 1, "children": [
             {"type": "Text", "id": 2, "properties": {"text": "one"}},
             {"type": "Text", "id": 3, "properties": {"text": "two"}}
@@ -104,8 +104,8 @@ final class RenderTreeTests: XCTestCase {
         return texts
     }
 
-    func testADocumentBuildsANodeAndAWidgetPerElement() throws {
-        let window = try render(document)
+    func testJSONBuildsANodeAndAWidgetPerElement() throws {
+        let window = try render(windowJSON)
         let root = try XCTUnwrap(window.root)
         XCTAssertEqual(root.depth, 0)
         XCTAssertEqual(Set(root.childNodes.keys), [2, 3])
@@ -116,7 +116,7 @@ final class RenderTreeTests: XCTestCase {
     }
 
     func testAValueChangeResyncsOnlyTheNodeThatReadIt() throws {
-        let window = try render(document)
+        let window = try render(windowJSON)
         let root = try XCTUnwrap(window.root)
         ActionUIModel.shared.setElementValue(windowUUID: windowUUID, viewID: 3, value: "changed")
         XCTAssertEqual(labels(root.widget), ["one", "two"], "the widget changes in the next flush")
@@ -128,7 +128,7 @@ final class RenderTreeTests: XCTestCase {
     func testAPropertyChangeResyncsOnlyTheNodeThatReadIt() throws {
         // A child is made during its parent's sync: what its init reads (its properties, for its
         // environment and widget kind) must not become the parent's dependency.
-        let window = try render(document)
+        let window = try render(windowJSON)
         let root = try XCTUnwrap(window.root)
         ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 3, propertyName: "text", value: "changed")
         AdwaitaTestHost.drainMainLoop()
@@ -137,7 +137,7 @@ final class RenderTreeTests: XCTestCase {
     }
 
     func testChangesBeforeAFlushCoalesce() throws {
-        let window = try render(document)
+        let window = try render(windowJSON)
         let root = try XCTUnwrap(window.root)
         ActionUIModel.shared.setElementValue(windowUUID: windowUUID, viewID: 2, value: "a")
         ActionUIModel.shared.setElementValue(windowUUID: windowUUID, viewID: 2, value: "b")
@@ -152,7 +152,7 @@ final class RenderTreeTests: XCTestCase {
     }
 
     func testInsertedAndRemovedChildrenAreReconciled() throws {
-        let window = try render(document)
+        let window = try render(windowJSON)
         let root = try XCTUnwrap(window.root)
         let newID = try ActionUIModel.shared.insertElement(
             windowUUID: windowUUID, parentID: 1,
@@ -173,7 +173,7 @@ final class RenderTreeTests: XCTestCase {
     }
 
     func testANodeRemovedBeforeItsFlushIsNotSynced() throws {
-        let window = try render(document)
+        let window = try render(windowJSON)
         let root = try XCTUnwrap(window.root)
         let child = try XCTUnwrap(root.childNodes[3])
         // Both in one turn: the child's change marks it dirty, then the parent's removes it.
@@ -186,7 +186,7 @@ final class RenderTreeTests: XCTestCase {
     }
 
     func testAnElementReplacedUnderTheSameIDGetsANewNode() throws {
-        let window = try render(document)
+        let window = try render(windowJSON)
         let root = try XCTUnwrap(window.root)
         let old = try XCTUnwrap(root.childNodes[3])
         // Both in one turn, so one flush sees id 3 still listed, with a new view model.
@@ -221,7 +221,7 @@ final class RenderTreeTests: XCTestCase {
     }
 
     func testActionsFireOnlyOutsideAnUpdate() throws {
-        let window = try render(document)
+        let window = try render(windowJSON)
         let node = try XCTUnwrap(window.root?.childNodes[2])
         let fired = CallCounter()
         ActionUIModel.shared.registerActionHandler(for: "test.tap") { actionID, uuid, viewID, _, _ in
@@ -244,7 +244,7 @@ final class RenderTreeTests: XCTestCase {
     func testAWindowGoneBeforeItsFlushIsNotSynced() throws {
         weak var gone: RenderNode?
         do {
-            let window = try render(document)
+            let window = try render(windowJSON)
             gone = window.root?.childNodes[2]
             ActionUIModel.shared.setElementValue(windowUUID: windowUUID, viewID: 2, value: "late")
         }
@@ -266,7 +266,7 @@ final class RenderTreeTests: XCTestCase {
     }
 
     func testARemovedNodeReleasesItsWidgetAndBox() throws {
-        let window = try render(document)
+        let window = try render(windowJSON)
         let widget: WidgetPointer
         let box: WidgetPointer
         do {

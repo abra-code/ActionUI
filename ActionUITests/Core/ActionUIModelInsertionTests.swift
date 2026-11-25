@@ -392,7 +392,7 @@ final class ActionUIModelInsertionTests: XCTestCase {
     }
 
     func testGetElementInfoDropsRemovedElementsAndTheirDescendants() throws {
-        // Elements of the loaded document, not inserted ones: the document's own tree keeps them
+        // Elements of the loaded JSON, not inserted ones: the JSON's own tree keeps them
         let nested: [String: Any] = ["id": 11, "type": "VStack", "properties": [:], "children": [textDict(id: 12)]]
         try loadVStack(id: 1, children: [textDict(id: 10), nested])
         try model.removeElement(windowUUID: windowUUID, viewID: 10)

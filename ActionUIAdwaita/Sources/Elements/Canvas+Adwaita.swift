@@ -627,7 +627,7 @@ enum CanvasFilter {
         guard let values, values.count == 4 else { return nil }
         let rect = points ? Rect(x: values[0], y: values[1], width: values[2], height: values[3])
             : Rect(x: values[0] * size.width, y: values[1] * size.height, width: values[2] * size.width, height: values[3] * size.height)
-        // An infinite frame ("inf" in a document) draws nothing, and must not reach GSK or Pango.
+        // An infinite frame ("inf" in ActionUI JSON) draws nothing, and must not reach GSK or Pango.
         guard [rect.x, rect.y, rect.width, rect.height].allSatisfy({ Float($0).isFinite }) else { return nil }
         return rect
     }
@@ -761,7 +761,7 @@ enum CanvasFilter {
                   let end = dict.doubleArray(forKey: "end"), end.count == 2 else { return nil }
             let from = graphene_point_t(x: Float(start[0] * size.width), y: Float(start[1] * size.height))
             let to = graphene_point_t(x: Float(end[0] * size.width), y: Float(end[1] * size.height))
-            // An infinite point ("inf" in a document): GTK's cairo renderer warns of an invalid matrix
+            // An infinite point ("inf" in ActionUI JSON): GTK's cairo renderer warns of an invalid matrix
             // and fails to draw the nodes around it.
             guard [from.x, from.y, to.x, to.y].allSatisfy(\.isFinite) else { return nil }
             return .linear(start: from, end: to, stops: stops)
@@ -894,7 +894,7 @@ enum CanvasFilter {
         let side = max(abs(frame.width), abs(frame.height))
         guard side >= 1 else { return true }
         let theme = gtk_icon_theme_get_for_display(display)
-        // The size looked up picks the icon's resolution; a document's frame can be any size, and
+        // The size looked up picks the icon's resolution; the JSON's frame can be any size, and
         // GTK renders the icon at the size looked up (Int32() also traps past Int32.max).
         let lookupSize = Int32(min(side, 2048).rounded(.up))
         guard let lookedUp = gtk_icon_theme_lookup_icon(theme, name, nil, lookupSize, gtk_widget_get_scale_factor(widget),

@@ -97,7 +97,7 @@ final class HostSurfaceGtkTests: XCTestCase {
     private let windowUUID = "host-surface-gtk"
     private var stepsRun = 0
 
-    private let document = """
+    private let windowJSON = """
         {"type": "VStack", "properties": {"frame": {"width": 400}}, "children": [
             {"type": "HostSurface", "id": 5, "properties": {"surfaceName": "viewport", "frame": {"width": 200, "height": 120}}},
             {"type": "HostSurface", "id": 6, "properties": {"surfaceName": "other", "idealWidth": 50, "idealHeight": 40,
@@ -353,7 +353,7 @@ final class HostSurfaceGtkTests: XCTestCase {
                 app.terminate()
             }
         }
-        app.presentWindow(json: Data(document.utf8), windowUUID: windowUUID, title: nil)
+        app.presentWindow(json: Data(windowJSON.utf8), windowUUID: windowUUID, title: nil)
         XCTAssertEqual(app.run(), 0)
         XCTAssertEqual(stepsRun, 1, "every step ran")
         HostSurfaceRegistry.shared.resetForTesting()

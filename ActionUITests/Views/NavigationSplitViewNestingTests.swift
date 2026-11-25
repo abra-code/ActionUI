@@ -1,8 +1,8 @@
 // Views/NavigationSplitViewNestingTests.swift
 /*
  A NavigationSplitView inside another one crashed the host in AppKit during toolbar updates, so a
- document alone could stop its host. The inner one now shows an error and logs it instead. Each test
- hosts the document in a real window, where the crash happened.
+ ActionUI JSON alone could stop its host. The inner one now shows an error and logs it instead. Each test
+ hosts the JSON in a real window, where the crash happened.
 */
 
 #if os(macOS)
@@ -52,10 +52,10 @@ final class NavigationSplitViewNestingTests: XCTestCase {
         ]
     }
 
-    /// Hosts the document in a window long enough for AppKit to update the toolbar.
-    private func host(_ document: [String: Any]) throws {
+    /// Hosts the JSON in a window long enough for AppKit to update the toolbar.
+    private func host(_ json: [String: Any]) throws {
         let model = ActionUIModel.shared
-        let element = try model.loadDescription(from: document, windowUUID: windowUUID)
+        let element = try model.loadDescription(from: json, windowUUID: windowUUID)
         let viewModel = try XCTUnwrap(model.windowModels[windowUUID]?.viewModels[element.id])
         let view = ActionUIView(element: element, model: viewModel, windowUUID: windowUUID)
             .frame(width: 600, height: 400)
@@ -76,7 +76,7 @@ final class NavigationSplitViewNestingTests: XCTestCase {
     }
 
     /// The shape of the crash report: both split views carry toolbars and titles, and the window
-    /// is a titled one whose content view controller hosts the document, so AppKit manages a
+    /// is a titled one whose content view controller hosts the JSON, so AppKit manages a
     /// window toolbar for them.
     private func toolbarSplitView(id: Int, detail: [String: Any]) -> [String: Any] {
         let item: (Int, String) -> [String: Any] = { itemID, title in
@@ -113,11 +113,11 @@ final class NavigationSplitViewNestingTests: XCTestCase {
                        "\(logger.errors)")
     }
 
-    /// Hosts the document as a window's content view controller and resizes the window a few
+    /// Hosts the JSON as a window's content view controller and resizes the window a few
     /// times, so AppKit builds and updates a window toolbar for it.
-    private func hostWithWindowToolbar(_ document: [String: Any]) throws {
+    private func hostWithWindowToolbar(_ json: [String: Any]) throws {
         let model = ActionUIModel.shared
-        let element = try model.loadDescription(from: document, windowUUID: windowUUID)
+        let element = try model.loadDescription(from: json, windowUUID: windowUUID)
         let viewModel = try XCTUnwrap(model.windowModels[windowUUID]?.viewModels[element.id])
         let controller = NSHostingController(rootView: ActionUIView(element: element, model: viewModel, windowUUID: windowUUID)
             .frame(minWidth: 700, minHeight: 450))

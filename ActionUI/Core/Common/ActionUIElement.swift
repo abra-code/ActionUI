@@ -303,10 +303,10 @@ public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
 }
 
 /// A child element as decoded: nil for an object with no "type", which is skipped so the rest of
-/// the document loads. PlatformFilter leaves such an object when an element's type is given only
+/// the JSON loads. PlatformFilter leaves such an object when an element's type is given only
 /// for other platforms ("type:macos" and no "type"), and the element is not shown on this one, as
 /// the Android renderer (no builder for an empty type) and the Web renderer (no element without a
-/// type) skip it. A document whose root has no type still fails to load.
+/// type) skip it. ActionUI JSON whose root has no type still fails to load.
 struct ElementSlot: Decodable {
     let element: ActionUIElement?
 

@@ -1,7 +1,7 @@
 // Views/LayoutParityTests.swift
 /*
  The Apple side of the layout parity battery (the LayoutParity folder at the repository root).
- Each fixture is an ActionUI document whose root has a fixed frame and whose leaves are Colors,
+ Each fixture is ActionUI JSON whose root has a fixed frame and whose leaves are Colors,
  each its own color. This test renders a fixture with the SwiftUI renderer, draws it into a bitmap
  and reads each Color's frame from its pixels, so it measures SwiftUI's own layout with no hook in
  the renderer.
@@ -91,8 +91,8 @@ final class LayoutParityTests: XCTestCase {
 
     private func measure(_ fixture: URL) throws -> LayoutParityExpectation {
         let data = try Data(contentsOf: fixture)
-        let document = try JSONSerialization.jsonObject(with: data)
-        let (width, height) = try LayoutParityPixels.rootSize(of: document, fixture: fixture.lastPathComponent)
+        let parsed = try JSONSerialization.jsonObject(with: data)
+        let (width, height) = try LayoutParityPixels.rootSize(of: parsed, fixture: fixture.lastPathComponent)
 
         ActionUIModel.resetForTesting()
         let windowUUID = UUID().uuidString
@@ -104,7 +104,7 @@ final class LayoutParityTests: XCTestCase {
         host.layoutSubtreeIfNeeded()
         let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
         host.cacheDisplay(in: host.bounds, to: bitmap)
-        let frames = LayoutParityPixels.frames(in: bitmap, width: width, leaves: LayoutParityPixels.leaves(of: document),
+        let frames = LayoutParityPixels.frames(in: bitmap, width: width, leaves: LayoutParityPixels.leaves(of: parsed),
                                                fixture: fixture.lastPathComponent)
         return LayoutParityExpectation(size: [width, height], frames: frames)
     }

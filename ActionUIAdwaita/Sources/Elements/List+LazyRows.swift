@@ -20,7 +20,7 @@
    the content rows (a row-bound Toggle writes its row), so it shows the same when made again.
  - The grouped and insetGrouped styles keep the eager GtkListBox (List+Adwaita.swift): libadwaita
    draws its boxed-list cards for a list box only. So does the children form, whose rows are the
-   document's.
+   the JSON's.
 */
 
 import CAdwaita

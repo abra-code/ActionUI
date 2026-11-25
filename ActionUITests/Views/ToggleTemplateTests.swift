@@ -259,7 +259,7 @@ final class ToggleTemplateTests: XCTestCase {
     }
 
     func testCommitRowToggle_aColumnFarBeyondTheRowIsNotWritten() throws {
-        // The column comes from the document: "$4000000000" would pad one row by billions of cells.
+        // The column comes from the JSON: "$4000000000" would pad one row by billions of cells.
         _ = try loadPackList()
         ActionUIModel.shared.setElementRows(windowUUID: windowUUID, viewID: 600, rows: [["Alpha"]])
         let short = TemplateContext(parentID: 600, rowIndex: 0, row: ["Alpha"])

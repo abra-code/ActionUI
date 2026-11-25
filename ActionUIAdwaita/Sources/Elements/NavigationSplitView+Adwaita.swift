@@ -4,7 +4,7 @@
  columns a second one inside it with the content beside the detail (libadwaita's way of nesting
  split views). Every column has its own header bar, the GNOME way, titled by its element's
  navigationTitle (the detail's, when it has none, shows the window's title); libadwaita keeps the
- window's buttons at the window's edges. A split view that is the window's whole document takes
+ window's buttons at the window's edges. A split view that is the window's whole content takes
  the window's place for a header bar, as a NavigationStack does, its sidebar's carrying the primary
  menu (the application's commands), the detail's while the sidebar is hidden. A column that is
  itself a NavigationStack brings its own header bars, so the column shows none.
@@ -19,7 +19,7 @@
    (libadwaita's split views have no handle of their own): within its min and max (without them,
    libadwaita's range, widened to take the ideal), and leaving the next column its minimum width; a
    fixed width is not dragged. A press counts within 4 pixels of the edge, where the pointer shows
-   the resize cursor. The dragged width stays when the window is resized, and the document's later
+   the resize cursor. The dragged width stays when the window is resized, and the JSON's later
    updates keep it within the column's range.
  - Destinations: when the sidebar is a List whose children have destinationViewId, choosing one
    stores states["selectedDestination"] (the child's destination, else the child's id, as on

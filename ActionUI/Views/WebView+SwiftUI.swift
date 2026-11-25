@@ -9,7 +9,7 @@ extension WebView: ActionUISwiftUIRenderer {
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let props = Props(properties)
         // The WebView is made again when its content is loaded again (a LoadableView's new
-        // document has a new origin): its configuration, user scripts included, is made once, for
+        // JSON has a new origin): its configuration, user scripts included, is made once, for
         // the content and trust it was made for.
         let contentIdentity = model.origin.map(ObjectIdentifier.init)
         let native = WKWebViewRepresentable(

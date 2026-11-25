@@ -5,7 +5,7 @@
  far from it; outside one every row is made;
  rows are kept by index (a changed row is made again, rows are added and removed at the end); and
  the row at the top of the visible part stays in place when rows made above it turn out longer than
- estimated. The document and numbers follow the Windows preview's LazyRows.json (2000 rows scrolled
+ estimated. The JSON and numbers follow the Windows preview's LazyRows.json (2000 rows scrolled
  to 20000, 500 columns scrolled to 4000), so the two platforms can be compared.
 */
 
@@ -37,10 +37,10 @@ final class LazyRowsRendererTests: XCTestCase {
         ActionUIModel.shared.windowModels[windowUUID] = nil
     }
 
-    /// The document of the Windows preview's LazyRows.json: a ScrollView 260 high holding a
+    /// The JSON of the Windows preview's LazyRows.json: a ScrollView 260 high holding a
     /// LazyVStack of two texts per row, and a horizontal ScrollView 44 high holding a LazyHStack of
     /// padded yellow texts.
-    private let document = #"""
+    private let windowJSON = #"""
         {"type": "VStack", "id": 1, "properties": {"spacing": 8, "alignment": "leading", "padding": 16}, "children": [
           {"type": "Text", "id": 2, "properties": {"text": "2000 rows, made as they come into view", "font": "headline"}},
           {"type": "ScrollView", "id": 3, "properties": {"frame": {"height": 260}}, "content":
@@ -137,7 +137,7 @@ final class LazyRowsRendererTests: XCTestCase {
     }
 
     func testALazyVStackInAScrollViewMakesOnlyTheRowsNearView() throws {
-        let root = try present(document)
+        let root = try present(windowJSON)
         setRows(4, numbered(2000))
         let rows = try lazyRows(4, in: root)
         XCTAssertGreaterThan(rows.made.count, 0)
@@ -159,7 +159,7 @@ final class LazyRowsRendererTests: XCTestCase {
     }
 
     func testALazyHStackInAHorizontalScrollViewMakesOnlyTheColumnsNearView() throws {
-        let root = try present(document)
+        let root = try present(windowJSON)
         setRows(10, (0..<500).map { ["\($0)"] })
         let columns = try lazyRows(10, in: root)
         XCTAssertGreaterThan(columns.made.count, 0)
@@ -190,7 +190,7 @@ final class LazyRowsRendererTests: XCTestCase {
     }
 
     func testAChangedRowIsMadeAgainAndTheOthersAreKept() throws {
-        let root = try present(document)
+        let root = try present(windowJSON)
         var data = numbered(2000)
         setRows(4, data)
         let rows = try lazyRows(4, in: root)
@@ -206,7 +206,7 @@ final class LazyRowsRendererTests: XCTestCase {
     }
 
     func testRowsAreAddedAndRemovedAtTheEnd() throws {
-        let root = try present(document)
+        let root = try present(windowJSON)
         setRows(4, numbered(2000))
         let rows = try lazyRows(4, in: root)
         let stack = try XCTUnwrap(node(4, in: root)).widget!
@@ -220,7 +220,7 @@ final class LazyRowsRendererTests: XCTestCase {
     }
 
     func testNewDataOfTheSameLengthsKeepsTheRowsInView() throws {
-        let root = try present(document)
+        let root = try present(windowJSON)
         setRows(4, numbered(2000))
         let rows = try lazyRows(4, in: root)
         let vertical = try adjustment(3, in: root, vertical: true)

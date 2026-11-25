@@ -1,7 +1,7 @@
 // ActionUIAdwaitaApplication/OffscreenWindow.swift
 /*
- A document's window drawn where the user never sees it (AdwaitaApplication.renderOffscreen), for a
- host that shows an agent or a test what a document looks like before, or instead of, showing it.
+ A window of ActionUI JSON, drawn where the user never sees it (AdwaitaApplication.renderOffscreen), for a
+ host that shows an agent or a test what ActionUI JSON looks like before, or instead of, showing it.
 
  - The window is realized and never presented: it gets a renderer, and the compositor is never
    asked for a window (no xdg_toplevel), so nothing shows and the focus stays where it is. Its
@@ -12,7 +12,7 @@
    ring, controls in the inactive style (as on Apple), and the window background on the content (the
    window itself never draws). A WebView's page is not drawn (WebKit draws only in a window on
    screen); showsWebView says when one is there.
- - Nothing on it is clickable, and its document's modals, dialogs and toasts do not show; nor do an
+ - Nothing on it is clickable, and its JSON's modals, dialogs and toasts do not show; nor do an
    element's sheet or popover. Its size is fixed when it is built: content that grows later is
    clipped, where a shown window would grow. Its model stays the host's to remove, as for a
    prepared window.
@@ -38,7 +38,7 @@ extension AdwaitaApplication {
         /// The window's size in pixels, bars included.
         public var width: Int { Int(allocation.width) }
         public var height: Int { Int(allocation.height) }
-        /// The window's content: its bars and the document.
+        /// The window's content: its bars and the JSON.
         var rootWidget: WidgetPointer { toolbar }
 
         init(window: UnsafeMutablePointer<GtkWindow>, toolbar: WidgetPointer, renderTree: AdwaitaWindow, width: Int32, height: Int32) {

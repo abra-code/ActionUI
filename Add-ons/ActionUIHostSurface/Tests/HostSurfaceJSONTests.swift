@@ -1,6 +1,6 @@
 // Add-ons/ActionUIHostSurface/Tests/HostSurfaceJSONTests.swift
 //
-// The element inside real ActionUI documents, hosted by SwiftUI, driven through ActionUIModel like a
+// The element inside real ActionUI JSON, hosted by SwiftUI, driven through ActionUIModel like a
 // host app: the event sequence for hidden, padding (whose first use rebuilds the SwiftUI view),
 // opacity, a resize, element removal and window close. This is the self-test sequence the spikes ran.
 
@@ -21,7 +21,7 @@ final class HostSurfaceJSONTests: XCTestCase {
     private let client = RecordingClient()
     private let model = ActionUIModel.shared
 
-    private let document = """
+    private let windowJSON = """
         { "type": "VStack", "id": 1, "children": [
             { "type": "Text", "id": 2, "properties": { "text": "above" } },
             { "type": "HostSurface", "id": 5, "properties": {
@@ -35,7 +35,7 @@ final class HostSurfaceJSONTests: XCTestCase {
         ActionUIHostSurface.register()
         ActionUIHostSurface.setDelegate(client, forSurfaceName: "document")
         windowUUID = UUID().uuidString
-        let root = FileLoadableView(data: Data(document.utf8), sourceName: "HostSurfaceJSONTests.json",
+        let root = FileLoadableView(data: Data(windowJSON.utf8), sourceName: "HostSurfaceJSONTests.json",
                                     windowUUID: windowUUID, isContentView: true,
                                     logger: ConsoleLogger(maxLevel: .warning))
         window = TestHost.makeWindow(width: 400, height: 300)
@@ -74,8 +74,8 @@ final class HostSurfaceJSONTests: XCTestCase {
         settle()
     }
 
-    func testTheDocumentSequence() throws {
-        XCTAssertEqual(client.events, [.created], "the surface appears with the document")
+    func testTheJSONSequence() throws {
+        XCTAssertEqual(client.events, [.created], "the surface appears with the JSON")
         let surfaceID = try XCTUnwrap(client.received.first?.surfaceID)
         let created = try XCTUnwrap(client.received.first)
         XCTAssertGreaterThan(created.widthPixels, 0)

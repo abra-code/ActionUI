@@ -208,7 +208,7 @@ public class ActionUIModel {
         }
     }
 
-    // The model of a window about to load a document: every document starts here, so the first one is the first use.
+    // The model of a window about to load ActionUI JSON: every JSON file starts here, so the first one is the first use.
     // The configuration is fixed from here on (ActionUIConfiguration).
     private func windowModelForLoading(_ windowUUID: String) -> WindowModel {
         ActionUIConfiguration.fix()
@@ -774,7 +774,7 @@ public class ActionUIModel {
 
 
     // Retrieves a property value for a view by its name
-    // Returns the stored value: the document's property, or the last value setElementProperty stored, as given
+    // Returns the stored value: the JSON's property, or the last value setElementProperty stored, as given
     // Returns nil with a warning if the view or property is missing to prevent crashes and provide clear feedback for debugging
     public func getElementProperty(windowUUID: String, viewID: Int, propertyName: String) -> Any? {
         guard let viewModel = windowModels[windowUUID]?.viewModels[viewID] else {
@@ -974,7 +974,7 @@ public class ActionUIModel {
 
     // Returns a dictionary mapping positive (user-assigned) view IDs to their view type strings for a given window.
     // Negative IDs are auto-assigned and excluded; 0 is not a valid ID.
-    // The window's live elements are exactly its view models: every element of the loaded document,
+    // The window's live elements are exactly its view models: every element of the loaded JSON,
     // of an inserted subtree, of LoadableView content and of a presented modal gets one
     // (WindowModel.populateViewModels, which records the element's type), and removing an element
     // or dismissing a modal deletes them. The loaded element tree is not the answer: insertElement
@@ -1260,7 +1260,7 @@ public class ActionUIModel {
     }
 
     // Sets a property value for a view. The value is stored as given; renderers read it through the
-    // element's Props, which ignore a value of the wrong type, as they do in a document.
+    // element's Props, which ignore a value of the wrong type, as they do in ActionUI JSON.
     // Updates the view model's properties to preserve runtime mutations and trigger SwiftUI refresh via viewModels
     public func setElementProperty(windowUUID: String, viewID: Int, propertyName: String, value: Any) {
         guard let viewModel = windowModels[windowUUID]?.viewModels[viewID] else {

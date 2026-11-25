@@ -45,7 +45,7 @@ final class ViewportFocusTests: XCTestCase {
         return (listBox, OpaquePointer(root.widget))
     }
 
-    /// The document in a window 300 x 200 points; returns its root node.
+    /// The JSON in a window 300 x 200 points; returns its root node.
     private func present(_ json: String) throws -> RenderNode {
         _ = try ActionUIModel.shared.loadDescription(from: Data(json.utf8), format: "json", windowUUID: windowUUID)
         let tree = AdwaitaWindow(windowModel: try XCTUnwrap(ActionUIModel.shared.windowModels[windowUUID]))

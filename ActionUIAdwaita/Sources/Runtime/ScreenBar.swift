@@ -2,7 +2,7 @@
 /*
  A screen's header bar, where the toolbars of the views on that screen show (NodeToolbar), as
  SwiftUI puts a view's toolbar items in its navigation bar or window toolbar. A screen is a
- window's document, a NavigationStack page, a NavigationSplitView column or a dialog; whoever makes
+ window's content, a NavigationStack page, a NavigationSplitView column or a dialog; whoever makes
  its header bar attaches a ScreenBar to the screen's root node (RenderNode.screenBar), and a view's
  toolbar goes to the nearest one above it.
 

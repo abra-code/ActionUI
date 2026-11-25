@@ -1,9 +1,9 @@
 // ActionUIAdwaita/Apps/Tests/ActionUIAdwaitaAppsTests/DemoTests.swift
 /*
  Tests for ActionUIDemo (the ActionUIAdwaitaDemo program), run as the program it is, with the test
- app's documents: the launcher and a document opened at launch are saved as screenshots; an action
- fired at launch runs the test app's handler; a document that cannot be loaded fails the run; an unknown
- document, no documents, and bad arguments stop it with an error; the add-ons are there.
+ app's JSON files: the launcher and ActionUI JSON opened at launch are saved as screenshots; an action
+ fired at launch runs the test app's handler; ActionUI JSON that cannot be loaded fails the run; an unknown
+ JSON file, no JSON files, and bad arguments stop it with an error; the add-ons are there.
 */
 
 import XCTest
@@ -29,7 +29,7 @@ final class DemoTests: XCTestCase {
     /// The demo program (outside its bundle, so it needs --resources).
     private var demo: URL { ProgramTestSupport.program("ActionUIAdwaitaDemo") }
 
-    /// The test app's documents.
+    /// The test app's JSON files.
     private var resources: String {
         ProgramTestSupport.repository.appendingPathComponent("ActionUISwiftTestApp/Resources").path
     }
@@ -44,7 +44,7 @@ final class DemoTests: XCTestCase {
         return path
     }
 
-    func testTheLauncherAndAnOpenedDocumentAreShown() throws {
+    func testTheLauncherAndAnOpenedJSONFileAreShown() throws {
         XCTAssertTrue(FileManager.default.isExecutableFile(atPath: demo.path), "no demo at \(demo.path)")
         let launcher = screenshotPath("launcher")
         XCTAssertEqual(try runDemo(["--resources", resources, "--screenshot", launcher]), 0)
@@ -61,7 +61,7 @@ final class DemoTests: XCTestCase {
         XCTAssertNotEqual(FileManager.default.contents(atPath: list), FileManager.default.contents(atPath: emptyList), "list.demo.load changed nothing")
     }
 
-    func testADocumentThatCannotBeLoadedFailsTheRun() throws {
+    func testJSONThatCannotBeLoadedFailsTheRun() throws {
         let folder = NSTemporaryDirectory() + "actionui-demo-bad-\(ProcessInfo.processInfo.processIdentifier)"
         try FileManager.default.createDirectory(atPath: folder, withIntermediateDirectories: true)
         files.append(folder)
@@ -69,28 +69,28 @@ final class DemoTests: XCTestCase {
         XCTAssertEqual(try runDemo(["--resources", folder, "--open", "Bad", "--screenshot", screenshotPath("bad")]), 65)
     }
 
-    /// Without the add-on, both documents show the same placeholder.
+    /// Without the add-on, both JSON files show the same placeholder.
     func testRichTextIsThere() throws {
         let empty = screenshotPath("richtext-empty")
         let text = screenshotPath("richtext-text")
-        // One file name in two folders: the name is the window's title, so only the document differs.
+        // One file name in two folders: the name is the window's title, so only the JSON differs.
         for (markdown, screenshot) in [("", empty), ("# A heading", text)] {
             let folder = NSTemporaryDirectory() + "actionui-demo-addon-\(ProcessInfo.processInfo.processIdentifier)-\(markdown.count)"
             try FileManager.default.createDirectory(atPath: folder, withIntermediateDirectories: true)
             files.append(folder)
-            let document = #"{"type": "RichText", "id": 1, "properties": {"markdown": ""# + markdown + #"", "frame": {"width": 320, "height": 200}}}"#
-            try Data(document.utf8).write(to: URL(fileURLWithPath: folder).appendingPathComponent("Document.json"))
-            XCTAssertEqual(try runDemo(["--resources", folder, "--open", "Document", "--screenshot", screenshot]), 0)
+            let json = #"{"type": "RichText", "id": 1, "properties": {"markdown": ""# + markdown + #"", "frame": {"width": 320, "height": 200}}}"#
+            try Data(json.utf8).write(to: URL(fileURLWithPath: folder).appendingPathComponent("Sample.json"))
+            XCTAssertEqual(try runDemo(["--resources", folder, "--open", "Sample", "--screenshot", screenshot]), 0)
         }
         XCTAssertNotNil(FileManager.default.contents(atPath: text))
-        XCTAssertNotEqual(FileManager.default.contents(atPath: text), FileManager.default.contents(atPath: empty), "the document made no difference: the add-on is not registered")
+        XCTAssertNotEqual(FileManager.default.contents(atPath: text), FileManager.default.contents(atPath: empty), "the JSON made no difference: the add-on is not registered")
     }
 
-    func testAnUnknownDocumentNoDocumentsAndBadArgumentsStopIt() throws {
-        XCTAssertEqual(try runDemo(["--resources", resources, "--open", "NoSuchDocument"]), 66)
+    func testAnUnknownJSONFileNoJSONFilesAndBadArgumentsStopIt() throws {
+        XCTAssertEqual(try runDemo(["--resources", resources, "--open", "NoSuchSample"]), 66)
         XCTAssertEqual(try runDemo(["--resources", NSTemporaryDirectory() + "actionui-demo-empty-\(ProcessInfo.processInfo.processIdentifier)"]), 66)
         XCTAssertEqual(try runDemo(["--open"]), 64)
         XCTAssertEqual(try runDemo(["--frobnicate"]), 64)
-        XCTAssertEqual(try runDemo(["--action", "list.demo.load"]), 64, "an action needs a document")
+        XCTAssertEqual(try runDemo(["--action", "list.demo.load"]), 64, "an action needs ActionUI JSON")
     }
 }

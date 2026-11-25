@@ -43,9 +43,9 @@ final class TextEditorNativeTests: XCTestCase {
         if native {
             properties["implementation"] = "native"
         }
-        let document: [String: Any] = ["type": "TextEditor", "id": 1, "properties": properties]
+        let json: [String: Any] = ["type": "TextEditor", "id": 1, "properties": properties]
         windowUUID = UUID().uuidString
-        let element = try ActionUIModel.shared.loadDescription(from: document, windowUUID: windowUUID)
+        let element = try ActionUIModel.shared.loadDescription(from: json, windowUUID: windowUUID)
         let viewModel = try XCTUnwrap(ActionUIModel.shared.windowModels[windowUUID]?.viewModels[element.id])
         let host = NSHostingView(rootView: ActionUIView(element: element, model: viewModel, windowUUID: windowUUID)
             .frame(width: 300, height: 120))

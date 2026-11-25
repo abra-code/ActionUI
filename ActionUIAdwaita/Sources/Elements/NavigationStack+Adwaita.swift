@@ -3,7 +3,7 @@
  NavigationStack on GTK: an AdwNavigationView. The content is the root page; each pushed screen is
  a page of its own. Every page has its own header bar, the GNOME way, with the page's title (its
  screen's navigationTitle, from any of its views (ScreenTitle); the root's falls back to the
- stack's own, then the window's) and a back button. A stack that is the window's whole document
+ stack's own, then the window's) and a back button. A stack that is the window's whole content
  takes the window's place for a header bar (AdwaitaApplication shows none of its own), so its
  header bars carry the window's buttons, and its root page's the primary menu (the application's
  commands).
@@ -212,7 +212,7 @@ extension NavigationStack: ActionUIAdwaitaRenderer {
             setTitle(page.page.typed(), ScreenTitle.find(in: child.element, windowModel: node.windowModel) ?? nonEmpty(entry.linkTitle) ?? rootTitle)
         }
         Gtk.Widget(state.primaryMenu).isVisible = node.showsPrimaryMenu
-        // The window's buttons on the stack's header bars only when the stack is the window's document.
+        // The window's buttons on the stack's header bars only when the stack is the window's content.
         for header in state.headerBars where adw_header_bar_get_show_end_title_buttons(OpaquePointer(header)) != (node.isWindowRoot ? 1 : 0) {
             adw_header_bar_set_show_end_title_buttons(OpaquePointer(header), node.isWindowRoot ? 1 : 0)
             adw_header_bar_set_show_start_title_buttons(OpaquePointer(header), node.isWindowRoot ? 1 : 0)

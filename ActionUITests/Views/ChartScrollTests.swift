@@ -212,11 +212,11 @@ final class ChartScrollTests: XCTestCase {
         // chart fires its selection action, which the test app handles. Without a handler that is a
         // warning, so the result would depend on where the pointer is.
         ActionUIModel.shared.registerActionHandler(for: "chart.selection.changed") { _, _, _, _, _ in }
-        let document = try ActionUIModel.shared.loadDescription(from: data, format: "json", windowUUID: windowUUID)
+        let element = try ActionUIModel.shared.loadDescription(from: data, format: "json", windowUUID: windowUUID)
         func charts(_ element: any ActionUIElementBase) -> [any ActionUIElementBase] {
             (element.type == "Chart" ? [element] : []) + element.childElements.flatMap(charts)
         }
-        let found = charts(document)
+        let found = charts(element)
         XCTAssertEqual(found.count, 2)
         for chart in found {
             let model = try XCTUnwrap(ActionUIModel.shared.windowModels[windowUUID]?.viewModels[chart.id])

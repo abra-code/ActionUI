@@ -4,7 +4,7 @@
  sample and saves a screenshot, in the light and the dark style; the PNG is as large as the
  window and the dark one is darker. The same sample from an http URL opens once it has loaded; one
  that cannot be loaded fails the run, its error window saved. The add-ons are there: what they show
- depends on their documents.
+ depends on their JSON files.
 */
 
 import XCTest
@@ -45,12 +45,12 @@ final class ViewerTests: XCTestCase {
         return path
     }
 
-    /// The screenshot of a document, as bytes. Every document has the same file name, which is the window's title:
-    /// two screenshots differ only by what the documents show.
-    private func screenshot(of document: String, _ name: String) throws -> Data? {
-        let path = temporaryPath("document.json")
+    /// The screenshot of ActionUI JSON, as bytes. Every JSON file has the same file name, which is the window's title:
+    /// two screenshots differ only by what the JSON files show.
+    private func screenshot(of json: String, _ name: String) throws -> Data? {
+        let path = temporaryPath("content.json")
         let image = temporaryPath(name + ".png")
-        try Data(document.utf8).write(to: URL(fileURLWithPath: path))
+        try Data(json.utf8).write(to: URL(fileURLWithPath: path))
         XCTAssertEqual(try runViewer([path, "--screenshot", image]), 0)
         return FileManager.default.contents(atPath: image)
     }
@@ -88,16 +88,16 @@ final class ViewerTests: XCTestCase {
         XCTAssertGreaterThan(lightImage.average, darkImage.average + 50, "the dark style is darker")
     }
 
-    func testADocumentThatCannotBeLoadedFailsTheRun() throws {
+    func testJSONThatCannotBeLoadedFailsTheRun() throws {
         let path = NSTemporaryDirectory() + "actionui-viewer-missing-\(ProcessInfo.processInfo.processIdentifier).png"
         files.append(path)
-        XCTAssertEqual(try runViewer(["/no/such/document.json", "--screenshot", path]), 65)
+        XCTAssertEqual(try runViewer(["/no/such/content.json", "--screenshot", path]), 65)
         XCTAssertTrue(FileManager.default.fileExists(atPath: path), "the window with the error is saved too")
     }
 
-    func testAnHTTPDocumentOpensOnceItHasLoaded() throws {
-        let document = try String(contentsOfFile: sample, encoding: .utf8)
-        let server = try TestJSONServer(json: document)
+    func testAnHTTPJSONOpensOnceItHasLoaded() throws {
+        let json = try String(contentsOfFile: sample, encoding: .utf8)
+        let server = try TestJSONServer(json: json)
         defer { server.stop() }
         let path = NSTemporaryDirectory() + "actionui-viewer-http-\(ProcessInfo.processInfo.processIdentifier).png"
         files.append(path)
@@ -105,7 +105,7 @@ final class ViewerTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(try brightness(path).width, 360, "the sample's window")
     }
 
-    func testAnHTTPDocumentThatCannotBeLoadedFailsTheRun() throws {
+    func testAnHTTPJSONThatCannotBeLoadedFailsTheRun() throws {
         let server = try TestJSONServer(json: "")
         defer { server.stop() }
         let path = NSTemporaryDirectory() + "actionui-viewer-http-missing-\(ProcessInfo.processInfo.processIdentifier).png"
@@ -114,15 +114,15 @@ final class ViewerTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: path), "the window with the error is saved too")
     }
 
-    /// Without the add-on, both documents show the same placeholder.
+    /// Without the add-on, both JSON files show the same placeholder.
     func testRichTextIsThere() throws {
         let empty = try screenshot(of: richText(""), "richtext-empty")
         let text = try screenshot(of: richText("# A heading\n\nSome **bold** text."), "richtext-text")
         XCTAssertNotNil(text)
-        XCTAssertNotEqual(text, empty, "the document made no difference: the add-on is not registered")
+        XCTAssertNotEqual(text, empty, "the JSON made no difference: the add-on is not registered")
     }
 
-    /// Without the add-on, both documents show the same placeholder.
+    /// Without the add-on, both JSON files show the same placeholder.
     func testCachedImageIsThere() throws {
         let red = temporaryPath("red.png")
         let blue = temporaryPath("blue.png")

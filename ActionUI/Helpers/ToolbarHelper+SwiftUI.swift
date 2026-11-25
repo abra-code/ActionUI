@@ -105,7 +105,7 @@ enum PersistentToolbar {
         windowUUID: String
     ) -> some SwiftUI.View {
         if items.isEmpty {
-            // Nothing to publish or apply: a document without the key pays two dictionary
+            // Nothing to publish or apply: ActionUI JSON without the key pays two dictionary
             // lookups and no extra view, and any items inherited from an OUTER container keep
             // flowing down untouched.
             content

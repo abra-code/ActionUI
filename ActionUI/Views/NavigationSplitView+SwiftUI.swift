@@ -280,7 +280,7 @@ extension EnvironmentValues {
 
 /// Shows a NavigationSplitView unless it is inside another one, directly or through a
 /// LoadableView. Two nested split views in one window crash the host in AppKit during toolbar
-/// updates, so a document alone could stop its host; the inner one shows an error instead.
+/// updates, so ActionUI JSON alone could stop its host; the inner one shows an error instead.
 @MainActor
 struct NavigationSplitViewNestingGuard: SwiftUI.View {
     @Environment(\.actionUIInsideNavigationSplitView) private var inside

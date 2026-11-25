@@ -87,7 +87,7 @@ extension ActionUIRegistry {
 }
 
 // The SwiftUI half of the registry: the renderer table, add-on registration, and building and
-// modifying views. The spec table and the document-load queries are in Core/Common/ActionUIRegistry.swift.
+// modifying views. The spec table and the JSON-load queries are in Core/Common/ActionUIRegistry.swift.
 extension ActionUIRegistry {
     // Each element type's SwiftUI renderer, keyed like `specs`. Static because an extension
     // cannot add stored instance properties; the registry is a single shared instance.

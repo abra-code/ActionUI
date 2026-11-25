@@ -159,7 +159,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         XCTAssertFalse(ActionUIModel.shared.hasWindow("app-w2"))
     }
 
-    func testAPreparedDocumentIsLoadedWithNothingOnScreen() throws {
+    func testPreparedJSONIsLoadedWithNothingOnScreen() throws {
         let app = AdwaitaApplication()
         var shown: WidgetPointer?
         var title: String?
@@ -213,7 +213,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         XCTAssertEqual(afterShowing, 1, "the check above could fail: the window does fetch")
     }
 
-    func testADocumentThatCannotBeLoadedPreparesWithItsErrorAndShowsIt() throws {
+    func testJSONThatCannotBeLoadedPreparesWithItsErrorAndShowsIt() throws {
         let app = AdwaitaApplication()
         var error: String?
         var shownError: String?
@@ -373,7 +373,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         XCTAssertEqual(presented, ["app-w1"], "the dropped load presents nothing")
     }
 
-    func testAClosedWindowsModelRemovalSparesADocumentPreparedUnderItsUUID() throws {
+    func testAClosedWindowsModelRemovalSparesJSONPreparedUnderItsUUID() throws {
         let app = AdwaitaApplication()
         var hadModel = false
         var showsContent = false
@@ -473,7 +473,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         return count
     }
 
-    func testAPreparedDocumentRendersOffscreenWithNothingOnScreen() throws {
+    func testPreparedJSONRendersOffscreenWithNothingOnScreen() throws {
         let app = AdwaitaApplication()
         let path = NSTemporaryDirectory() + "actionui-app-test-offscreen-\(ProcessInfo.processInfo.processIdentifier).png"
         files.append(path)
@@ -627,7 +627,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         XCTAssertTrue(webView)
     }
 
-    func testRenderingOffscreenRefusesAUsedOrBadDocumentAndBeforeTheStart() throws {
+    func testRenderingOffscreenRefusesAUsedOrBadJSONAndBeforeTheStart() throws {
         let app = AdwaitaApplication()
         let early = app.prepareWindow(json: Data(Self.json.utf8), windowUUID: "app-w2")
         XCTAssertNil(app.renderOffscreen(prepared: early, title: nil), "before the start")
@@ -668,7 +668,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         XCTAssertGreaterThan(text.1, 100, "the text wraps to several lines there")
     }
 
-    func testADocumentInAScrollViewOpensTallEnoughToShowIt() throws {
+    func testJSONInAScrollViewOpensTallEnoughToShowIt() throws {
         let app = AdwaitaApplication()
         var size: (Int32, Int32) = (0, 0)
         var minimumHeight: Int = -1
@@ -787,7 +787,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         XCTAssertTrue(tallScrolls, "a minimum taller than the monitor with the header bar scrolls")
     }
 
-    func testAFileIsTitledByItsNameAndABadDocumentShowsItsError() throws {
+    func testAFileIsTitledByItsNameAndABadJSONShowsItsError() throws {
         let path = NSTemporaryDirectory() + "actionui-app-test-\(ProcessInfo.processInfo.processIdentifier).json"
         try Self.json.write(toFile: path, atomically: true, encoding: .utf8)
         files.append(path)
@@ -936,7 +936,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         XCTAssertEqual(asked, 1, "the user's close of the new window asked and ended the application: no hold was left")
     }
 
-    func testTheHostClosingItsLastWindowWhileItsDocumentLoadsLeavesTheApplicationRunning() throws {
+    func testTheHostClosingItsLastWindowWhileItsJSONLoadsLeavesTheApplicationRunning() throws {
         let server = try TestImageServer(png: [], json: Self.json)
         defer { server.stop() }
         let app = AdwaitaApplication()
@@ -1013,7 +1013,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         XCTAssertTrue(presented, "the application waited for its first window")
     }
 
-    func testAnHTTPDocumentOpensOnceLoadedAndHoldsTheApplicationMeanwhile() throws {
+    func testAnHTTPJSONOpensOnceLoadedAndHoldsTheApplicationMeanwhile() throws {
         let server = try TestImageServer(png: [], json: Self.json)
         defer { server.stop() }
         let app = AdwaitaApplication()
@@ -1553,7 +1553,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         XCTAssertEqual(asked, 1, "only the close without the flag asks")
     }
 
-    func testWithKeepsRunningALoadingDocumentHoldsTheApplicationAsAWindowWould() throws {
+    func testWithKeepsRunningALoadingJSONHoldsTheApplicationAsAWindowWould() throws {
         let server = try TestImageServer(png: [], json: Self.json)
         defer { server.stop() }
         let app = AdwaitaApplication()
@@ -1598,7 +1598,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         XCTAssertEqual(asked, 1, "only the close without the flag asks")
     }
 
-    func testOptionsSurviveTheWaitForTheStartAndForARemoteDocument() throws {
+    func testOptionsSurviveTheWaitForTheStartAndForARemoteJSON() throws {
         let server = try TestImageServer(png: [], json: Self.json)
         defer { server.stop() }
         let app = AdwaitaApplication()

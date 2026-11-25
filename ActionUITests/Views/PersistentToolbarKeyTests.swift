@@ -30,7 +30,7 @@ final class PersistentToolbarKeyTests: XCTestCase {
             case .warning: warnings.append(message)
             // Do not swallow errors just because this logger is here to read warnings - a decode
             // or registration failure during one of these loads would otherwise be invisible and
-            // the test would go on to assert about a document that never loaded.
+            // the test would go on to assert about ActionUI JSON that never loaded.
             case .error: XCTFail("unexpected error-level log: \(message)")
             default: break
             }
@@ -119,7 +119,7 @@ final class PersistentToolbarKeyTests: XCTestCase {
         let content = items[0].subviews?["content"] as? (any ActionUIElementBase)
         XCTAssertEqual(content?.id, 61, "the item's content element should decode with it")
 
-        // It is a SEPARATE key, not a rename: a container may carry both while documents migrate.
+        // It is a SEPARATE key, not a rename: a container may carry both while JSON files migrate.
         let aliased = element.subviews?["toolbar"] as? [any ActionUIElementBase]
         XCTAssertEqual(aliased?.count, 1, "the container's own toolbar should still decode alongside it")
         XCTAssertEqual(aliased?[0].id, 10)
@@ -127,7 +127,7 @@ final class PersistentToolbarKeyTests: XCTestCase {
 
     /// The dictionary initializer is a second, hand-written decode path (used by the adapters),
     /// and it enumerates its array keys separately from Codable. A key added to one and not the
-    /// other decodes from a file but vanishes when the same document arrives as a dictionary.
+    /// other decodes from a file but vanishes when the same JSON arrives as a dictionary.
     func testPersistentToolbarDecodesFromDictionary() throws {
         let dict: [String: Any] = [
             "id": 1,

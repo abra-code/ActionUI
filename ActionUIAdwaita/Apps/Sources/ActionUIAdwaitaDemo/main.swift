@@ -1,27 +1,27 @@
 // ActionUIAdwaita/Apps/Sources/ActionUIAdwaitaDemo/main.swift
 /*
  ActionUIDemo: the Linux counterpart of ActionUISwiftTestApp. A launcher window lists the app's
- documents (every .json file in its resources); choosing one opens it in a window of its own, as
- the Mac app's JSON Selector does. The documents are the test app's own
+ JSON files (every .json file in its resources); choosing one opens it in a window of its own, as
+ the Mac app's JSON Selector does. The JSON files are the test app's own
  (ActionUISwiftTestApp/Resources) and those of the add-ons that work on Linux, shipped in a
  simplified iOS-style bundle with the program (Scripts/make-linux-demo-bundle.sh builds
  ActionUIDemo.app).
 
  Usage: ActionUIDemo [--resources <folder>] [--open <Name> [--action <actionID>]] [--dark] [--screenshot <file.png>]
 
- - --resources: the folder of the documents, when the program is not in its bundle (a development
+ - --resources: the folder of the JSON files, when the program is not in its bundle (a development
    build); else the bundle (AppBundle).
- - --open: also opens the document Name (Name.json) at launch.
- - --action: fires the action on that document once it is shown, from the element whose actionID
+ - --open: also opens the JSON file Name (Name.json) at launch.
+ - --action: fires the action on that JSON once it is shown, from the element whose actionID
    it is (0 when none), as clicking it would (for screenshots of what a handler does).
  - --screenshot: once the last window opened at launch has drawn (the --open one, else the
    launcher), saves it as a PNG file and quits.
- - Exit status: 64 for bad arguments, 66 when there are no documents or no document Name, 65 when
-   the document opened with --open cannot be loaded (its window shows the error).
- The documents' actions run the test app's own handlers (ActionUISwiftTestApp/DemoHandlers.swift).
+ - Exit status: 64 for bad arguments, 66 when there are no JSON files or no JSON file Name, 65 when
+   the JSON opened with --open cannot be loaded (its window shows the error).
+ The JSON files' actions run the test app's own handlers (ActionUISwiftTestApp/DemoHandlers.swift).
  The add-ons that work on Linux (RichText, CachedImage, Diff) are linked and registered.
  The Mac app's menu commands (DefaultWindow.json's) are in each window's primary menu.
- The element type the Linux renderer does not have yet (Map) shows a placeholder in those documents.
+ The element type the Linux renderer does not have yet (Map) shows a placeholder in those JSON files.
 */
 
 import CAdwaita
@@ -37,7 +37,7 @@ import ActionUIRichText
 import ActionUISwiftAdapter
 
 let usage = "usage: ActionUIDemo [--resources <folder>] [--open <Name> [--action <actionID>]] [--dark] [--screenshot <file.png>]"
-// A name no document file gives (documents open under their names).
+// A name no JSON file gives (JSON files open under their names).
 let launcherUUID = "actionui-demo-launcher"
 let launcherListID = 1
 let openActionID = "demo.open"
@@ -75,15 +75,15 @@ if actionArgument != nil && openName == nil {
     exit(64)
 }
 
-/// The launcher: a list of the documents, a click opening one.
+/// The launcher: a list of the JSON files, a click opening one.
 let launcherJSON = """
     {"type": "List", "id": \(launcherListID), "properties": {"actionID": "\(openActionID)", "doubleClickActionID": "\(openActionID)",
      "frame": {"minWidth": 260, "idealWidth": 320, "minHeight": 360, "idealHeight": 640}}}
     """
 
-/// The documents in `folder`, by name without ".json", sorted as the Mac app sorts them; as on the
+/// The JSON files in `folder`, by name without ".json", sorted as the Mac app sorts them; as on the
 /// Mac, DefaultWindow (the app's own window group) is left out, and so are hidden files.
-func documentNames(in folder: String) -> [String] {
+func jsonNames(in folder: String) -> [String] {
     let files = (try? FileManager.default.contentsOfDirectory(atPath: folder)) ?? []
     return files.filter { name in
         var isFolder = false
@@ -109,16 +109,16 @@ MainActor.assumeIsolated {
         app.resourceFolder = URL(fileURLWithPath: resourcesArgument).standardizedFileURL.path
     }
     guard let folder = app.resourceFolder else {
-        print("ActionUIDemo: no documents: run it from ActionUIDemo.app, or give --resources <folder>")
+        print("ActionUIDemo: no JSON files: run it from ActionUIDemo.app, or give --resources <folder>")
         exit(66)
     }
-    let names = documentNames(in: folder)
+    let names = jsonNames(in: folder)
     guard !names.isEmpty else {
-        print("ActionUIDemo: no .json documents in \(folder)")
+        print("ActionUIDemo: no .json files in \(folder)")
         exit(66)
     }
 
-    /// Opens the document `name` in its own window, or brings that window forward when it is open
+    /// Opens the JSON file `name` in its own window, or brings that window forward when it is open
     /// (a double click selects the row, which opens it, then activates it).
     @MainActor func open(_ name: String) {
         guard !app.showWindow(name) else { return }
@@ -126,7 +126,7 @@ MainActor.assumeIsolated {
         app.presentWindow(url: path, windowUUID: name, title: name)
     }
 
-    // The Mac app's handlers; the modal sheet's document is in the resources too.
+    // The Mac app's handlers; the modal sheet's JSON is in the resources too.
     DemoHandlers.register(resourceURL: { name, ext in
         URL(fileURLWithPath: folder).appendingPathComponent("\(name).\(ext)")
     })
@@ -148,7 +148,7 @@ MainActor.assumeIsolated {
         if windowUUID == launcherUUID {
             ActionUIModel.shared.setElementRows(windowUUID: launcherUUID, viewID: launcherListID, rows: names.map { [$0] })
         }
-        // The Diff document's second element (id 81) diffs two bundled text files by absolute path, set before
+        // The Diff JSON's second element (id 81) diffs two bundled text files by absolute path, set before
         // display as the add-ons' test app does on Apple.
         if windowUUID == "Diff" {
             for (property, file) in [("oldFile", "DiffSampleOld.txt"), ("newFile", "DiffSampleNew.txt")] {
@@ -156,7 +156,7 @@ MainActor.assumeIsolated {
                 ActionUISwift.setElementProperty(windowUUID: windowUUID, viewID: 81, propertyName: property, value: path)
             }
         }
-        // A document that could not be loaded shows its error in its window; the run fails.
+        // ActionUI JSON that could not be loaded shows its error in its window; the run fails.
         if windowUUID == openName, !app.showsContent(windowUUID) {
             print("ActionUIDemo: \(windowUUID).json could not be loaded")
             status = 65
@@ -186,8 +186,8 @@ MainActor.assumeIsolated {
     // The Mac app's menu commands (its DefaultWindow's), in each window's primary menu.
     let defaultWindow = URL(fileURLWithPath: folder).appendingPathComponent("DefaultWindow.json")
     if let data = try? Data(contentsOf: defaultWindow),
-       let document = (try? ActionUIJSON.value(from: String(decoding: data, as: UTF8.self))) as? [String: Any],
-       let commands = document["commands"],
+       let parsed = (try? ActionUIJSON.value(from: String(decoding: data, as: UTF8.self))) as? [String: Any],
+       let commands = parsed["commands"],
        let json = try? ActionUIJSON.string(from: commands) {
         app.loadMenuBar(json: json)
     }
@@ -195,7 +195,7 @@ MainActor.assumeIsolated {
     app.presentWindow(json: Data(launcherJSON.utf8), windowUUID: launcherUUID, title: "ActionUI Demo")
     if let openName {
         guard names.contains(openName) else {
-            print("ActionUIDemo: no document \(openName).json in \(folder)")
+            print("ActionUIDemo: no JSON file \(openName).json in \(folder)")
             exit(66)
         }
         open(openName)

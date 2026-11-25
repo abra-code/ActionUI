@@ -8,7 +8,7 @@
 //
 // Lives in the ActionUI repo but is a SEPARATE package from core: it depends on core ActionUI AND
 // the optional add-on packages, links them, and calls each add-on's register() at launch, so it can
-// preview JSON documents that use add-on element types (e.g. the "QuickLook" element). A core-package
+// preview ActionUI JSON files that use add-on element types (e.g. the "QuickLook" element). A core-package
 // target cannot do this - the add-ons depend on core, so linking them back from a core target would
 // be a circular package dependency. OMC builds this package's ActionUIViewer product.
 //
@@ -109,7 +109,7 @@ Package(
 )
 }
 
-// The program has the same name on Linux, and opens a document in a window through AdwaitaApplication.
+// The program has the same name on Linux, and opens ActionUI JSON in a window through AdwaitaApplication.
 // Its tests run the program, so they need a display and skip themselves without one.
 // Packages that Linux does not use stay in the tracked Package.resolved only if a Linux build leaves
 // that file alone: build with --only-use-versions-from-resolved-file, and with --manifest-cache none

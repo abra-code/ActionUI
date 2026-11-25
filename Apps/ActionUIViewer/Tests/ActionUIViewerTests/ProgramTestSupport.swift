@@ -1,7 +1,7 @@
 // Apps/ActionUIViewer/Tests/ActionUIViewerTests/ProgramTestSupport.swift
 /*
  What the viewer's tests share: the program built next to the test program, the repository, a skip when
- there is no display, solid PNG files for image documents, and an http server for a document.
+ there is no display, solid PNG files for JSON that shows images, and an http server for ActionUI JSON.
 */
 
 import XCTest
@@ -68,7 +68,7 @@ enum ProgramTestSupport {
     }
 }
 
-/// An http server on the loopback address, on a thread of its own: /view.json answers with the document, anything
+/// An http server on the loopback address, on a thread of its own: /view.json answers with the JSON, anything
 /// else with 404.
 final class TestJSONServer {
     private let listener: Int32

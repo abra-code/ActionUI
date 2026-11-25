@@ -142,19 +142,19 @@ enum StackSolver {
         sizes.reduce(0, +) + gaps.reduce(0, +)
     }
 
-    /// The longest length a document's value becomes: half of GTK's int, so sums of lengths and
+    /// The longest length the JSON's value becomes: half of GTK's int, so sums of lengths and
     /// GTK's own additions (margins, borders) stay in range.
     static let maximumLength = Int(Int32.max / 2)
 
-    /// A length from a document (a spacing, a minimum, a frame maximum) as whole pixels: rounded,
+    /// A length from ActionUI JSON (a spacing, a minimum, a frame maximum) as whole pixels: rounded,
     /// never negative, and at most maximumLength. Int(Double) traps on values out of its range,
-    /// which a document can carry.
+    /// which ActionUI JSON can carry.
     static func length(_ value: Double, rounding: FloatingPointRoundingRule = .toNearestOrAwayFromZero) -> Int {
         guard value.isFinite, value > 0 else { return 0 }
         return Int(min(value.rounded(rounding), Double(maximumLength)))
     }
 
-    /// A signed length from a document (a padding) as whole pixels: rounded, and within
+    /// A signed length from ActionUI JSON (a padding) as whole pixels: rounded, and within
     /// maximumLength either way.
     static func signedLength(_ value: Double) -> Int {
         guard value.isFinite else { return 0 }
