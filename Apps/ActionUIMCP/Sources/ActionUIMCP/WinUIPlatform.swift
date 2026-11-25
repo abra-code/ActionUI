@@ -7,8 +7,8 @@
 // WinUIPlatform.swift - the windows on Windows, through ActionUI's WinUI application. A window's subtitle
 // (the provenance line) shows before its title in the title bar, which has one line and cuts a long one at
 // its end: the agent's title can neither push it out of view nor come first. Not yet on Windows:
-// windows kept after the session, rendering without showing a window, notices and file panels; each
-// answers that it is not available here.
+// windows kept after the session, rendering without showing a window, and notices; each answers that it
+// is not available here.
 
 #if os(Windows)
 import FoundationEssentials
@@ -137,14 +137,37 @@ final class WinUIPlatform: WindowPlatform {
     }
 
     nonisolated static func fileType(named name: String) -> String? {
-        name.isEmpty ? nil : name
+        AppPanels.knowsFileType(name) ? name : nil
     }
 
-    /// Not available on Windows yet: answers as a canceled panel, logged.
+    /// The system's file dialog, on a thread of its own: other tool calls are served meanwhile, and several
+    /// panels can be up at a time.
     func beginPanel(_ spec: PanelSpec, completion: @escaping @MainActor ([String]?) -> Void) -> @MainActor () -> Void {
-        host?.logger.log("file panels are not available on Windows yet", .warning)
-        completion(nil)
-        return {}
+        var settings: [String: JSONValue] = [:]
+        // A Windows file dialog has a title and no message. The provenance first: the title bar has one
+        // line, and the agent's text after it can neither push it out of view nor come first.
+        let message = spec.message.map { oneLine($0, limit: maxAgentTitleLength) }
+        let heading = [spec.provenance, spec.title, message].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " - ")
+        if !heading.isEmpty { settings["title"] = .string(heading) }
+        // As a file URL, which the panel turns into the system's own path.
+        if let directory = spec.directory { settings["directoryURL"] = .string(directory.absoluteString) }
+        if !spec.allowedTypes.isEmpty && spec.kind != .folder {
+            settings["allowedContentTypes"] = .array(spec.allowedTypes.map { .string($0) })
+        }
+        if spec.kind == .save {
+            if let name = spec.defaultName { settings["nameFieldStringValue"] = .string(name) }
+            let panel = AppPanels.beginSavePanel(json: JSONValue.object(settings).serialized()) { path in
+                completion(path.map { [$0] })
+            }
+            return { panel.cancel() }
+        }
+        settings["canChooseFiles"] = .bool(spec.kind == .file)
+        settings["canChooseDirectories"] = .bool(spec.kind == .folder)
+        settings["allowsMultipleSelection"] = .bool(spec.multiple)
+        let panel = AppPanels.beginOpenPanel(json: JSONValue.object(settings).serialized()) { paths in
+            completion(paths)
+        }
+        return { panel.cancel() }
     }
 
     /// No windows are kept on Windows yet (keepsWindows is false).

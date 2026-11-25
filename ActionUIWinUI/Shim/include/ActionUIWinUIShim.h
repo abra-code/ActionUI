@@ -1204,6 +1204,28 @@ ACTIONUI_WINUI_API bool actionUIWinUIFileDialogRun(ActionUIWinUIObject *owner, A
 // returns with no answer. For a window closing, or the application ending.
 ACTIONUI_WINUI_API void actionUIWinUIFileDialogsClose(ActionUIWinUIObject *owner);
 
+// A file dialog shown on a thread of its own (actionUIWinUIFileDialogBegin).
+typedef struct ActionUIWinUIFileDialogTask ActionUIWinUIFileDialogTask;
+// A begun dialog's answer, on the UI thread: `chosen` is the chosen paths, one per line, or NULL when the
+// user canceled, a cancel closed it, or it could not be shown; `failure` is why it could not be shown,
+// else NULL. Both are valid during the call only.
+typedef void (*ActionUIWinUIFileDialogCompletion)(void *context, const char *chosen, const char *failure);
+// Shows the system's file dialog as actionUIWinUIFileDialogRun does, with no owner, and returns at once:
+// the dialog runs on a thread of its own, so the UI thread goes on and several dialogs can be up at a time,
+// each answering when its user does. Call it on the UI thread. completion(context, ...) runs on the UI
+// thread, once, unless the application is ending by then (its queue refuses the call; the context is not
+// freed). Returns the dialog's handle, which the caller frees with actionUIWinUIFileDialogRelease (the
+// dialog goes on; after its completion is the usual time); NULL on failure, when completion never runs.
+ACTIONUI_WINUI_API ActionUIWinUIFileDialogTask *actionUIWinUIFileDialogBegin(
+    ActionUIWinUIFileDialogKind kind, bool multiple, const char *title, const char *okLabel, const char *folder,
+    const char *fileName, const char *const *filterNames, const char *const *filterPatterns, int32_t filterCount,
+    const char *defaultExtension, bool strictTypes, ActionUIWinUIFileDialogCompletion completion, void *context);
+// Closes the begun dialog unanswered, from any thread: its completion runs with no path. Nothing happens
+// once it has answered.
+ACTIONUI_WINUI_API void actionUIWinUIFileDialogCancel(ActionUIWinUIFileDialogTask *task);
+// Frees the handle; the dialog, if still up, goes on and answers as before.
+ACTIONUI_WINUI_API void actionUIWinUIFileDialogRelease(ActionUIWinUIFileDialogTask *task);
+
 // The side of its element a flyout shows on.
 typedef enum ActionUIWinUIFlyoutPlacement {
     ActionUIWinUIFlyoutPlacementTop = 0,

@@ -1,13 +1,17 @@
 // Panels: the application's alert as a ContentDialog, the nested message loop that makes the C API's alert
 // call synchronous (as NSAlert.runModal on macOS, a nested GLib loop on Linux), and the system's file
-// dialogs (IFileOpenDialog, IFileSaveDialog), synchronous on their own.
+// dialogs (IFileOpenDialog, IFileSaveDialog): synchronous on their own, or each on a thread of its own for
+// a host that serves other work meanwhile.
 
 #include "ShimInternal.h"
 
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <mutex>
 #include <optional>
+#include <thread>
 #include <vector>
 
 #include <winrt/Microsoft.UI.Xaml.Controls.Primitives.h>  // ButtonBase's Click
@@ -160,7 +164,300 @@ char *copyUTF8(std::wstring const &text) {
     return copy;
 }
 
+// A file dialog's settings, copied from the C call's arguments: for a dialog shown at once
+// (actionUIWinUIFileDialogRun) or on a thread of its own (actionUIWinUIFileDialogBegin).
+struct FileDialogRequest {
+    ActionUIWinUIFileDialogKind kind = ActionUIWinUIFileDialogKindOpen;
+    bool multiple = false;
+    std::wstring title;
+    std::wstring okLabel;
+    std::wstring folder;
+    std::optional<std::wstring> fileName;
+    std::vector<std::wstring> filterNames;
+    std::vector<std::wstring> filterPatterns;
+    std::wstring defaultExtension;
+    bool strictTypes = false;
+
+    bool saving() const {
+        return kind == ActionUIWinUIFileDialogKindSave;
+    }
+};
+
+// The request the C arguments describe (see actionUIWinUIFileDialogRun); false, with an error recorded for
+// `where`, when they are malformed.
+bool readFileDialogRequest(const char *where, ActionUIWinUIFileDialogKind kind, bool multiple, const char *title,
+                           const char *okLabel, const char *folder, const char *fileName, const char *const *filterNames,
+                           const char *const *filterPatterns, int32_t filterCount, const char *defaultExtension,
+                           bool strictTypes, FileDialogRequest &request) {
+    if (filterCount < 0 || (filterCount > 0 && (filterNames == nullptr || filterPatterns == nullptr))) {
+        return fail(where, "the filters are missing");
+    }
+    request.kind = kind;
+    request.multiple = multiple;
+    if (title != nullptr) {
+        request.title = std::wstring(toHString(title));
+    }
+    if (okLabel != nullptr) {
+        request.okLabel = std::wstring(toHString(okLabel));
+    }
+    if (folder != nullptr) {
+        request.folder = backslashed(folder);
+    }
+    if (fileName != nullptr) {
+        request.fileName = std::wstring(toHString(fileName));
+    }
+    if (kind != ActionUIWinUIFileDialogKindOpenFolder) {
+        for (int32_t index = 0; index < filterCount; index++) {
+            if (filterNames[index] == nullptr || filterPatterns[index] == nullptr) {
+                return fail(where, "a filter's name or pattern is NULL");
+            }
+            request.filterNames.emplace_back(toHString(filterNames[index]));
+            request.filterPatterns.emplace_back(toHString(filterPatterns[index]));
+        }
+    }
+    if (defaultExtension != nullptr) {
+        request.defaultExtension = std::wstring(toHString(defaultExtension));
+    }
+    request.strictTypes = strictTypes;
+    return true;
+}
+
+// A new dialog set up as `request` asks, not shown. Throws on failure.
+winrt::com_ptr<IFileDialog> makeFileDialog(FileDialogRequest const &request) {
+    winrt::com_ptr<IFileDialog> dialog;
+    if (request.saving()) {
+        dialog = winrt::create_instance<IFileDialog>(__uuidof(FileSaveDialog), CLSCTX_INPROC_SERVER);
+    } else {
+        dialog = winrt::create_instance<IFileDialog>(__uuidof(FileOpenDialog), CLSCTX_INPROC_SERVER);
+    }
+    FILEOPENDIALOGOPTIONS options = 0;
+    winrt::check_hresult(dialog->GetOptions(&options));
+    // Paths only (no library or network item without one); the folder the program runs in stays.
+    options |= FOS_FORCEFILESYSTEM | FOS_NOCHANGEDIR | FOS_PATHMUSTEXIST;
+    if (request.saving()) {
+        options |= FOS_OVERWRITEPROMPT;
+        if (request.strictTypes) {
+            // The chosen filter's extension is added to a name with another one, before the dialog asks
+            // about replacing a file: it asks about the file saved.
+            options |= FOS_STRICTFILETYPES;
+        }
+    } else {
+        options |= FOS_FILEMUSTEXIST;
+        if (request.kind == ActionUIWinUIFileDialogKindOpenFolder) {
+            options |= FOS_PICKFOLDERS;
+        }
+        if (request.multiple) {
+            options |= FOS_ALLOWMULTISELECT;
+        }
+    }
+    winrt::check_hresult(dialog->SetOptions(options));
+    if (!request.title.empty()) {
+        winrt::check_hresult(dialog->SetTitle(request.title.c_str()));
+    }
+    if (!request.okLabel.empty()) {
+        winrt::check_hresult(dialog->SetOkButtonLabel(request.okLabel.c_str()));
+    }
+    if (!request.folder.empty()) {
+        winrt::com_ptr<IShellItem> start;
+        // A folder that is not there leaves the dialog where Windows would open it.
+        if (SUCCEEDED(SHCreateItemFromParsingName(request.folder.c_str(), nullptr, IID_PPV_ARGS(start.put())))) {
+            // A file, or an item the dialog refuses, leaves it there too.
+            dialog->SetFolder(start.get());
+        }
+    }
+    if (request.fileName.has_value()) {
+        winrt::check_hresult(dialog->SetFileName(request.fileName->c_str()));
+    }
+    if (!request.filterNames.empty()) {
+        std::vector<COMDLG_FILTERSPEC> specs;
+        for (size_t index = 0; index < request.filterNames.size(); index++) {
+            specs.push_back({request.filterNames[index].c_str(), request.filterPatterns[index].c_str()});
+        }
+        winrt::check_hresult(dialog->SetFileTypes(static_cast<UINT>(specs.size()), specs.data()));
+        winrt::check_hresult(dialog->SetFileTypeIndex(1));
+    }
+    if (!request.defaultExtension.empty()) {
+        winrt::check_hresult(dialog->SetDefaultExtension(request.defaultExtension.c_str()));
+    }
+    return dialog;
+}
+
+// The paths an answered `dialog` chose, one per line; empty when none has a path (FOS_FORCEFILESYSTEM leaves
+// none without one). Throws on failure.
+std::wstring chosenPaths(winrt::com_ptr<IFileDialog> const &dialog, FileDialogRequest const &request) {
+    std::wstring joined;
+    if (!request.saving() && request.multiple) {
+        winrt::com_ptr<IShellItemArray> items;
+        winrt::check_hresult(dialog.as<IFileOpenDialog>()->GetResults(items.put()));
+        DWORD count = 0;
+        winrt::check_hresult(items->GetCount(&count));
+        for (DWORD index = 0; index < count; index++) {
+            winrt::com_ptr<IShellItem> item;
+            winrt::check_hresult(items->GetItemAt(index, item.put()));
+            std::wstring path = pathOf(item.get());
+            if (path.empty()) {
+                continue;
+            }
+            if (!joined.empty()) {
+                joined += L'\n';
+            }
+            joined += path;
+        }
+    } else {
+        winrt::com_ptr<IShellItem> item;
+        winrt::check_hresult(dialog->GetResult(item.put()));
+        joined = pathOf(item.get());
+    }
+    return joined;
+}
+
+// A file dialog on a thread of its own (actionUIWinUIFileDialogBegin): what its handle's cancel, on the UI
+// thread, and the dialog's thread share.
+struct FileDialogTask {
+    std::mutex lock;
+    bool canceled = false;
+    // The dialog thread's message-only window while the dialog is shown (or about to be), else nullptr.
+    HWND messageWindow = nullptr;
+};
+
+// The answer of a dialog on its own thread, handed to the UI thread for its completion.
+struct FileDialogAnswer {
+    ActionUIWinUIFileDialogCompletion completion = nullptr;
+    void *context = nullptr;
+    // The chosen paths, one per line; empty: canceled.
+    std::wstring chosen;
+    // Why the dialog could not be shown; empty: it was.
+    std::string failure;
+};
+
+// Posted to the message-only window by a cancel; WM_TIMER with this ID tries again.
+constexpr UINT cancelDialogMessage = WM_APP + 1;
+constexpr UINT_PTR cancelRetryTimer = 1;
+constexpr wchar_t cancelWindowClassName[] = L"ActionUIWinUIFileDialogCancel";
+
+// Closes `dialog`, on screen, as its close button does: Show returns ERROR_CANCELLED. False when its window
+// is not up yet. IFileDialog::Close returns S_OK and leaves the dialog up (measured) when it is called from
+// anywhere but the dialog's own event callbacks.
+bool closeUnanswered(IFileDialog *dialog) {
+    winrt::com_ptr<IOleWindow> oleWindow;
+    HWND dialogWindow = nullptr;
+    if (dialog == nullptr || FAILED(dialog->QueryInterface(IID_PPV_ARGS(oleWindow.put()))) ||
+        FAILED(oleWindow->GetWindow(&dialogWindow)) || dialogWindow == nullptr) {
+        return false;
+    }
+    PostMessageW(dialogWindow, WM_CLOSE, 0, 0);
+    return true;
+}
+
+// The message-only window's procedure, on the dialog's thread, which Show's own message loop serves: closes
+// the dialog (GWLP_USERDATA) unanswered, and again every 50 ms until Show returns and the window goes (with
+// its timer). Again: the cancel can come while Show is still making the dialog, or while the dialog asks
+// something of its own (replace the file?), when it is disabled and may not take the close until the user
+// answers that.
+LRESULT CALLBACK cancelWindowProcedure(HWND window, UINT message, WPARAM wParam, LPARAM lParam) {
+    if (message == cancelDialogMessage || (message == WM_TIMER && wParam == cancelRetryTimer)) {
+        closeUnanswered(reinterpret_cast<IFileDialog *>(GetWindowLongPtrW(window, GWLP_USERDATA)));
+        if (message == cancelDialogMessage) {
+            SetTimer(window, cancelRetryTimer, 50, nullptr);
+        }
+        return 0;
+    }
+    return DefWindowProcW(window, message, wParam, lParam);
+}
+
+// This DLL's module, which registers the message-only window's class.
+HINSTANCE shimModule() {
+    HMODULE module = nullptr;
+    GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                       reinterpret_cast<LPCWSTR>(&cancelWindowProcedure), &module);
+    return module;
+}
+
+// Registers the message-only window's class, once for the process. False when it could not be.
+bool registerCancelWindowClass() {
+    static const bool registered = []() {
+        WNDCLASSEXW windowClass{};
+        windowClass.cbSize = sizeof(windowClass);
+        windowClass.lpfnWndProc = cancelWindowProcedure;
+        windowClass.hInstance = shimModule();
+        windowClass.lpszClassName = cancelWindowClassName;
+        return RegisterClassExW(&windowClass) != 0 || GetLastError() == ERROR_CLASS_ALREADY_EXISTS;
+    }();
+    return registered;
+}
+
+// The dialog's thread: its own single-threaded COM apartment (OLE's, for the file list's drag and drop and
+// clipboard), the dialog shown with no owner (its own
+// message loop runs until the user answers or a cancel closes it), and the answer handed to `queue`'s
+// thread for the completion.
+void runFileDialogTask(std::shared_ptr<FileDialogTask> task, FileDialogRequest request,
+                       dispatching::DispatcherQueue queue, std::shared_ptr<FileDialogAnswer> answer) {
+    HRESULT initialized = OleInitialize(nullptr);
+    try {
+        winrt::check_hresult(initialized);
+        winrt::com_ptr<IFileDialog> dialog = makeFileDialog(request);
+        if (!registerCancelWindowClass()) {
+            winrt::throw_last_error();
+        }
+        HWND window = CreateWindowExW(0, cancelWindowClassName, L"", 0, 0, 0, 0, 0, HWND_MESSAGE, nullptr,
+                                      shimModule(), nullptr);
+        if (window == nullptr) {
+            winrt::throw_last_error();
+        }
+        SetWindowLongPtrW(window, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(dialog.get()));
+        bool canceled = false;
+        {
+            std::lock_guard<std::mutex> guard(task->lock);
+            canceled = task->canceled;
+            if (!canceled) {
+                task->messageWindow = window;
+            }
+        }
+        HRESULT shown = canceled ? HRESULT_FROM_WIN32(ERROR_CANCELLED) : dialog->Show(nullptr);
+        {
+            // No cancel posts to the window after this.
+            std::lock_guard<std::mutex> guard(task->lock);
+            task->messageWindow = nullptr;
+        }
+        DestroyWindow(window);
+        if (shown != HRESULT_FROM_WIN32(ERROR_CANCELLED)) {
+            winrt::check_hresult(shown);
+            answer->chosen = chosenPaths(dialog, request);
+        }
+    } catch (winrt::hresult_error const &error) {
+        char code[16];
+        snprintf(code, sizeof(code), "0x%08X", static_cast<unsigned>(error.code()));
+        std::string message = winrt::to_string(error.message());
+        answer->failure = message.empty() ? std::string("the file dialog failed (") + code + ")"
+                                          : message + " (" + code + ")";
+    } catch (std::exception const &error) {
+        answer->failure = error.what();
+    } catch (...) {
+        answer->failure = "an unknown C++ exception";
+    }
+    try {
+        // Refused when the UI thread's queue is shutting down (the application ending): the completion
+        // does not run, and its context is not freed.
+        queue.TryEnqueue([answer]() {
+            std::string chosen = winrt::to_string(answer->chosen);
+            answer->completion(answer->context, answer->chosen.empty() ? nullptr : chosen.c_str(),
+                               answer->failure.empty() ? nullptr : answer->failure.c_str());
+        });
+    } catch (...) {
+    }
+    // Released while this thread is still in its apartment.
+    queue = nullptr;
+    if (SUCCEEDED(initialized)) {
+        OleUninitialize();
+    }
+}
+
 } // namespace
+
+// A handle on a file dialog shown on a thread of its own (actionUIWinUIFileDialogBegin).
+struct ActionUIWinUIFileDialogTask {
+    std::shared_ptr<FileDialogTask> task;
+};
 
 extern "C" {
 
@@ -401,79 +698,17 @@ bool actionUIWinUIFileDialogRun(ActionUIWinUIObject *owner, ActionUIWinUIFileDia
             return fail("file dialog run", "the answer's pointer is NULL");
         }
         *chosen = nullptr;
-        if (filterCount < 0 || (filterCount > 0 && (filterNames == nullptr || filterPatterns == nullptr))) {
-            return fail("file dialog run", "the filters are missing");
+        FileDialogRequest request;
+        if (!readFileDialogRequest("file dialog run", kind, multiple, title, okLabel, folder, fileName, filterNames,
+                                   filterPatterns, filterCount, defaultExtension, strictTypes, request)) {
+            return false;
         }
         HWND ownerWindow = nullptr;
         if (owner != nullptr) {
             mux::Window window = objectAs<mux::Window>(owner, L"Window");
             winrt::check_hresult(window.as<::IWindowNative>()->get_WindowHandle(&ownerWindow));
         }
-        bool saving = kind == ActionUIWinUIFileDialogKindSave;
-        winrt::com_ptr<IFileDialog> dialog;
-        if (saving) {
-            dialog = winrt::create_instance<IFileDialog>(__uuidof(FileSaveDialog), CLSCTX_INPROC_SERVER);
-        } else {
-            dialog = winrt::create_instance<IFileDialog>(__uuidof(FileOpenDialog), CLSCTX_INPROC_SERVER);
-        }
-        FILEOPENDIALOGOPTIONS options = 0;
-        winrt::check_hresult(dialog->GetOptions(&options));
-        // Paths only (no library or network item without one); the folder the program runs in stays.
-        options |= FOS_FORCEFILESYSTEM | FOS_NOCHANGEDIR | FOS_PATHMUSTEXIST;
-        if (saving) {
-            options |= FOS_OVERWRITEPROMPT;
-            if (strictTypes) {
-                // The chosen filter's extension is added to a name with another one, before the dialog asks
-                // about replacing a file: it asks about the file saved.
-                options |= FOS_STRICTFILETYPES;
-            }
-        } else {
-            options |= FOS_FILEMUSTEXIST;
-            if (kind == ActionUIWinUIFileDialogKindOpenFolder) {
-                options |= FOS_PICKFOLDERS;
-            }
-            if (multiple) {
-                options |= FOS_ALLOWMULTISELECT;
-            }
-        }
-        winrt::check_hresult(dialog->SetOptions(options));
-        if (title != nullptr && title[0] != '\0') {
-            winrt::check_hresult(dialog->SetTitle(toHString(title).c_str()));
-        }
-        if (okLabel != nullptr && okLabel[0] != '\0') {
-            winrt::check_hresult(dialog->SetOkButtonLabel(toHString(okLabel).c_str()));
-        }
-        if (folder != nullptr && folder[0] != '\0') {
-            winrt::com_ptr<IShellItem> start;
-            // A folder that is not there leaves the dialog where Windows would open it.
-            if (SUCCEEDED(SHCreateItemFromParsingName(backslashed(folder).c_str(), nullptr, IID_PPV_ARGS(start.put())))) {
-                // A file, or an item the dialog refuses, leaves it there too.
-                dialog->SetFolder(start.get());
-            }
-        }
-        if (fileName != nullptr) {
-            winrt::check_hresult(dialog->SetFileName(toHString(fileName).c_str()));
-        }
-        if (filterCount > 0 && kind != ActionUIWinUIFileDialogKindOpenFolder) {
-            std::vector<std::wstring> names;
-            std::vector<std::wstring> patterns;
-            for (int32_t index = 0; index < filterCount; index++) {
-                if (filterNames[index] == nullptr || filterPatterns[index] == nullptr) {
-                    return fail("file dialog run", "a filter's name or pattern is NULL");
-                }
-                names.emplace_back(toHString(filterNames[index]));
-                patterns.emplace_back(toHString(filterPatterns[index]));
-            }
-            std::vector<COMDLG_FILTERSPEC> specs;
-            for (int32_t index = 0; index < filterCount; index++) {
-                specs.push_back({names[index].c_str(), patterns[index].c_str()});
-            }
-            winrt::check_hresult(dialog->SetFileTypes(static_cast<UINT>(specs.size()), specs.data()));
-            winrt::check_hresult(dialog->SetFileTypeIndex(1));
-        }
-        if (defaultExtension != nullptr && defaultExtension[0] != '\0') {
-            winrt::check_hresult(dialog->SetDefaultExtension(toHString(defaultExtension).c_str()));
-        }
+        winrt::com_ptr<IFileDialog> dialog = makeFileDialog(request);
         g_fileDialogs.push_back({dialog.get(), ownerWindow});
         HRESULT shown = dialog->Show(ownerWindow);
         for (auto iterator = g_fileDialogs.begin(); iterator != g_fileDialogs.end(); ++iterator) {
@@ -486,29 +721,7 @@ bool actionUIWinUIFileDialogRun(ActionUIWinUIObject *owner, ActionUIWinUIFileDia
             return true;
         }
         winrt::check_hresult(shown);
-        std::wstring joined;
-        if (!saving && multiple) {
-            winrt::com_ptr<IShellItemArray> items;
-            winrt::check_hresult(dialog.as<IFileOpenDialog>()->GetResults(items.put()));
-            DWORD count = 0;
-            winrt::check_hresult(items->GetCount(&count));
-            for (DWORD index = 0; index < count; index++) {
-                winrt::com_ptr<IShellItem> item;
-                winrt::check_hresult(items->GetItemAt(index, item.put()));
-                std::wstring path = pathOf(item.get());
-                if (path.empty()) {
-                    continue;
-                }
-                if (!joined.empty()) {
-                    joined += L'\n';
-                }
-                joined += path;
-            }
-        } else {
-            winrt::com_ptr<IShellItem> item;
-            winrt::check_hresult(dialog->GetResult(item.put()));
-            joined = pathOf(item.get());
-        }
+        std::wstring joined = chosenPaths(dialog, request);
         if (joined.empty()) {
             // Chosen, but nothing with a path: as canceled.
             return true;
@@ -530,11 +743,58 @@ void actionUIWinUIFileDialogsClose(ActionUIWinUIObject *owner) {
         }
         for (OpenFileDialog const &open : g_fileDialogs) {
             if (owner == nullptr || open.owner == ownerWindow) {
-                open.dialog->Close(HRESULT_FROM_WIN32(ERROR_CANCELLED));
+                closeUnanswered(open.dialog);
             }
         }
         return true;
     });
+}
+
+ActionUIWinUIFileDialogTask *actionUIWinUIFileDialogBegin(ActionUIWinUIFileDialogKind kind, bool multiple, const char *title,
+                                                          const char *okLabel, const char *folder, const char *fileName,
+                                                          const char *const *filterNames, const char *const *filterPatterns,
+                                                          int32_t filterCount, const char *defaultExtension, bool strictTypes,
+                                                          ActionUIWinUIFileDialogCompletion completion, void *context) {
+    ActionUIWinUIFileDialogTask *handle = nullptr;
+    guarded("file dialog begin", [&]() {
+        if (completion == nullptr) {
+            return fail("file dialog begin", "the completion is NULL");
+        }
+        FileDialogRequest request;
+        if (!readFileDialogRequest("file dialog begin", kind, multiple, title, okLabel, folder, fileName, filterNames,
+                                   filterPatterns, filterCount, defaultExtension, strictTypes, request)) {
+            return false;
+        }
+        dispatching::DispatcherQueue queue = currentQueue();
+        auto task = std::make_shared<FileDialogTask>();
+        auto answer = std::make_shared<FileDialogAnswer>();
+        answer->completion = completion;
+        answer->context = context;
+        auto owned = std::make_unique<ActionUIWinUIFileDialogTask>();
+        owned->task = task;
+        std::thread(runFileDialogTask, task, std::move(request), queue, answer).detach();
+        handle = owned.release();
+        return true;
+    });
+    return handle;
+}
+
+void actionUIWinUIFileDialogCancel(ActionUIWinUIFileDialogTask *task) {
+    guarded("file dialog cancel", [&]() {
+        if (task == nullptr) {
+            return fail("file dialog cancel", "the dialog is NULL");
+        }
+        std::lock_guard<std::mutex> guard(task->task->lock);
+        task->task->canceled = true;
+        if (task->task->messageWindow != nullptr) {
+            PostMessageW(task->task->messageWindow, cancelDialogMessage, 0, 0);
+        }
+        return true;
+    });
+}
+
+void actionUIWinUIFileDialogRelease(ActionUIWinUIFileDialogTask *task) {
+    delete task;
 }
 
 } // extern "C"

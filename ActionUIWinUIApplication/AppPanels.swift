@@ -27,6 +27,11 @@
  one presented last, else to none; it runs its own message loop, so the application runs underneath, and
  it is canceled (nil) when its window closes or the application terminates.
 
+ beginOpenPanel and beginSavePanel do not wait, for a host that serves other work meanwhile, as
+ NSOpenPanel's begin does: they return at once and a closure gets the answer. Each dialog runs on a thread
+ of its own, with no owner window, so nothing nests: several can be up at a time and each answers when its
+ user does. They are canceled when the application terminates.
+
  Called before the application runs, each logs why and answers nil.
 */
 
@@ -202,6 +207,28 @@ struct FilePanelRequest: Equatable {
         return filters
     }
 
+    /// The shim's kind of dialog for the mode.
+    var dialogKind: ActionUIWinUIFileDialogKind {
+        switch mode {
+        case .open: ActionUIWinUIFileDialogKindOpen
+        case .openFolders: ActionUIWinUIFileDialogKindOpenFolder
+        case .save: ActionUIWinUIFileDialogKindSave
+        }
+    }
+
+    /// Extensions forced on a saved name when only the allowed types may be saved.
+    var strictTypes: Bool {
+        mode == .save && !allowsOtherTypes && !extensions.isEmpty
+    }
+
+    /// The paths in the shim's answer (one per line), saved paths with their extension (savedPath); nil
+    /// when there are none.
+    func paths(chosen: String) -> [String]? {
+        let paths = chosen.split(separator: "\n").map(String.init)
+        guard !paths.isEmpty else { return nil }
+        return mode == .save ? paths.map(savedPath) : paths
+    }
+
     /// The saved path with the first allowed extension added when it has none of them, as NSSavePanel
     /// does; unchanged when other types are allowed or any file is.
     func savedPath(_ path: String) -> String {
@@ -217,8 +244,42 @@ struct FilePanelRequest: Equatable {
 
 // MARK: - Running them
 
+/// A file panel on screen, from AppPanels.beginOpenPanel or beginSavePanel.
 @MainActor
-enum AppPanels {
+public final class FilePanel {
+    /// The shim's dialog; nil once the panel has answered (or never showed).
+    fileprivate var task: OpaquePointer?
+    fileprivate let request: FilePanelRequest
+    private var completion: (@MainActor ([String]?) -> Void)?
+
+    fileprivate init(request: FilePanelRequest, completion: @escaping @MainActor ([String]?) -> Void) {
+        self.request = request
+        self.completion = completion
+    }
+
+    /// Closes the panel unanswered: its closure runs with nil, from the main loop. Nothing happens once the
+    /// panel has answered.
+    public func cancel() {
+        if let task {
+            actionUIWinUIFileDialogCancel(task)
+        }
+    }
+
+    /// The answer: frees the dialog's handle and runs the closure, once.
+    fileprivate func finish(_ paths: [String]?) {
+        if let task {
+            actionUIWinUIFileDialogRelease(task)
+            self.task = nil
+        }
+        AppPanels.forget(self)
+        let completion = self.completion
+        self.completion = nil
+        completion?(paths)
+    }
+}
+
+@MainActor
+public enum AppPanels {
     /// An alert waiting for its answer.
     @MainActor private final class OpenAlert {
         /// The window it is over (its own, or an ActionUI window).
@@ -268,6 +329,84 @@ enum AppPanels {
         runFilePanel(FilePanelRequest(json: json, saving: true))?.first
     }
 
+    /// Whether `entry` names a file type the panels know: an extension, a MIME type or a common uniform type
+    /// identifier (one of any file counts).
+    public nonisolated static func knowsFileType(_ entry: String) -> Bool {
+        FilePanelRequest.extensions(entry) != []
+    }
+
+    /// Shows an open panel and returns at once. `completion` runs from the main loop with the chosen
+    /// paths, or nil when the panel was canceled (or could not be shown: logged). If the application
+    /// terminates, the panel is canceled and `completion` runs only if the main loop runs again.
+    @discardableResult
+    public static func beginOpenPanel(json: String?, completion: @escaping @MainActor ([String]?) -> Void) -> FilePanel {
+        beginFilePanel(FilePanelRequest(json: json, saving: false), completion: completion)
+    }
+
+    /// Shows a save panel and returns at once. `completion` gets the chosen path, as in beginOpenPanel.
+    @discardableResult
+    public static func beginSavePanel(json: String?, completion: @escaping @MainActor (String?) -> Void) -> FilePanel {
+        beginFilePanel(FilePanelRequest(json: json, saving: true)) { completion($0?.first) }
+    }
+
+    /// The panels begun and not answered yet, canceled when the application terminates.
+    private static var begun: [FilePanel] = []
+
+    fileprivate static func forget(_ panel: FilePanel) {
+        begun.removeAll { $0 === panel }
+    }
+
+    static func beginFilePanel(_ request: FilePanelRequest, completion: @escaping @MainActor ([String]?) -> Void) -> FilePanel {
+        let panel = FilePanel(request: request, completion: completion)
+        let logger = ActionUIModel.shared.logger
+        let function = request.mode == .save ? "beginSavePanel" : "beginOpenPanel"
+        guard WinUIApplication.shared.hasStarted else {
+            logger.log("\(function): call it while the application runs (from didFinishLaunching on)", .error)
+            Task { @MainActor in panel.finish(nil) }
+            return panel
+        }
+        let filters = request.filters
+        let names = CStrings(filters.map(\.name))
+        let patterns = CStrings(filters.map(\.pattern))
+        let context = Unmanaged.passRetained(panel).toOpaque()
+        let task = withExtendedLifetime((names, patterns)) {
+            names.pointers.withUnsafeBufferPointer { nameBuffer in
+                patterns.pointers.withUnsafeBufferPointer { patternBuffer in
+                    actionUIWinUIFileDialogBegin(request.dialogKind, request.multiple, request.title, request.acceptLabel,
+                                                 request.initialFolder, request.initialName, nameBuffer.baseAddress,
+                                                 patternBuffer.baseAddress, Int32(filters.count),
+                                                 request.mode == .save ? request.extensions.first : nil,
+                                                 request.strictTypes, fileDialogAnswered, context)
+                }
+            }
+        }
+        guard let task else {
+            Unmanaged<FilePanel>.fromOpaque(context).release()
+            logger.log("\(function): \(WinUIError.last("showing the file dialog"))", .error)
+            Task { @MainActor in panel.finish(nil) }
+            return panel
+        }
+        panel.task = task
+        begun.append(panel)
+        return panel
+    }
+
+    /// A begun dialog's answer, on the UI thread, once: the context holds its panel (retained by
+    /// beginFilePanel for the dialog).
+    private static let fileDialogAnswered: ActionUIWinUIFileDialogCompletion = { context, chosen, failure in
+        guard let context else { return }
+        let panel = Unmanaged<FilePanel>.fromOpaque(context).takeRetainedValue()
+        let text = chosen.map { String(cString: $0) }
+        let problem = failure.map { String(cString: $0) }
+        MainActor.assumeIsolated {
+            if let problem {
+                let function = panel.request.mode == .save ? "beginSavePanel" : "beginOpenPanel"
+                ActionUIModel.shared.logger.log("\(function): showing the file dialog: \(problem)", .error)
+            }
+            panel.finish(text.flatMap { panel.request.paths(chosen: $0) })
+        }
+    }
+
     /// The JSON's top-level object; empty for nil or anything else.
     nonisolated static func dictionary(_ json: String?) -> [String: Any] {
         guard let json, let parsed = try? ActionUIJSON.value(from: json) as? [String: Any] else { return [:] }
@@ -288,6 +427,9 @@ enum AppPanels {
             alert.dismiss()
         }
         actionUIWinUIFileDialogsClose(nil)
+        for panel in begun {
+            panel.cancel()
+        }
     }
 
     static func runAlert(_ request: AlertRequest) -> String? {
@@ -348,24 +490,18 @@ enum AppPanels {
             return nil
         }
         let owner = WinUIApplication.shared.panelOwner()?.window
-        let kind: ActionUIWinUIFileDialogKind = switch request.mode {
-        case .open: ActionUIWinUIFileDialogKindOpen
-        case .openFolders: ActionUIWinUIFileDialogKindOpenFolder
-        case .save: ActionUIWinUIFileDialogKindSave
-        }
         let filters = request.filters
         let names = CStrings(filters.map(\.name))
         let patterns = CStrings(filters.map(\.pattern))
         var chosen: UnsafeMutablePointer<CChar>?
-        // Extensions forced on a saved name when only the allowed types may be saved.
-        let strict = request.mode == .save && !request.allowsOtherTypes && !request.extensions.isEmpty
         let shown = withExtendedLifetime((names, patterns)) {
             names.pointers.withUnsafeBufferPointer { nameBuffer in
                 patterns.pointers.withUnsafeBufferPointer { patternBuffer in
-                    actionUIWinUIFileDialogRun(owner?.pointer, kind, request.multiple, request.title, request.acceptLabel,
-                                               request.initialFolder, request.initialName, nameBuffer.baseAddress,
-                                               patternBuffer.baseAddress, Int32(filters.count),
-                                               request.mode == .save ? request.extensions.first : nil, strict, &chosen)
+                    actionUIWinUIFileDialogRun(owner?.pointer, request.dialogKind, request.multiple, request.title,
+                                               request.acceptLabel, request.initialFolder, request.initialName,
+                                               nameBuffer.baseAddress, patternBuffer.baseAddress, Int32(filters.count),
+                                               request.mode == .save ? request.extensions.first : nil, request.strictTypes,
+                                               &chosen)
                 }
             }
         }
@@ -375,9 +511,7 @@ enum AppPanels {
         }
         guard let chosen else { return nil }
         defer { actionUIWinUIFreeString(chosen) }
-        let paths = String(cString: chosen).split(separator: "\n").map(String.init)
-        guard !paths.isEmpty else { return nil }
-        return request.mode == .save ? paths.map(request.savedPath) : paths
+        return request.paths(chosen: String(cString: chosen))
     }
 
     /// The alert over the window `content` is in; nil when it cannot be shown there (no error logged:
