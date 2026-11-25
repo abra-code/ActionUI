@@ -6,8 +6,8 @@ package com.abracode.actionui.Common
  * `ActionUIModel.presentModal` / `dismissModal` and rendered by
  * [com.abracode.actionui.Helpers.WindowModalHost].
  *
- * Unlike a [WindowDialog] (pure title / message / buttons), a modal loads a JSON
- * sub-document, registers its [ViewModel]s into the window pool so the value / state
+ * Unlike a [WindowDialog] (pure title / message / buttons), a modal loads
+ * nested JSON, registers its [ViewModel]s into the window pool so the value / state
  * API reaches the modal's controls, and removes exactly those on dismiss.
  */
 

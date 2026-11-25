@@ -11,7 +11,7 @@ import kotlinx.serialization.json.contentOrNull
 /**
  * The provider-independent half of the `Map` element: Apple's JSON contract
  * (`ActionUI/Views/Map.swift`), validated once here so every Map provider
- * module renders the same documents identically.
+ * module renders the same JSON files identically.
  *
  * The element itself does NOT ship in the core library - a map engine is
  * distribution baggage for clients that never show one. Instead a client

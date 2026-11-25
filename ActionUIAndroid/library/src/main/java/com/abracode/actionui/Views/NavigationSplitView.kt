@@ -444,7 +444,7 @@ private fun DetailPane(
 /**
  * A pane carries its own navigation chrome when its root element declares a
  * `toolbar` or a `navigationTitle` - the same test [hasRootToolbarChrome] applies
- * at the document root and `NavigationStack` applies per screen. Pure, so it is
+ * at the JSON root and `NavigationStack` applies per screen. Pure, so it is
  * unit-testable.
  */
 internal fun paneHasChrome(element: ActionUIElement): Boolean =

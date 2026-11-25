@@ -2,7 +2,7 @@
   "type": "VStack",
   "properties": { "spacing": 12, "padding": 16, "alignment": "leading" },
   "children": [
-    { "type": "Text", "properties": { "text": "Window-level modals load a JSON sub-document and present it over the screen. The host calls ActionUIModel.presentModal (sheet or fullScreenCover); the modal's Close button routes an actionID back to dismissModal.", "font": "headline" } },
+    { "type": "Text", "properties": { "text": "Window-level modals load nested JSON and present it over the screen. The host calls ActionUIModel.presentModal (sheet or fullScreenCover); the modal's Close button routes an actionID back to dismissModal.", "font": "headline" } },
     {
       "type": "Button",
       "id": 1,

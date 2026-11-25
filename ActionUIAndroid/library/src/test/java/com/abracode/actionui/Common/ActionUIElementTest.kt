@@ -21,7 +21,7 @@ class ActionUIElementTest {
 
     @Test
     fun `tolerates trailing commas like Apple's Foundation parser`() {
-        // Documents authored against the Swift framework may carry trailing
+        // ActionUI JSON authored against the Swift framework may carry trailing
         // commas (Foundation accepts them; the verifier strips them). The
         // shared config must decode them identically - see ActionUIJson.
         val element = decode(

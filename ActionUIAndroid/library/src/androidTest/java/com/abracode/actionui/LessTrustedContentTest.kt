@@ -32,9 +32,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * A document a LoadableView loads from a file outside the app's resources is less trusted,
+ * ActionUI JSON that a LoadableView loads from a file outside the app's resources is less trusted,
  * and so is everything in it: its Link opens no file address, its WebView shows no local
- * file, and it may not use the id of a trusted element. The host's own document is not held
+ * file, and it may not use the id of a trusted element. The host's own JSON is not held
  * to those rules.
  */
 @RunWith(AndroidJUnit4::class)
@@ -69,13 +69,13 @@ class LessTrustedContentTest {
 
     @Test
     fun jsonFromAFileHasItsLinkAndWebViewHeldToTheLessTrustedRules() {
-        val document = file("remote-like.json", """{ "type": "VStack", "id": 20, "children": [
+        val jsonFile = file("remote-like.json", """{ "type": "VStack", "id": 20, "children": [
             { "type": "Link", "id": 21, "properties": { "title": "Open the file", "url": "file:///sdcard/Download/a.pdf" } },
             { "type": "WebView", "id": 22, "properties": { "url": "file:///sdcard/Download/a.html" } } ] }""")
         rule.setContent {
             ActionUI.Render(
                 """{ "type": "VStack", "id": 1, "children": [
-                    { "type": "LoadableView", "id": 2, "properties": { "filePath": "${document.path}" } } ] }""",
+                    { "type": "LoadableView", "id": 2, "properties": { "filePath": "${jsonFile.path}" } } ] }""",
                 logger = logger,
                 windowUUID = window,
             )
@@ -94,11 +94,11 @@ class LessTrustedContentTest {
 
     @Test
     fun jsonFromAFileMayNotUseATrustedElementsId() {
-        val document = file("taken-id.json", """{ "type": "Text", "id": 1, "properties": { "text": "Pretends to be the root" } }""")
+        val jsonFile = file("taken-id.json", """{ "type": "Text", "id": 1, "properties": { "text": "Pretends to be the root" } }""")
         rule.setContent {
             ActionUI.Render(
                 """{ "type": "VStack", "id": 1, "children": [
-                    { "type": "LoadableView", "id": 2, "properties": { "filePath": "${document.path}" } } ] }""",
+                    { "type": "LoadableView", "id": 2, "properties": { "filePath": "${jsonFile.path}" } } ] }""",
                 logger = logger,
                 windowUUID = window,
             )
@@ -114,7 +114,7 @@ class LessTrustedContentTest {
             val bitmap = android.graphics.Bitmap.createBitmap(2, 2, android.graphics.Bitmap.Config.ARGB_8888)
             outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
         }
-        val document = file("pictures.json", """{ "type": "VStack", "id": 20, "children": [
+        val jsonFile = file("pictures.json", """{ "type": "VStack", "id": 20, "children": [
             { "type": "Image", "id": 21, "properties": { "filePath": "${picture.path}" } },
             { "type": "AsyncImage", "id": 22, "properties": { "url": "file://${picture.path}" } },
             { "type": "VideoPlayer", "id": 23, "properties": { "url": "content://media/external/video/media/1" } } ] }""")
@@ -122,7 +122,7 @@ class LessTrustedContentTest {
             ActionUI.Render(
                 """{ "type": "VStack", "id": 1, "children": [
                     { "type": "Image", "id": 2, "properties": { "filePath": "${picture.path}" } },
-                    { "type": "LoadableView", "id": 3, "properties": { "filePath": "${document.path}" } } ] }""",
+                    { "type": "LoadableView", "id": 3, "properties": { "filePath": "${jsonFile.path}" } } ] }""",
                 logger = logger,
                 windowUUID = window,
             )
@@ -138,13 +138,13 @@ class LessTrustedContentTest {
 
     @Test
     fun jsonFromAFileTitlesNoScreenAndPresentsNoPopover() {
-        val document = file("chrome.json", """{ "type": "NavigationStack", "id": 20,
+        val jsonFile = file("chrome.json", """{ "type": "NavigationStack", "id": 20,
             "content": { "type": "VStack", "id": 21, "properties": { "navigationTitle": "Bank sign-in" }, "children": [
                 { "type": "Text", "id": 22, "properties": { "text": "Tap for more" },
                   "popover": { "type": "Text", "id": 23, "properties": { "text": "Enter your password" } } } ] } }""")
         rule.setContent {
             ActionUI.Render(
-                """{ "type": "LoadableView", "id": 1, "properties": { "filePath": "${document.path}" } }""",
+                """{ "type": "LoadableView", "id": 1, "properties": { "filePath": "${jsonFile.path}" } }""",
                 logger = logger,
                 windowUUID = window,
             )
@@ -220,8 +220,8 @@ class LessTrustedContentTest {
 
     @Test
     fun aWindowJSONFromAFilePresentsNoSheet() {
-        val document = file("sheet.json", sheetJSON)
-        rule.setContent { ActionUI.RenderSource(document.path, logger = logger, windowUUID = window) }
+        val jsonFile = file("sheet.json", sheetJSON)
+        rule.setContent { ActionUI.RenderSource(jsonFile.path, logger = logger, windowUUID = window) }
         rule.waitForIdle()
         rule.onNodeWithText("Open the sheet").performClick()
         rule.waitForIdle()
@@ -255,7 +255,7 @@ class LessTrustedContentTest {
         val recorder = object : UriHandler {
             override fun openUri(uri: String) { opened += uri }
         }
-        val document = file("links.json", """{ "type": "VStack", "id": 20, "children": [
+        val jsonFile = file("links.json", """{ "type": "VStack", "id": 20, "children": [
             { "type": "UriProbe", "properties": { "url": "tel:123" } },
             { "type": "UriProbe", "properties": { "url": "https://example.com/" } } ] }""")
         rule.setContent {
@@ -263,7 +263,7 @@ class LessTrustedContentTest {
                 ActionUI.Render(
                     """{ "type": "VStack", "id": 1, "children": [
                         { "type": "UriProbe", "properties": { "url": "tel:456" } },
-                        { "type": "LoadableView", "id": 2, "properties": { "filePath": "${document.path}" } } ] }""",
+                        { "type": "LoadableView", "id": 2, "properties": { "filePath": "${jsonFile.path}" } } ] }""",
                     logger = logger,
                     windowUUID = window,
                 )

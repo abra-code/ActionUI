@@ -13,7 +13,7 @@ import com.abracode.actionui.Helpers.isNavigationContainer
  * `WindowModel` (`ActionUI/Common/WindowModel.swift`), trimmed to what the
  * Android renderer can actually drive today.
  *
- * `ActionUI.Render` builds one of these per document (via
+ * `ActionUI.Render` builds one of these per window JSON (via
  * [ActionUIModel.loadDescription]) and exposes it to the element tree through
  * [LocalWindowModel], so a value-bearing builder can find *its* [ViewModel] by
  * `viewModels[element.id]`. Because the [ViewModel] fields are Compose snapshot
@@ -57,7 +57,7 @@ class WindowModel(
     /**
      * Maps a LoadableView's id to the ids its loaded content merged into [viewModels].
      * Mirrors Swift's `loadedSubViewIDs`: a reload removes the content's own models
-     * first, so a new document reusing an id gets a fresh model of its own type, and
+     * first, so new JSON reusing an id gets a fresh model of its own type, and
      * an id that collided with another element's is not recorded, so a reload never
      * removes that element's model.
      */
@@ -130,7 +130,7 @@ class WindowModel(
      * Adopts [root] as the window's element and (re)builds the [ViewModel] pool
      * from it, seeding each value-bearing element's initial value. Mirrors the
      * Swift `loadDescription`, minus the decoding (the caller decodes). [origin] is where
-     * the document came from; null for the host's own.
+     * the JSON came from; null for the host's own.
      */
     fun loadDescription(root: ActionUIElement, origin: JSONContentOrigin? = null): ActionUIElement {
         element = root
@@ -158,7 +158,7 @@ class WindowModel(
      * a parent control's value. When [parentID] (the LoadableView's own id) is not 0,
      * the models its previous content merged are removed first and the ids merged
      * now are recorded as its own. Unlike [loadDescription] it does not touch
-     * [element] (the window root stays the originally-loaded document). [origin] is where
+     * [element] (the window root stays the originally-loaded JSON). [origin] is where
      * the sub-tree came from (null: the host's). Returns [subRoot]. Throws
      * [SubViewRefusedException], merging nothing, when less-trusted content uses the id of a
      * trusted element already in the window.
@@ -172,7 +172,7 @@ class WindowModel(
         populateViewModels(subRoot, into = subViewModels, origin = origin)
         // Less-trusted content may not share an id with a trusted element already in the window:
         // its element would be drawn with that element's view model and read as trusted. Sharing
-        // an id with content as little trusted (two LoadableViews showing one document) gains nothing.
+        // an id with content as little trusted (two LoadableViews showing one JSON) gains nothing.
         // Its templates' ids count too: a template row's elements get no view model, but keep the
         // ids their JSON gives them, and a container may find a row's child by its id.
         if (origin?.trust == JSONContentOrigin.Trust.LESS_TRUSTED) {
@@ -258,7 +258,7 @@ class WindowModel(
     }
 
     /**
-     * Merges a modal sub-document [modalRoot] into this window's [ViewModel] pool and
+     * Merges the nested JSON [modalRoot] of a modal into this window's [ViewModel] pool and
      * returns the set of element ids it **newly added**, so the caller
      * ([ActionUIModel.dismissModal]) can remove exactly those on dismiss. Ids that
      * collide with existing pool entries are skipped (with a warning) and excluded
@@ -302,7 +302,7 @@ class WindowModel(
         // Only positive ids register - Apple's documented contract ("non-zero
         // positive integer for runtime programmatic interaction"). Elements
         // without an id default to 0 and would all collide on one map key,
-        // last-one-wins: every id-less value control in the document would then
+        // last-one-wins: every id-less value control in the JSON would then
         // bind to the same ViewModel and read the last element's seeded value
         // (three id-less AsyncImages all loading the last one's url). Id-less
         // controls instead take their local-state fallback path.
@@ -329,7 +329,7 @@ class WindowModel(
         // `persistentToolbar`: it was never a screen toolbar on any platform, and the hosts
         // disagreed about what to do with it (Android simply never read it). Warned here
         // because this walk visits every element exactly once per load - so once per
-        // document, and once more when a sub- or modal description brings in another one.
+        // JSON, and once more when a sub- or modal description brings in another one.
         if (isNavigationContainer(element.type) && !element.toolbar.isNullOrEmpty()) {
             logger.log(
                 "Deprecated: 'toolbar' on ${element.type} (id ${element.id}, window $windowUUID) is treated as " +

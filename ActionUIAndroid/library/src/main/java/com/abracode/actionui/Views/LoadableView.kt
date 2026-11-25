@@ -53,14 +53,14 @@ import kotlinx.serialization.json.Json
 /**
  * Loads a JSON UI description from a source and renders it inline - the Android
  * port of the Apple `LoadableView` element (`ActionUI/Views/LoadableView.swift`),
- * a "dynamic include" that fetches a sub-document and renders it as a nested
+ * a "dynamic include" that fetches nested JSON and renders it as a nested
  * `ActionUIView`.
  *
  * **Sources** (Apple's `url` > `filePath` > `name` priority, resolved by
  * [resolveLoadableSource]; the active source is also the element's runtime
  * [ActionUIValueType.STRING] value, so a host can swap it via
  * `ActionUIModel.setElementValue`):
- *   * `url` - a remote `http(s)` document, fetched **asynchronously** off the main
+ *   * `url` - a remote `http(s)` JSON file, fetched **asynchronously** off the main
  *     thread with a [CircularProgressIndicator] while in flight and an error
  *     message on failure. Mirrors Apple's async `RemoteLoadableView`. Requires the
  *     `INTERNET` permission (declared in the library manifest).
@@ -84,7 +84,7 @@ import kotlinx.serialization.json.Json
  * to the source, so a recomposition for the same source does not re-fire), matching
  * Apple's dedup.
  *
- * **Nesting:** a source that a LoadableView around this one already shows (a document
+ * **Nesting:** a source that a LoadableView around this one already shows (JSON
  * that loads itself, directly or through others), or one nested more than 16 deep, is
  * refused with "Failed to load view: ..." in the error color, by the same rule as Apple's
  * `LoadableNestingGuard` ([loadableNestingRefusal]). The sources of the LoadableViews
@@ -102,7 +102,7 @@ object LoadableView : ActionUIViewConstruction {
     override fun initialValue(element: ActionUIElement): Any? =
         resolveLoadableSource(null, element.properties) ?: ""
 
-    // Shared document decoder config (Foundation-leniency parity; see Common/ActionUIJson).
+    // Shared JSON decoder config (Foundation-leniency parity; see Common/ActionUIJson).
     private val json: Json = ActionUIJson
 
     @Composable

@@ -6,7 +6,7 @@ package com.abracode.actionui.Common
  * `ActionUIModel.presentAlert` / `presentConfirmationDialog` / `dismissDialog` and
  * rendered by [com.abracode.actionui.Helpers.WindowDialogHost].
  *
- * The *modal* half (`sheet` / `fullScreenCover`, which load a JSON sub-document)
+ * The *modal* half (`sheet` / `fullScreenCover`, which load nested JSON)
  * lands separately.
  */
 

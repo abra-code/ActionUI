@@ -120,7 +120,7 @@ object ActionUIModel {
      */
     var logger: ActionUILogger = ConsoleLogger(ConsoleLogger.defaultMaxLevel)
 
-    /** Decoder for modal sub-documents passed to [presentModal] (shared config; see [ActionUIJson]). */
+    /** Decoder for modal nested JSON passed to [presentModal] (shared config; see [ActionUIJson]). */
     private val json: Json = ActionUIJson
 
     /**
@@ -334,7 +334,7 @@ object ActionUIModel {
      * window's [WindowModel] and [ViewModel] pool and registers it so the value /
      * state API can resolve element ids. Mirrors the Swift
      * `loadDescription(from:windowUUID:)`. `ActionUI.Render` calls this once per
-     * document. Returns the populated [WindowModel].
+     * JSON. Returns the populated [WindowModel].
      */
     fun loadDescription(
         root: ActionUIElement,
@@ -423,18 +423,18 @@ object ActionUIModel {
     // MARK: - Window-level modals (sheet / fullScreenCover)
     //
     // The Android port of the Swift `presentModal` / `dismissModal` surface. Unlike
-    // a dialog (pure data), a modal loads a JSON sub-document, merges its ViewModels
+    // a dialog (pure data), a modal loads nested JSON, merges its ViewModels
     // into the window pool, and removes exactly those on dismiss. These set
     // [WindowModel.windowModal] (Compose snapshot state), which the window's
     // [com.abracode.actionui.Helpers.WindowModalHost] renders as a ModalBottomSheet
     // (sheet) or a full-screen Dialog (fullScreenCover).
 
     /**
-     * Loads [jsonString] as a sub-document and presents it as a [style] modal over
+     * Loads [jsonString] as nested JSON and presents it as a [style] modal over
      * [windowUUID]'s window. The modal's [ViewModel]s are registered in the window
      * pool (so the value / state API reaches its controls) and removed on dismiss;
      * [onDismissActionID] fires once when it closes. No-op (with an error log) when
-     * no window is registered or the document fails to decode. Mirrors the Swift
+     * no window is registered or the JSON fails to decode. Mirrors the Swift
      * `presentModal`.
      */
     fun presentModal(
@@ -989,7 +989,7 @@ object ActionUIModel {
     /**
      * JSON-string convenience over [insertElement]: [jsonString] must encode one
      * element object, decoded through the Android [PlatformFilter] like the
-     * document loader. Throws [InsertError.InvalidJSON] / [InsertError.MissingType]
+     * JSON loader. Throws [InsertError.InvalidJSON] / [InsertError.MissingType]
      * on a bad payload. Mirrors the Swift `insertElement(...json:...)` overload.
      */
     fun insertElement(

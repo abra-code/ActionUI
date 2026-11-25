@@ -35,9 +35,9 @@ class RenderMalformedInputTest {
 
     @Test
     fun aMissingAssetShowsAnError() {
-        rule.setContent { ActionUI.RenderAsset("no-such-document.json", windowUUID = window) }
+        rule.setContent { ActionUI.RenderAsset("no-such-view.json", windowUUID = window) }
         rule.waitForIdle()
-        rule.onNodeWithText("Failed to load view: Resource 'no-such-document.json' not found").assertExists()
+        rule.onNodeWithText("Failed to load view: Resource 'no-such-view.json' not found").assertExists()
     }
 
     @Test

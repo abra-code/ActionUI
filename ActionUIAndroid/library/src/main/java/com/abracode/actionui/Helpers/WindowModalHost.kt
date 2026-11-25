@@ -24,7 +24,7 @@ import com.abracode.actionui.Common.WindowModel
  * snapshot state) and appears the moment a host handler calls
  * `ActionUIModel.presentModal`.
  *
- * The loaded sub-document is built through the registry exactly like the window
+ * The loaded nested JSON is built through the registry exactly like the window
  * root (its [ViewModel]s were already merged into the window pool by
  * `presentModal`, so value-bearing controls inside the modal resolve against
  * [com.abracode.actionui.Common.LocalWindowModel], which Compose propagates into the
@@ -35,7 +35,7 @@ import com.abracode.actionui.Common.WindowModel
  *     SwiftUI `.sheet`); a scrim / swipe-down dismiss calls `dismissModal`.
  *   * [ModalStyle.FULL_SCREEN_COVER] -> a full-screen [Dialog] (`usePlatformDefaultWidth
  *     = false` + a fill-size `Surface`); a back press dismisses. As on iOS there is
- *     no swipe-to-dismiss, so a cover document should provide its own close action
+ *     no swipe-to-dismiss, so cover JSON should provide its own close action
  *     (which the host routes to `dismissModal`).
  */
 @OptIn(ExperimentalMaterial3Api::class)

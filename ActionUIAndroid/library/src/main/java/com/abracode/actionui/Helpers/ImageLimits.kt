@@ -9,7 +9,7 @@ import java.util.Collections
 
 /**
  * The largest image ActionUI decodes, in pixels: 64 megapixels, as on Apple and Linux. A larger
- * one (from a document, a file or a server) would take gigabytes of memory as a bitmap; its size
+ * one (from ActionUI JSON, a file or a server) would take gigabytes of memory as a bitmap; its size
  * is read from its header first and it is not decoded.
  */
 internal const val MAX_IMAGE_PIXELS = 64L * 1024 * 1024

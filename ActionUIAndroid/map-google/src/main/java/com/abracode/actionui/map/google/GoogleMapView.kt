@@ -39,7 +39,7 @@ import com.google.maps.android.compose.rememberCameraPositionState
  * MapKit); the provider-independent contract (validation, the COORDINATE
  * value bridge) lives in the core library's `Helpers/MapContract.kt` /
  * `Helpers/CoordinateHelper.kt` - this module renders the same JSON
- * documents as `:map-osm`, just on the native engine.
+ * JSON files as `:map-osm`, just on the native engine.
  *
  * Linking this module is all a client does code-wise: [GoogleMapProvider]
  * registers the element at app startup. Link exactly one Map provider

@@ -249,7 +249,7 @@ object WebView : ActionUIViewConstruction {
                     }
 
                     // Initial content: the seeded value (the `url` property, or a
-                    // URL persisted across a document swap) wins over inline html,
+                    // URL persisted across a JSON swap) wins over inline html,
                     // Apple's precedence. Neither -> the page stays blank.
                     val startURL = (viewModel?.value as? String)?.takeIf { it.isNotEmpty() } ?: config.url
                     // An address or html the trust policy refuses shows the "Blocked" page.

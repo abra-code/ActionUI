@@ -46,7 +46,7 @@ class HostSurfaceSinkTest {
     private val window = "hostsurface-sink-${System.nanoTime()}"
     private val client = Recorder()
 
-    private val document = """
+    private val json = """
         { "type": "VStack", "id": 1, "children": [
             { "type": "HostSurface", "id": 5, "properties": {
                 "surfaceName": "test.sink", "kind": "sink", "frame": { "width": 120, "height": 80 } } }
@@ -57,7 +57,7 @@ class HostSurfaceSinkTest {
     fun setUp() {
         HostSurfaceElement.register()
         rule.runOnIdle { assertTrue(HostSurfaces.setDelegate("test.sink", client)) }
-        rule.setContent { ActionUI.Render(document, windowUUID = window) }
+        rule.setContent { ActionUI.Render(json, windowUUID = window) }
         rule.waitUntil(5_000) { client.events.isNotEmpty() }
     }
 

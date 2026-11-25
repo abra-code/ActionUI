@@ -15,10 +15,10 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * A LoadableView whose document loads itself, directly or through another document,
+ * A LoadableView whose JSON loads itself, directly or through other JSON,
  * is refused at the repeat with "Failed to load view: it includes itself". Before the
  * nesting rule, a file source loaded during composition without end, until the stack
- * or memory ran out. Siblings that show the same document both load it, and a device
+ * or memory ran out. Siblings that show the same JSON both load it, and a device
  * file is refused rather than read.
  */
 @RunWith(AndroidJUnit4::class)

@@ -14,7 +14,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * The element in a real ActionUI document on a device: a SurfaceView's surface is announced with its size;
+ * The element in real ActionUI JSON on a device: a SurfaceView's surface is announced with its size;
  * hidden and padding changes keep it (no DESTROYED); a replaced client is told DESTROYED before the new one gets
  * CREATED; removing the element destroys the surface.
  */
@@ -37,7 +37,7 @@ class HostSurfaceJSONTest {
     private val log = mutableListOf<String>()
     private val client = Recorder("first", log)
 
-    private val document = """
+    private val json = """
         { "type": "VStack", "id": 1, "children": [
             { "type": "Text", "id": 2, "properties": { "text": "above" } },
             { "type": "HostSurface", "id": 5, "properties": {
@@ -49,7 +49,7 @@ class HostSurfaceJSONTest {
     fun setUp() {
         HostSurfaceElement.register()
         rule.runOnIdle { assertTrue(HostSurfaces.setDelegate("test.canvas", client)) }
-        rule.setContent { ActionUI.Render(document, windowUUID = window) }
+        rule.setContent { ActionUI.Render(json, windowUUID = window) }
         rule.waitUntil(5_000) { client.events.isNotEmpty() }
     }
 

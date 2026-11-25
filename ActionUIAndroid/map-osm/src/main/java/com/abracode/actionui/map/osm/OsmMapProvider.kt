@@ -15,7 +15,7 @@ import android.net.Uri
  * canonical equivalent: a manifest-declared [ContentProvider], merged into
  * the app manifest by the manifest merger, whose [onCreate] the system
  * invokes at process start - before `Application.onCreate`, and therefore
- * before any document can reference a `Map`. The provider serves no data;
+ * before any JSON can reference a `Map`. The provider serves no data;
  * every query method is a stub. (androidx.startup exists for exactly this,
  * but it is one more dependency for one `register()` call.)
  */

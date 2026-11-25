@@ -279,7 +279,7 @@ class WindowModelTest {
     }
 
     @Test
-    fun `the two persistentToolbar warnings stay quiet on correct documents`() {
+    fun `the two persistentToolbar warnings stay quiet on correct JSON files`() {
         val logger = CapturingLogger()
         val window = WindowModel(windowUUID = "W", logger = logger)
         window.loadDescription(
@@ -339,7 +339,7 @@ class WindowModelTest {
         assertEquals(4, window.viewModels.size)
         assertEquals("LoadableView", window.viewModels[2]?.elementType)
         assertEquals("loaded", window.viewModels[11]?.value)
-        // The window root is unchanged (still the original document).
+        // The window root is unchanged (still the original JSON).
         assertEquals(1, window.element?.id)
     }
 
@@ -362,7 +362,7 @@ class WindowModelTest {
     }
 
     @Test
-    fun `a sub-document cannot replace a parent control's model`() {
+    fun `nested JSON cannot replace a parent control's model`() {
         // As on Apple: an id already in the pool keeps its model; the colliding one is skipped.
         val window = windowWithFieldAndLoadable()
         val parentModel = window.viewModels[3]
@@ -425,7 +425,7 @@ class WindowModelTest {
     fun `id-less elements are not registered and cannot cross-wire`() {
         // Elements without an id default to 0; registering them would collide
         // on one map key, last-one-wins, so every id-less value control in the
-        // document would bind to the same ViewModel and read the LAST one's
+        // JSON would bind to the same ViewModel and read the LAST one's
         // seeded value (three id-less AsyncImages all loading the last url -
         // the entry-49 demo regression). Id-less elements must not register.
         val root = ActionUIElement(
