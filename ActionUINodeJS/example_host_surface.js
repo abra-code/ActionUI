@@ -21,7 +21,7 @@ const os = require('os');
 const path = require('path');
 const actionui = require('./index.js');
 
-const DOCUMENT = {
+const UI_JSON = {
     type: 'VStack', properties: { padding: 12, spacing: 10 }, children: [
         { type: 'HostSurface', id: 5,
           properties: { surfaceName: 'bands', kind: 'sink', continuous: true, idealWidth: 480, idealHeight: 240 } },
@@ -118,11 +118,11 @@ app.registerHandler('speed', (context) => {
 });
 
 const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'actionui-host-surface-example-'));
-const documentPath = path.join(folder, 'bands.json');
-fs.writeFileSync(documentPath, JSON.stringify(DOCUMENT));
+const jsonPath = path.join(folder, 'bands.json');
+fs.writeFileSync(jsonPath, JSON.stringify(UI_JSON));
 
 app.onDidFinishLaunching(() => {
-    app.loadAndPresentWindow(documentPath, null, 'HostSurface from JavaScript');
+    app.loadAndPresentWindow(jsonPath, null, 'HostSurface from JavaScript');
 });
 app.onWillTerminate(() => fs.rmSync(folder, { recursive: true, force: true }));
 app.run();

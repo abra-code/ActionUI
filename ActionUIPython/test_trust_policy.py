@@ -5,8 +5,8 @@ Integration test for the host's trust policy (set_trust_policy) and element orig
 
 Starts a real NSApplication run loop with one window loaded from a temporary folder, outside
 the app's resources (its subfolder "res", named explicitly):
-- root.json, the window's own document, is made trusted by the trust callback, as a host trusts
-  a document it chose itself;
+- root.json, the window's own ActionUI JSON, is made trusted by the trust callback, as a host trusts
+  JSON it chose itself;
 - less.json, in its first LoadableView, keeps ActionUI's own decision, less trusted; its Image
   reads a file there, which reaches the allows callback with ActionUI's refusal as the default;
 - trusted.json, in the second, is made trusted by the trust callback;
@@ -97,7 +97,7 @@ def _report():
     check("the window closed", state["closed"])
     origins = state["origins"]
     root_origin = origins.get(1) or {}
-    check("the window's own document is a file, trusted by the trust callback, with no parent",
+    check("the window's own JSON is a file, trusted by the trust callback, with no parent",
           root_origin.get("source") == "file" and root_origin.get("path", "").endswith("root.json")
           and root_origin.get("trust") == "trusted" and "parentID" not in root_origin)
     less = origins.get(20) or {}
@@ -112,13 +112,13 @@ def _report():
           raised.get("source") == "resource" and raised.get("trust") == "lessTrusted" and raised.get("parentID") == 5)
     check("an element the window does not have has no origin", origins.get(999, "missing") is None)
     sources = [call[0].get("path", "") for call in state["trust_calls"]]
-    check("the trust callback was asked for both documents",
+    check("the trust callback was asked for both JSON files",
           any(p.endswith("less.json") for p in sources) and any(p.endswith("trusted.json") for p in sources))
     check("every call had less trusted as the default but raises.json's (outside the resources)",
           bool(state["trust_calls"]) and all((call[2] == actionui.Trust.TRUSTED) == call[0].get("path", "").endswith("raises.json")
                                               for call in state["trust_calls"])
           and any(p.endswith("raises.json") for p in sources))
-    check("the window's document had no parent, the LoadableViews' the trusted root",
+    check("the window's JSON had no parent, the LoadableViews' the trusted root",
           all((call[1] is None) == call[0].get("path", "").endswith("root.json")
               and (call[1] is None or call[1] == root_origin) for call in state["trust_calls"]))
     reads = [call for call in state["allows_calls"]

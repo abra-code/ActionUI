@@ -88,7 +88,7 @@ typedef enum {
 
 // MARK: - Origins and Trust
 
-/// How far content is trusted. A document the host passes in, or one in the app's resources, is
+/// How far content is trusted. ActionUI JSON the host passes in, or a file in the app's resources, is
 /// trusted; one a LoadableView loads from a server or from a file elsewhere is less trusted, as is
 /// anything inside it.
 typedef enum {
@@ -237,11 +237,11 @@ void *actionUILoadHostingControllerFromURL(const char *urlString, const char *wi
 #endif
 // Linux only (ActionUIC+Linux.swift), the counterpart of the hosting controller for a host that runs its own
 // GtkApplication: fills gtkWindow (an AdwApplicationWindow or AdwWindow the host made, not presented yet) with
-// the document as ActionUI fills its own windows (header bar with the toolbar items and the primary menu,
-// toasts, scrolling, the document's modals and alerts) and sets its default size; subtitle may be NULL. The
+// the ActionUI JSON as ActionUI fills its own windows (header bar with the toolbar items and the primary menu,
+// toasts, scrolling, the JSON's modals and alerts) and sets its default size; subtitle may be NULL. The
 // host presents and closes the window; closing it keeps the model, which actionUIRemoveWindow removes. The
-// document is the window's content (not a WindowGroup).
-// false (error set) when the document cannot be loaded (the window shows why) or the window cannot be filled.
+// JSON is the window's content (not a WindowGroup).
+// false (error set) when the JSON cannot be loaded (the window shows why) or the window cannot be filled.
 #if defined(__linux__)
 bool actionUILoadIntoHostWindowFromURL(void *gtkWindow, const char *urlString, const char *windowUUID, const char *subtitle) ACTIONUI_NOEXCEPT;  // a path or file URL
 bool actionUILoadIntoHostWindowFromJSON(void *gtkWindow, const char *jsonString, const char *windowUUID, const char *subtitle) ACTIONUI_NOEXCEPT;
@@ -249,7 +249,7 @@ bool actionUILoadIntoHostWindowFromJSON(void *gtkWindow, const char *jsonString,
 // - starts running main-actor work (C calls from other threads, the remote bridge's answers) under the GLib
 //   main loop now, rather than when the first window is filled; main thread only, later calls do nothing;
 void actionUIInstallMainLoopBridge(void) ACTIONUI_NOEXCEPT;
-// - adds menu commands (a JSON array of CommandMenu and CommandGroup elements, a macOS menu bar document) to
+// - adds menu commands (a JSON array of CommandMenu and CommandGroup elements, macOS menu bar JSON) to
 //   the primary menu of every window's header bar, as actions of the default GApplication that fire their
 //   actionID for the active window; successive calls add; false (error set) for JSON that is not an array;
 bool actionUILoadMenuBarJSON(const char *json) ACTIONUI_NOEXCEPT;

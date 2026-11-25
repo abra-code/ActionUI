@@ -506,7 +506,7 @@ static void action_handler_bridge(const char* actionID,
         if (napi_get_reference_value(env, g_state->action_handlers, &handlers_obj) == napi_ok) {
             napi_value js_key;
             napi_create_string_utf8(env, actionID, NAPI_AUTO_LENGTH, &js_key);
-            /* Only the table's own entries: an action id comes from the document, and an id such
+            /* Only the table's own entries: an action id comes from the ActionUI JSON, and an id such
              * as "constructor" or "__defineGetter__" must not reach an inherited function. */
             bool own = false;
             napi_value handler_val;

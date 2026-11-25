@@ -22,7 +22,7 @@ import tempfile
 
 import actionui
 
-DOCUMENT = {
+UI_JSON = {
     "type": "VStack", "properties": {"padding": 12, "spacing": 10}, "children": [
         {"type": "HostSurface", "id": 5,
          "properties": {"surfaceName": "bands", "kind": "sink", "continuous": True, "idealWidth": 480, "idealHeight": 240}},
@@ -120,7 +120,7 @@ def _speed(context):
 folder = tempfile.mkdtemp(prefix="actionui-host-surface-example-")
 path = os.path.join(folder, "bands.json")
 with open(path, "w") as file:
-    json.dump(DOCUMENT, file)
+    json.dump(UI_JSON, file)
 
 
 @app.did_finish_launching

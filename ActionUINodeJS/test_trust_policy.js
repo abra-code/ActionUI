@@ -5,8 +5,8 @@
  *
  * One window loaded from a temporary folder, outside the app's resources (its subfolder "res",
  * named explicitly):
- * - root.json, the window's own document, is made trusted by the trust callback, as a host trusts
- *   a document it chose itself;
+ * - root.json, the window's own ActionUI JSON, is made trusted by the trust callback, as a host trusts
+ *   JSON it chose itself;
  * - less.json, in its first LoadableView, keeps ActionUI's own decision, less trusted; its Image
  *   reads a file there, which reaches the allows callback with ActionUI's refusal as the default;
  * - trusted.json, in the second, is made trusted by the trust callback;
@@ -81,7 +81,7 @@ function report() {
     for (const error of state.errors) check(error, false);
     check('the window closed', state.closed);
     const rootOrigin = state.origins[1] ?? {};
-    check("the window's own document is a file, trusted by the trust callback, with no parent",
+    check("the window's own JSON is a file, trusted by the trust callback, with no parent",
         rootOrigin.source === 'file' && (rootOrigin.path ?? '').endsWith('root.json')
         && rootOrigin.trust === 'trusted' && !('parentID' in rootOrigin));
     const less = state.origins[20] ?? {};
@@ -94,12 +94,12 @@ function report() {
         thrown.source === 'resource' && thrown.trust === 'lessTrusted' && thrown.parentID === 5);
     check('an element the window does not have has no origin', state.origins[999] === null);
     const paths = state.trustCalls.map((call) => call[0].path ?? '');
-    check('the trust callback was asked for both documents',
+    check('the trust callback was asked for both JSON files',
         paths.some((p) => p.endsWith('less.json')) && paths.some((p) => p.endsWith('trusted.json')));
     check("every call had less trusted as the default but throws.json's (outside the resources)",
         state.trustCalls.length > 0 && paths.some((p) => p.endsWith('throws.json'))
         && state.trustCalls.every((call) => (call[2] === actionui.Trust.TRUSTED) === (call[0].path ?? '').endsWith('throws.json')));
-    check("the window's document had no parent, the LoadableViews' the trusted root",
+    check("the window's JSON had no parent, the LoadableViews' the trusted root",
         state.trustCalls.every((call) => (call[1] === null) === (call[0].path ?? '').endsWith('root.json')
             && (call[1] === null || sameOrigin(call[1], rootOrigin))));
     const reads = state.allowsCalls.filter((call) => call[0].capability === 'readLocalFile' && (call[0].path ?? '').endsWith('pic.png'));

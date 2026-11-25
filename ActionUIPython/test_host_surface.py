@@ -28,7 +28,7 @@ import actionui
 SAFETY_TIMEOUT_SEC = 20.0
 IS_LINUX = sys.platform.startswith("linux")
 
-DOCUMENT = {
+UI_JSON = {
     "type": "VStack", "properties": {"frame": {"width": 300}}, "children": [
         {"type": "HostSurface", "id": 5,
          "properties": {"surfaceName": "py.canvas", "kind": "sink", "frame": {"width": 200, "height": 120}}},
@@ -184,14 +184,14 @@ else:
     app.set_surface_delegate("py.metal", MetalClient())
 
 folder = tempfile.mkdtemp(prefix="actionui-hostsurface-test-")
-document_path = os.path.join(folder, "HostSurface.json")
-with open(document_path, "w") as file:
-    json.dump(DOCUMENT, file)
+json_path = os.path.join(folder, "HostSurface.json")
+with open(json_path, "w") as file:
+    json.dump(UI_JSON, file)
 
 
 @app.did_finish_launching
 def _did_finish():
-    window = app.load_and_present_window(document_path, title="HostSurface Test")
+    window = app.load_and_present_window(json_path, title="HostSurface Test")
 
     def _sequence():
         time.sleep(2.0)
@@ -205,7 +205,7 @@ def _did_finish():
 @app.will_terminate
 def _will_terminate():
     try:
-        os.remove(document_path)
+        os.remove(json_path)
         os.rmdir(folder)
     except OSError:
         pass

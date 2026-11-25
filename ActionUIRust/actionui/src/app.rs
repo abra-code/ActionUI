@@ -243,7 +243,7 @@ impl App {
         unsafe {
             sys::actionUISetDefaultActionHandler(Some(action_trampoline));
         }
-        // The add-on's element must be registered before the first document loads.
+        // The add-on's element must be registered before the first ActionUI JSON loads.
         #[cfg(all(feature = "host-surface", target_os = "macos"))]
         crate::host_surface::register_element();
         Ok(App::token())

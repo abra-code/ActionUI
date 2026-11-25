@@ -2,12 +2,12 @@
 /**
  * test_action_id_lookup.js - action ids that name built-in object properties.
  *
- * An action id comes from the document. The addon keeps its handler table as a JavaScript object,
+ * An action id comes from the ActionUI JSON. The addon keeps its handler table as a JavaScript object,
  * so an id such as "constructor", "toString" or "__defineGetter__" must not resolve to a function
  * inherited from Object.prototype: each must reach the host's handlers like any other id, and
  * "__proto__" must work as an ordinary registered id.
  *
- * Every element fires its id from onAppearActionID, with no click, as a less-trusted document can.
+ * Every element fires its id from onAppearActionID, with no click, as less-trusted ActionUI JSON can.
  *
  * Requirements: a graphical macOS session (the window must appear). Run: node test_action_id_lookup.js
  */
@@ -28,7 +28,7 @@ const SAFETY_TIMEOUT_MS = 20000;
 const UNREGISTERED_IDS = ['constructor', 'toString', 'valueOf', 'hasOwnProperty', '__defineGetter__', '__lookupGetter__'];
 const REGISTERED_IDS = ['__proto__', 'test.known'];
 
-const document = {
+const json = {
     type: 'VStack',
     properties: { frame: { minWidth: 300.0, minHeight: 200.0 } },
     children: [...UNREGISTERED_IDS, ...REGISTERED_IDS].map((actionID, index) => ({
@@ -40,7 +40,7 @@ const document = {
 
 const fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'actionui-action-id-'));
 const fixturePath = path.join(fixtureDir, 'ActionIDLookup.json');
-fs.writeFileSync(fixturePath, JSON.stringify(document));
+fs.writeFileSync(fixturePath, JSON.stringify(json));
 
 const received = { byDefault: new Set(), byRegistered: new Set() };
 let terminating = false;

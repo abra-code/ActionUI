@@ -67,7 +67,7 @@ const app = new actionui.Application({ name: 'My App', icon: 'icon.icns' });
 
 // resourceFolder: where LoadableView names, Image resourceName and WebView script
 // resources are looked up before the main bundle (node's). If omitted, the folder
-// of the main script, so an app's documents can be named without a path.
+// of the main script, so an app's JSON files can be named without a path.
 const app = new actionui.Application({ resourceFolder: path.join(__dirname, 'ui') });
 
 // applicationID: the reverse-DNS ID Linux matches the app's windows to its
@@ -452,7 +452,7 @@ actionui.setTrustPolicy({
 actionui.setTrustPolicy();   // ActionUI's own policy again
 ```
 
-For all windows; set it on the main thread (not in a worker) before loading content. A callback left out keeps ActionUI's own decisions for it. The callbacks run on the main thread, often (as elements draw), and should return quickly; one that throws is reported and counts as less trusted, or as a refusal. A window's own document from a file outside the app's resource folder is less trusted unless the trust callback trusts it, and its LoadableViews then load no local files outside the resource folder. Rows are judged as the content they are shown in: row text a template places into an address (`"url": "$1"` on a Link, an AsyncImage, a VideoPlayer, a WebView or a LoadableView, or a Table's link and image cells) opens or loads with that content's trust, so a host that sets rows from text it got elsewhere (search results, file names, a server's data) checks the addresses in it first. `test_trust_policy.js` runs both against a real window.
+For all windows; set it on the main thread (not in a worker) before loading content. A callback left out keeps ActionUI's own decisions for it. The callbacks run on the main thread, often (as elements draw), and should return quickly; one that throws is reported and counts as less trusted, or as a refusal. A window's own ActionUI JSON from a file outside the app's resource folder is less trusted unless the trust callback trusts it, and its LoadableViews then load no local files outside the resource folder. Rows are judged as the content they are shown in: row text a template places into an address (`"url": "$1"` on a Link, an AsyncImage, a VideoPlayer, a WebView or a LoadableView, or a Table's link and image cells) opens or loads with that content's trust, so a host that sets rows from text it got elsewhere (search results, file names, a server's data) checks the addresses in it first. `test_trust_policy.js` runs both against a real window.
 
 ### Configuration
 
@@ -480,7 +480,7 @@ actionui.clearError()
 ### HostSurface
 
 The `HostSurface` element is a part of a window that the program draws itself (the ActionUIHostSurface add-on;
-linked in on macOS, part of `libActionUI.so` on Linux, registered by `new Application()`). A document names it:
+linked in on macOS, part of `libActionUI.so` on Linux, registered by `new Application()`). ActionUI JSON names it:
 
 ```json
 { "type": "HostSurface", "id": 5, "properties": { "surfaceName": "canvas", "idealWidth": 320, "idealHeight": 240 } }
@@ -523,7 +523,7 @@ positive right and down) with `scrollUnit` and `scrollPhase`, `pressure`, `tiltX
 
 What a surface is:
 
-- `"kind": "sink"` in the document: a frame sink (`SurfaceKind.FRAME_SINK`) on macOS and Linux alike. Render at
+- `"kind": "sink"` in the ActionUI JSON: a frame sink (`SurfaceKind.FRAME_SINK`) on macOS and Linux alike. Render at
   the pixel size anywhere (a typed array, a canvas library, WebGPU offscreen) and hand the frames to
   `presentPixels`, from any thread. A script that uses it runs unchanged on both platforms.
 - No kind (or `"native"`): a frame sink on Linux too; on macOS a Metal layer (`SurfaceKind.METAL_LAYER`,
@@ -845,4 +845,4 @@ internally, so calling them from a worker thread is safe.
 - **test_app_lifecycle.js** — full lifecycle integration test (real NSApplication run loop)
 - **test_menu_bar.js** — menu bar integration test (custom menus, action dispatch)
 - **test_worker_guard.js** - callback setters and appRun throw in a worker; the main thread keeps working (no run loop)
-- **test_action_id_lookup.js** - document action ids such as `constructor` and `__proto__` reach the host's handlers, never a built-in function (real NSApplication run loop)
+- **test_action_id_lookup.js** - action ids from ActionUI JSON such as `constructor` and `__proto__` reach the host's handlers, never a built-in function (real NSApplication run loop)
