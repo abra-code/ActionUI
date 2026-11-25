@@ -544,6 +544,151 @@ def test_remote_server(app: actionui.Application):
         shutil.rmtree(directory, ignore_errors=True)
 
 
+# The same probe over a named pipe, for Windows: the pipe opened as a file, its read in a thread so the
+# wait can end after 0.7 s, and os._exit so the reader left waiting does not hold the exit.
+_REMOTE_PROBE_WINDOWS = r"""
+import json, os, sys, threading
+try:
+    pipe = open(os.environ["ACTIONUI_REMOTE_ENDPOINT"], "r+b", buffering=0)
+except FileNotFoundError:
+    print("connect-failed"); sys.stdout.flush(); os._exit(0)
+except OSError as error:
+    # Not "no such pipe": every instance busy (ERROR_PIPE_BUSY), or refused.
+    print("open-failed %s" % error.errno); sys.stdout.flush(); os._exit(0)
+params = {}
+token = os.environ.get("ACTIONUI_REMOTE_TOKEN")
+if token:
+    params["token"] = token
+pipe.write(json.dumps({"jsonrpc": "2.0", "id": 1, "method": "actionui.hello",
+                       "params": params}).encode("utf-8") + b"\n")
+result = {}
+def read():
+    buffer = b""
+    try:
+        while b"\n" not in buffer:
+            chunk = pipe.read(65536)
+            if not chunk:
+                result["closed"] = True
+                return
+            buffer += chunk
+    except OSError:
+        result["closed"] = True
+        return
+    result["line"] = buffer.split(b"\n")[0]
+reader = threading.Thread(target=read, daemon=True)
+reader.start()
+reader.join(0.7)
+if "line" in result:
+    reply = json.loads(result["line"].decode("utf-8"))
+    print(str(reply["error"]["code"]) if "error" in reply else "result")
+else:
+    print("closed" if result.get("closed") else "no-reply")
+sys.stdout.flush()
+os._exit(0)
+"""
+
+
+def _remote_probe_windows(env):
+    """_remote_probe over the named pipe."""
+    import subprocess
+    import sys
+    completed = subprocess.run([sys.executable, "-c", _REMOTE_PROBE_WINDOWS], env=env,
+                               capture_output=True, text=True, timeout=30)
+    return completed.stdout.strip()
+
+
+def test_remote_server_windows(app: actionui.Application):
+    """The remote bridge on Windows: a named pipe, and nothing exported (PROTOCOL.md section 12). A
+    child gets the endpoint and a token of its own from the host, so every probe is given both."""
+    print("\n=== Remote bridge (named pipe) ===")
+
+    endpoint_before = os.environ.get(actionui.REMOTE_ENDPOINT_ENV)
+    token_before = os.environ.get(actionui.REMOTE_TOKEN_ENV)
+    check("endpoint is None before starting", app.remote_server_endpoint is None)
+
+    endpoint = app.start_remote_server()
+    check("start_remote_server returns a pipe name", isinstance(endpoint, str)
+          and endpoint.lower().startswith("\\\\.\\pipe\\actionui-"))
+    check("remote_server_endpoint reports it", app.remote_server_endpoint == endpoint)
+    check("the endpoint is not exported", os.environ.get(actionui.REMOTE_ENDPOINT_ENV) == endpoint_before)
+    token = app.remote_server_token
+    check("remote_server_token reports a token", isinstance(token, str) and token != "")
+    check("the token is not exported", os.environ.get(actionui.REMOTE_TOKEN_ENV) == token_before)
+    try:
+        app.enable_remote_perform_action()
+        check("enable_remote_perform_action succeeds while the server runs", True)
+    except RuntimeError:
+        check("enable_remote_perform_action succeeds while the server runs", False)
+
+    # A request that passes the gate hops to the main thread, which nothing is servicing here, so
+    # "no reply" is what acceptance looks like; the refusals first prove that replies do come back.
+    child = {**os.environ, actionui.REMOTE_ENDPOINT_ENV: endpoint}
+    child.pop(actionui.REMOTE_TOKEN_ENV, None)
+    check("a child with no token is refused with 1006", _remote_probe_windows(child) == "1006")
+    check("a child with the wrong token is refused with 1006",
+          _remote_probe_windows({**child, actionui.REMOTE_TOKEN_ENV: "not-the-token"}) == "1006")
+    check("a child given the host's token passes the token gate",
+          _remote_probe_windows({**child, actionui.REMOTE_TOKEN_ENV: token}) == "no-reply")
+    minted = app.mint_remote_token("job-1")
+    check("mint_remote_token returns a new token", isinstance(minted, str) and minted not in ("", token))
+    check("a child given a minted token passes the token gate",
+          _remote_probe_windows({**child, actionui.REMOTE_TOKEN_ENV: minted}) == "no-reply")
+    app.revoke_remote_tokens("job-1")
+    check("a revoked token is refused with 1006",
+          _remote_probe_windows({**child, actionui.REMOTE_TOKEN_ENV: minted}) == "1006")
+    check("unexport_remote_token finds nothing to remove", not app.unexport_remote_token())
+
+    try:
+        app.start_remote_server()
+        check("starting twice raises RuntimeError", False)
+    except RuntimeError:
+        check("starting twice raises RuntimeError", True)
+
+    app.stop_remote_server()
+    check("endpoint is None after stopping", app.remote_server_endpoint is None)
+    check("remote_server_token is None after stopping", app.remote_server_token is None)
+    check("the environment is as before", os.environ.get(actionui.REMOTE_ENDPOINT_ENV) == endpoint_before
+          and os.environ.get(actionui.REMOTE_TOKEN_ENV) == token_before)
+    try:
+        app.mint_remote_token("job-2")
+        check("mint_remote_token raises when no server runs", False)
+    except RuntimeError:
+        check("mint_remote_token raises when no server runs", True)
+    try:
+        app.stop_remote_server()
+        check("stopping twice does not raise", True)
+    except Exception as e:
+        check(f"stopping twice raised {type(e).__name__}: {e}", False)
+
+    import threading
+    worker_result = {}
+
+    def start_and_stop_from_a_thread():
+        worker_result["endpoint"] = app.start_remote_server()
+        app.stop_remote_server()
+        worker_result["done"] = True
+
+    worker = threading.Thread(target=start_and_stop_from_a_thread, daemon=True)
+    worker.start()
+    worker.join(timeout=20)
+    check("start from a worker thread returns", worker_result.get("done") is True)
+    check("it made a pipe", isinstance(worker_result.get("endpoint"), str))
+
+    chosen = "\\\\.\\pipe\\aui-%d-chosen" % os.getpid()
+    check("a chosen pipe name is honored", app.start_remote_server(chosen) == chosen)
+    app.stop_remote_server()
+    # Checked on this pipe, which never had a client: an accepted request above still holds its
+    # connection's instance (and so the name) until its main-thread wait times out (10 s).
+    check("the pipe is gone", _remote_probe_windows({**child, actionui.REMOTE_ENDPOINT_ENV: chosen,
+                                                     actionui.REMOTE_TOKEN_ENV: token}) == "connect-failed")
+    try:
+        app.start_remote_server("C:\\Temp\\a.sock")
+        check("a file path is refused on Windows", False)
+        app.stop_remote_server()
+    except RuntimeError:
+        check("a file path is refused on Windows", True)
+
+
 def test_default_logger_prints_warnings_and_errors_only(app):
     print("\n--- default logger ---")
     import contextlib
@@ -588,7 +733,7 @@ def main():
     test_singleton_enforcement()   # expects RuntimeError from a second instance
     test_windows_dict(app)
     if sys.platform == "win32":
-        print("\n=== Remote bridge ===\n  (not on Windows yet: skipped)")
+        test_remote_server_windows(app)
     else:
         test_remote_server(app)
     test_default_logger_prints_warnings_and_errors_only(app)

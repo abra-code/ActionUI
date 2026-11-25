@@ -422,6 +422,74 @@ function testRemoteBridge(app) {
     }
 }
 
+// The remote bridge on Windows: a named pipe, and nothing exported (PROTOCOL.md section 12). A child
+// gets the endpoint and a token of its own from the host, so every probe is given both. The probe
+// reaches the pipe with net.connect, as it reaches a socket elsewhere.
+function testRemoteBridgeWindows(app) {
+    console.log('\n=== Remote bridge (named pipe) ===');
+    const endpointBefore = process.env.ACTIONUI_REMOTE_ENDPOINT;
+    const tokenBefore = process.env.ACTIONUI_REMOTE_TOKEN;
+    check('endpoint is null before starting', app.remoteServerEndpoint === null);
+
+    const endpoint = app.startRemoteServer();
+    check('startRemoteServer returns a pipe name', typeof endpoint === 'string'
+          && endpoint.toLowerCase().startsWith('\\\\.\\pipe\\actionui-'));
+    check('remoteServerEndpoint reports it', app.remoteServerEndpoint === endpoint);
+    check('the endpoint is not exported', process.env.ACTIONUI_REMOTE_ENDPOINT === endpointBefore);
+    const token = app.remoteServerToken;
+    check('remoteServerToken reports a token', typeof token === 'string' && token.length > 0);
+    check('the token is not exported', process.env.ACTIONUI_REMOTE_TOKEN === tokenBefore);
+    let enabled = true;
+    try { app.enableRemotePerformAction(); } catch (e) { enabled = false; }
+    check('enableRemotePerformAction succeeds while the server runs', enabled);
+
+    // A request that passes the gate hops to the main thread, which nothing is servicing here, so
+    // "no reply" is what acceptance looks like; the refusals first prove that replies do come back.
+    const child = { ...process.env, ACTIONUI_REMOTE_ENDPOINT: endpoint };
+    delete child.ACTIONUI_REMOTE_TOKEN;
+    check('a child with no token is refused with 1006', remoteProbe(child) === '1006');
+    check('a child with the wrong token is refused with 1006',
+          remoteProbe({ ...child, ACTIONUI_REMOTE_TOKEN: 'not-the-token' }) === '1006');
+    check("a child given the host's token passes the token gate",
+          remoteProbe({ ...child, ACTIONUI_REMOTE_TOKEN: token }) === 'no-reply');
+    const minted = app.mintRemoteToken('job-1');
+    check('mintRemoteToken returns a new token', typeof minted === 'string' && minted.length > 0 && minted !== token);
+    check('a child given a minted token passes the token gate',
+          remoteProbe({ ...child, ACTIONUI_REMOTE_TOKEN: minted }) === 'no-reply');
+    app.revokeRemoteTokens('job-1');
+    check('a revoked token is refused with 1006',
+          remoteProbe({ ...child, ACTIONUI_REMOTE_TOKEN: minted }) === '1006');
+    check('unexportRemoteToken finds nothing to remove', app.unexportRemoteToken() === false);
+
+    let threw = false;
+    try { app.startRemoteServer(); } catch (e) { threw = true; }
+    check('starting twice throws', threw);
+
+    app.stopRemoteServer();
+    check('endpoint is null after stopping', app.remoteServerEndpoint === null);
+    check('remoteServerToken is null after stopping', app.remoteServerToken === null);
+    check('the environment is as before', process.env.ACTIONUI_REMOTE_ENDPOINT === endpointBefore
+          && process.env.ACTIONUI_REMOTE_TOKEN === tokenBefore);
+    let mintRefused = false;
+    try { app.mintRemoteToken('job-2'); } catch (e) { mintRefused = true; }
+    check('mintRemoteToken throws when no server runs', mintRefused);
+    let stoppedTwice = true;
+    try { app.stopRemoteServer(); } catch (e) { stoppedTwice = false; }
+    check('stopping twice does not throw', stoppedTwice);
+
+    const chosen = `\\\\.\\pipe\\aui-${process.pid}-chosen`;
+    check('a chosen pipe name is honored', app.startRemoteServer(chosen) === chosen);
+    app.stopRemoteServer();
+    // Checked on this pipe, which never had a client: an accepted request above still holds its
+    // connection's instance (and so the name) until its main-thread wait times out (10 s), and
+    // net.connect on a name whose instances are all busy waits for one (WaitNamedPipe, 30 s).
+    check('the pipe is gone', remoteProbe({ ...child, ACTIONUI_REMOTE_ENDPOINT: chosen,
+                                            ACTIONUI_REMOTE_TOKEN: token }) === 'connect-failed');
+    let fileRefused = false;
+    try { app.startRemoteServer('C:\\Temp\\a.sock'); app.stopRemoteServer(); } catch (e) { fileRefused = true; }
+    check('a file path is refused on Windows', fileRefused);
+}
+
 function testSingletonEnforcement() {
     console.log('\n=== Application singleton enforcement ===');
     let threw = false;
@@ -533,7 +601,7 @@ testConstants();
 testActionContext();
 testLoggerAPI();
 if (process.platform === 'win32') {
-    console.log('\n=== Remote bridge ===\n  (not on Windows yet: skipped)');
+    testRemoteBridgeWindows(app);
 } else {
     testRemoteBridge(app);
 }

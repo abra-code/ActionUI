@@ -1546,7 +1546,7 @@ NODE_TESTS_REPORTING_PASSED = {"test_configuration", "test_app_lifecycle", "test
 
 
 # The Python tests CI runs on Windows: not test_file_panels (it waits for a person) and test_menu_bar (not on
-# Windows yet); test_app_api skips its remote server part there.
+# Windows yet). test_app_api checks the remote server's Windows form there (a named pipe, nothing exported).
 PYTHON_TESTS = ["test_native", "test_native_api_surface", "test_insert_api", "test_scalar_context",
                 "test_modal_api", "test_app_api", "test_configuration", "test_app_lifecycle", "test_trust_policy",
                 "test_worker_thread_calls", "test_host_surface"]

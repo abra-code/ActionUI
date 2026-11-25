@@ -420,6 +420,12 @@ impl App {
     /// must present, are exported in this process's environment
     /// (`ACTIONUI_REMOTE_ENDPOINT`, `ACTIONUI_REMOTE_TOKEN`), so processes started
     /// afterwards inherit them. The server stops when the application terminates.
+    ///
+    /// On Windows the server listens on a named pipe instead: the path is a pipe name
+    /// (`\\.\pipe\...`), and without one the server makes a new one for each start. Nothing is
+    /// exported there; give a child the endpoint and a token of its own
+    /// ([`App::mint_remote_token`]) in those two variables (`ActionUIRemote/PROTOCOL.md`,
+    /// section 12).
     pub fn start_remote_server(&self, socket_path: Option<&Path>) -> Result<String> {
         let socket_path = socket_path.map(|path| path.to_string_lossy().into_owned());
         let socket_path = ffi::optional_cstring("socket path", socket_path.as_deref())?;
@@ -444,8 +450,8 @@ impl App {
 
     /// The token the running remote server requires from its clients, or `None` when it
     /// is not running or requires none. Processes started after
-    /// [`App::start_remote_server`] inherit it in their environment, so this is only for
-    /// handing it to a client some other way.
+    /// [`App::start_remote_server`] inherit it in their environment (not on Windows, which
+    /// exports nothing), so this is only for handing it to a client some other way.
     pub fn remote_server_token(&self) -> Option<String> {
         // ActionUI documents 128 bytes as always enough.
         let mut buffer = [0 as c_char; 256];

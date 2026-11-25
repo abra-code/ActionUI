@@ -485,8 +485,17 @@ class Application {
     // Stopped and removed when the application terminates, and on process exit for a script
     // that never started the run loop. (app.run() never returns: AppKit ends the process in
     // exit(), which emits no 'exit' event.)
+    //
+    // On Windows the server listens on a named pipe (path is a pipe name, \\.\pipe\...; the default
+    // is new for each start) and exports nothing, so process.env is left alone: give a child the
+    // endpoint and a token of its own (mintRemoteToken), PROTOCOL.md section 12.
     startRemoteServer(path) {
         const endpoint = _actionui.appStartRemoteServer(path ?? null);
+        if (!this._remoteServerExitHooked) {
+            process.on('exit', () => this.stopRemoteServer());
+            this._remoteServerExitHooked = true;
+        }
+        if (process.platform === 'win32') return endpoint;   // nothing exported, nothing to mirror
         // The framework called setenv, which process.env does not see; keep the two in step.
         process.env.ACTIONUI_REMOTE_ENDPOINT = endpoint;
         // Same for the token, when the framework minted one. Deleting it otherwise is not
@@ -499,10 +508,6 @@ class Application {
         } else {
             process.env.ACTIONUI_REMOTE_TOKEN = token;
         }
-        if (!this._remoteServerExitHooked) {
-            process.on('exit', () => this.stopRemoteServer());
-            this._remoteServerExitHooked = true;
-        }
         return endpoint;
     }
 
@@ -510,7 +515,7 @@ class Application {
     stopRemoteServer() {
         const wasRunning = _actionui.appRemoteServerEndpoint() !== null;
         _actionui.appStopRemoteServer();
-        if (wasRunning) {
+        if (wasRunning && process.platform !== 'win32') {   // Windows exported nothing
             // Only when it was ours: an app that is itself a remote child inherited this
             // variable from its parent and must keep it.
             delete process.env.ACTIONUI_REMOTE_ENDPOINT;

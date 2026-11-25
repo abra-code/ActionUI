@@ -479,10 +479,28 @@ class Application:
             endpoint = app.start_remote_server()
             subprocess.run(["python3", "worker.py"],
                            env={**os.environ, "ACTIONUI_WINDOW_UUID": window.uuid})
+
+        On Windows the server listens on a named pipe (*path* is a pipe name,
+        ``\\\\.\\pipe\\...``; the default is new for each start) and exports nothing, so
+        ``os.environ`` is left alone: give a child the endpoint and a token of its own
+        (``PROTOCOL.md`` section 12)::
+
+            endpoint = app.start_remote_server()
+            token = app.mint_remote_token("job-1")
+            subprocess.run([sys.executable, "worker.py"],
+                           env={**os.environ, "ACTIONUI_REMOTE_ENDPOINT": endpoint,
+                                "ACTIONUI_REMOTE_TOKEN": token, "ACTIONUI_WINDOW_UUID": window.uuid})
+            app.revoke_remote_tokens("job-1")
         """
         import atexit
         import os
+        import sys
         endpoint = _actionui.app_start_remote_server(path)
+        if not self._remote_server_atexit_registered:
+            atexit.register(self.stop_remote_server)
+            self._remote_server_atexit_registered = True
+        if sys.platform == "win32":
+            return endpoint                     # nothing exported, nothing to mirror
         # The framework called setenv, which os.environ does not see; keep the two in step.
         os.environ[REMOTE_ENDPOINT_ENV] = endpoint
         # Same for the token, when the framework minted one. Without this a child launched with
@@ -496,17 +514,15 @@ class Application:
             os.environ.pop(REMOTE_TOKEN_ENV, None)
         else:
             os.environ[REMOTE_TOKEN_ENV] = token
-        if not self._remote_server_atexit_registered:
-            atexit.register(self.stop_remote_server)
-            self._remote_server_atexit_registered = True
         return endpoint
 
     def stop_remote_server(self):
         """Stop the remote bridge and remove its socket.  Does nothing if it is not running."""
         import os
+        import sys
         was_running = _actionui.app_remote_server_endpoint() is not None
         _actionui.app_stop_remote_server()
-        if was_running:
+        if was_running and sys.platform != "win32":   # Windows exported nothing
             # Only when it was ours: an app that is itself a remote child inherited this
             # variable from its parent and must keep it.
             os.environ.pop(REMOTE_ENDPOINT_ENV, None)

@@ -247,6 +247,21 @@ a `'pipe'` in `stdio[3]`, write the token and a newline to it, and set the varia
 withdraws it with `revokeRemoteTokens(label)` when the child's work ends; a connection that
 presented it is refused from then on.  See `ActionUIRemote/PROTOCOL.md` section 10.
 
+**On Windows.**  The server listens on a named pipe (`app.startRemoteServer()` makes a new one for
+each start; a chosen name is `\\.\pipe\...`) and exports nothing, so nothing is mirrored into
+`process.env` either: give each child the endpoint and a token of its own
+(`ActionUIRemote/PROTOCOL.md` section 12):
+
+```js
+const endpoint = app.startRemoteServer();
+const token = app.mintRemoteToken('job-1');
+spawn(process.execPath, ['worker.js'], { env: { ...process.env, ACTIONUI_REMOTE_ENDPOINT: endpoint,
+                                               ACTIONUI_REMOTE_TOKEN: token, ACTIONUI_WINDOW_UUID: window.uuid } });
+// app.revokeRemoteTokens('job-1') when that child's work ends.
+```
+
+`ACTIONUI_REMOTE_TOKEN_FD` is not used on Windows.
+
 Mirroring is not optional bookkeeping.  The framework publishes both variables with `setenv`, and
 `process.env` is a snapshot taken at startup that a later `setenv` never reaches, so a child built
 from `process.env` would otherwise get neither and be refused with `1006`.

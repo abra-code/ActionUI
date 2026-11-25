@@ -681,6 +681,23 @@ descriptor named by `ACTIONUI_REMOTE_TOKEN_FD` (the docstring of
 `revoke_remote_tokens(label)` when the child's work ends; a connection that
 presented it is refused from then on.  See `ActionUIRemote/PROTOCOL.md` section 10.
 
+**On Windows.**  The server listens on a named pipe (`app.start_remote_server()`
+makes a new one for each start; a chosen name is `\\.\pipe\...`) and exports
+nothing, so nothing is mirrored into `os.environ` either: give each child the
+endpoint and a token of its own (`ActionUIRemote/PROTOCOL.md` section 12):
+
+```python
+endpoint = app.start_remote_server()
+token = app.mint_remote_token("job-1")
+subprocess.run([sys.executable, "worker.py"],
+               env={**os.environ, "ACTIONUI_REMOTE_ENDPOINT": endpoint,
+                    "ACTIONUI_REMOTE_TOKEN": token, "ACTIONUI_WINDOW_UUID": window.uuid})
+app.revoke_remote_tokens("job-1")
+```
+
+The worker's `actionui_remote` needs `actionui_remote_windows.py` beside it.
+`ACTIONUI_REMOTE_TOKEN_FD` is not used on Windows.
+
 Mirroring is not optional bookkeeping.  The framework publishes both variables
 with `setenv`, and `os.environ` is a snapshot taken at interpreter start that a
 later `setenv` never reaches, so a child built from `os.environ` would otherwise
