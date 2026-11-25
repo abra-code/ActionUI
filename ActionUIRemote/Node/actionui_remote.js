@@ -19,6 +19,10 @@
  * CommonJS on purpose: a handler is usually a bare .js file run as `node worker.js` with no
  * package.json anywhere near it, and `require` is what works in that setting.
  *
+ * On Windows the host listens on a local named pipe (PROTOCOL.md section 12), and this client needs
+ * actionui_remote_windows.js beside it, which says which of that section's checks plain JavaScript
+ * cannot make.
+ *
  * Command line:
  *
  *     node actionui_remote.js [--endpoint PATH] [--window UUID] [--timeout SEC] COMMAND ...
@@ -29,6 +33,10 @@ const fs = require('fs');
 const net = require('net');
 const path = require('path');
 const { execFileSync } = require('child_process');
+
+const WINDOWS = process.platform === 'win32';
+// The pipe side, from this file's own folder, never through the module search path.
+const windowsSide = WINDOWS ? require(path.join(__dirname, 'actionui_remote_windows.js')) : null;
 
 const PROTOCOL_VERSION = 1;
 
@@ -83,6 +91,11 @@ class EndpointError extends Error {
  * stops that, and Node cannot ask the kernel who the peer is.
  */
 function checkEndpoint(endpoint) {
+    if (WINDOWS) {
+        // A local pipe name; actionui_remote_windows.js says what else cannot be checked here.
+        windowsSide.checkEndpoint(endpoint, EndpointError);
+        return;
+    }
     if (!path.isAbsolute(endpoint)) {
         throw new EndpointError(`socket path is not absolute: ${endpoint}`);
     }
@@ -272,6 +285,9 @@ function readTokenDescriptor() {
 
     const raw = process.env[TOKEN_FD_ENV];
     if (!raw) return null;
+    if (WINDOWS) {
+        tokenDescriptorFailure(`${TOKEN_FD_ENV} is not used on Windows: a host gives a child its token in ${TOKEN_ENV}`);
+    }
     if (!/^[0-9]+$/.test(raw)) {
         tokenDescriptorFailure(`${TOKEN_FD_ENV} must be a descriptor number, not ${JSON.stringify(raw)}`);
     }
@@ -405,7 +421,7 @@ class Connection {
         if (this._socket) return Promise.resolve(this._socket);
         if (this._connecting) return this._connecting;
 
-        if (Buffer.byteLength(this.endpoint, 'utf8') > SUN_PATH_LIMIT) {
+        if (!WINDOWS && Buffer.byteLength(this.endpoint, 'utf8') > SUN_PATH_LIMIT) {
             return Promise.reject(new EndpointError(
                 `socket path is too long for sun_path (limit ${SUN_PATH_LIMIT} bytes): ${this.endpoint}`));
         }

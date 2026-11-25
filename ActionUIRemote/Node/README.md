@@ -7,7 +7,8 @@ reference fake host the Python client's suite uses, and additionally assert the 
 and parameters of every call against a recording server - a round trip through a lenient host is
 not evidence that the right thing went over the wire.
 
-No dependencies, no build step, nothing to install: one file that `require`s.
+No dependencies, no build step, nothing to install: one file that `require`s (two on Windows,
+with `actionui_remote_windows.js` beside it).
 
 ## Using it
 
@@ -130,3 +131,21 @@ asserts the exact wire shape of every call against a recording server; drives th
 rules in child processes, since the descriptor is read once per process and each rule needs a
 fresh one; and runs a real handler script end to end to prove it exits when its work is done.
 Unix-socket binding needs the tool sandbox disabled in this harness.
+
+## On Windows
+
+The host listens on a local named pipe (`\\.\pipe\...`, PROTOCOL.md section 12), which Node
+reaches with `net.connect` as it reaches a Unix socket elsewhere. A Windows host exports nothing:
+it gives a child the endpoint and a token of its own in `ACTIONUI_REMOTE_ENDPOINT` and
+`ACTIONUI_REMOTE_TOKEN`; `ACTIONUI_REMOTE_TOKEN_FD` is not used there.
+
+Before it sends a token, this client checks that the endpoint is a local pipe name, never another
+computer's. Section 12 asks for two more checks that plain JavaScript cannot make:
+
+- Node opens the pipe without asking for identification only, so the server at the other end may
+  act as this process (a server of another account can do so only with the privilege to
+  impersonate, which an ordinary account does not have and a service does).
+- Node cannot read the pipe's owner, so a pipe somebody else made after the host's server ended
+  would get the token. A token of a server that has ended opens nothing.
+
+The Python client (`../Python/actionui_remote.py`) makes both checks; use it where they matter.
