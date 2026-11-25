@@ -11,6 +11,7 @@
 #include <cstring>
 #include <cwctype>  // towlower
 #include <memory>
+#include <string_view>
 #include <vector>
 
 #include <MddBootstrap.h>
@@ -66,7 +67,37 @@ namespace muxm = winrt::Microsoft::UI::Xaml::Markup;
 bool g_launchFailed = false;
 
 struct App : mux::ApplicationT<App, muxm::IXamlMetadataProvider> {
-    App(ActionUIWinUICallback onLaunched, void *context) : m_onLaunched(onLaunched), m_context(context) {}
+    App(ActionUIWinUICallback onLaunched, void *context) : m_onLaunched(onLaunched), m_context(context) {
+        // An exception WinUI does not handle ends the process (0xC000027B) with nothing said: its message
+        // goes to stderr and the debugger first, so a log says what failed. Not marked handled, as the state
+        // after it is unknown, except one: WinUI failing to get Windows' LimitedAccessFeatures class
+        // (0x80040111, CLASS_E_CLASSNOTAVAILABLE), which it asks for on its own. Seen on Windows 11 26300 in
+        // an unpackaged process, in a window that cannot be resized holding a TextBox and a Slider, the
+        // first such window of the process; marked handled, the window works and answers as it should.
+        // (WinUI ends the process on an error raised during layout even when it is marked handled, so a
+        // layout cycle could not be let through here either.)
+        UnhandledException([](wf::IInspectable const &, mux::UnhandledExceptionEventArgs const &arguments) {
+            try {
+                constexpr int32_t classNotAvailable = static_cast<int32_t>(0x80040111);
+                bool optionalFeature = arguments.Exception().value == classNotAvailable &&
+                                       std::wstring_view(arguments.Message()).find(L"LimitedAccessFeatures") != std::wstring_view::npos;
+                if (optionalFeature) {
+                    arguments.Handled(true);
+                }
+                wchar_t line[1024];
+                // Cut to the buffer: swprintf_s would end the process on a long message. The message is
+                // capped below the buffer so a cut line still ends in its newline.
+                _snwprintf_s(line, _TRUNCATE, L"ActionUI WinUI: %ls exception 0x%08X: %.900ls\n", optionalFeature ? L"ignored" : L"unhandled",
+                             static_cast<unsigned>(arguments.Exception().value), arguments.Message().c_str());
+                OutputDebugStringW(line);
+                // UTF-8, like the rest of the process's output: fwprintf to a text-mode stream converts
+                // through the C locale, which stops the line at the first character past U+00FF.
+                fputs(winrt::to_string(line).c_str(), stderr);
+                fflush(stderr);
+            } catch (...) {
+            }
+        });
+    }
 
     void OnLaunched(mux::LaunchActivatedEventArgs const &) {
         bool ready = guarded("launch", [&]() {
