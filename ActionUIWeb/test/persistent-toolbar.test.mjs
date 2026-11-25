@@ -197,7 +197,7 @@ test("persistentToolbar: declared where nothing can render it, it warns rather t
     assert.ok(logger.warned("is ignored"), "a persistentToolbar off a container renders nothing");
 });
 
-test("persistentToolbar: a correct document is silent", () => {
+test("persistentToolbar: correct JSON is silent", () => {
     const logger = makeLogger();
     Window.fromJSON(STACK, "w", logger);
     assert.equal(logger.warningCount(), 0);

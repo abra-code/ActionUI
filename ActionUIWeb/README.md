@@ -129,7 +129,7 @@ ActionUI JSON from the page's own origin is trusted, and so is JSON from a trust
   NavigationSplitView (a sidebar | (content) | detail layout - static panes, or a
   sidebar List whose `destinationViewId` rows switch the detail pane; both
   collapse responsively on narrow viewports), and
-  LoadableView (a dynamic include - fetches a JSON sub-document by `url` /
+  LoadableView (a dynamic include - fetches JSON for a sub-view by `url` /
   `filePath` / `name` and renders it inline, so a UI can be split across files),
   WebView (the web's own native `<iframe>`; `url` or inline `html`; a `url` page from
   another server keeps its own cookies and storage, as an embedded site expects, while a
@@ -175,7 +175,7 @@ ActionUI JSON from the page's own origin is trusted, and so is JSON from a trust
   fires no actionID, like Apple), the window-level
   presentation host API (`src/Scenes/`): `presentAlert` /
   `presentConfirmationDialog` / `dismissDialog` (a native `<dialog>` from pure
-  data) and `presentModal` / `dismissModal` (a JSON sub-document loaded into a
+  data) and `presentModal` / `dismissModal` (JSON for a sub-view loaded into a
   sheet / `fullScreenCover` `<dialog>`, its controls bound into the window model),
   the file panel `openPanel(config)` (a hidden `<input type=file>`; async on web, so
   it returns a `Promise<File[]>` rather than the native synchronous path array -

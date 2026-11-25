@@ -1,5 +1,5 @@
 // Tests for where content came from (Common/TrustPolicy.js), the host's trust policy, and the
-// limits every document is held to (Helpers/JSONLimits.js): the origin a LoadableView's
+// limits all ActionUI JSON is held to (Helpers/JSONLimits.js): the origin a LoadableView's
 // content records, the id rule for less-trusted content, the 16 MB and depth caps, and the load
 // budget. The page here is http://localhost/ (the stub DOM has no base address).
 
@@ -78,7 +78,7 @@ test("the host's policy decides trust and each capability; one that throws fails
     assert.equal(logger.messages.filter((m) => m.level === "error").length, 2);
 });
 
-test("a document larger than 16 MB, or nested deeper than 512, is not decoded", async () => {
+test("JSON larger than 16 MB, or nested deeper than 512, is not decoded", async () => {
     assert.equal(DL.utf8LongerThan("abc", 3), false);
     assert.equal(DL.utf8LongerThan("\u00e9\u00e9", 3), true);
     assert.equal(DL.utf8LongerThan("\uD83D\uDE00", 4), false);
@@ -109,13 +109,13 @@ test("the load budget allows 256 loads in a minute per window", () => {
     assert.deepEqual(new DL.LoadBudget().budget, { loads: 256, seconds: 60 }, "the configuration's when none is given");
 });
 
-// Renders `root` with fetch answering from `documents` (address to document, or text), lets
+// Renders `root` with fetch answering from `files` (address to JSON, or text), lets
 // every load settle, and returns the window and the logger.
-async function render(root, documents) {
+async function render(root, files) {
     globalThis.fetch = async (url) => {
-        const document = documents(url);
-        return { ok: document != null, status: document != null ? 200 : 404,
-            text: async () => (typeof document === "string" ? document : JSON.stringify(document)) };
+        const json = files(url);
+        return { ok: json != null, status: json != null ? 200 : 404,
+            text: async () => (typeof json === "string" ? json : JSON.stringify(json)) };
     };
     const logger = makeLogger();
     const win = Window.fromJSON(root, undefined, logger);
@@ -125,7 +125,7 @@ async function render(root, documents) {
     return { win, logger, container };
 }
 
-test("a LoadableView's content records its origin; the host's document is the host's", async () => {
+test("a LoadableView's content records its origin; the host's JSON is the host's", async () => {
     const { win } = await render(
         { type: "VStack", id: 1, children: [
             { type: "LoadableView", id: 2, properties: { url: "https://example.com/v.json" } },
@@ -152,7 +152,7 @@ test("less-trusted content may not use a trusted element's id, even one not buil
     assert.equal(win.getElementOrigin(7).trust, "trusted");
 });
 
-test("a LoadableView's document larger than 16 MB is refused", async () => {
+test("a LoadableView's JSON larger than 16 MB is refused", async () => {
     const { logger } = await render(
         { type: "LoadableView", id: 2, properties: { url: "https://example.com/big.json" } },
         () => `{"type":"Text","id":20,"properties":{"text":"${"x".repeat(DL.maximumJSONSize())}"}}`);
@@ -160,13 +160,13 @@ test("a LoadableView's document larger than 16 MB is refused", async () => {
 });
 
 test("less-trusted content opens only web and mail links, titles nothing and presents nothing", async () => {
-    const document = { type: "VStack", id: 20, properties: { navigationTitle: "Bank sign-in" }, children: [
+    const json = { type: "VStack", id: 20, properties: { navigationTitle: "Bank sign-in" }, children: [
         { type: "Link", id: 21, properties: { title: "Call", url: "tel:123" } },
         { type: "Link", id: 22, properties: { title: "Site", url: "https://example.com/" } },
         { type: "ShareLink", id: 23, properties: { item: "tel:123" } },
         { type: "Button", id: 24, properties: { title: "More" }, sheet: { type: "Text", id: 25, properties: { text: "Password?" } } },
         { type: "WebView", id: 26, properties: { html: "<p>hi</p>", baseURL: "https://bank.example/" } }] };
-    const { logger } = await render({ type: "LoadableView", id: 2, properties: { url: "https://example.com/v.json" } }, () => document);
+    const { logger } = await render({ type: "LoadableView", id: 2, properties: { url: "https://example.com/v.json" } }, () => json);
     const said = (text) => logger.messages.some((m) => m.message === text);
     assert.ok(said("Link not opening tel:123: the trust policy refuses it"), JSON.stringify(logger.messages.map((m) => m.message)));
     assert.ok(!said("Link not opening https://example.com/: the trust policy refuses it"));

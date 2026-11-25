@@ -151,8 +151,8 @@ export class ActionUIElement {
         }
         // The two ways a toolbar key can be authored where nothing will read it. Reported
         // here because fromObject visits every element exactly once, on EVERY parse path -
-        // the window document, a LoadableView, a modal description, a runtime insertion -
-        // so a misauthored sub-document says so too. The renderer stays silent: by build
+        // the window JSON, a LoadableView, a modal description, a runtime insertion -
+        // so misauthored sub-view JSON says so too. The renderer stays silent: by build
         // time the key has already been folded into the container's items or dropped, and
         // a render-time warning would repeat on every pane switch.
         const container = NAVIGATION_CONTAINER_TYPES.has(raw.type);

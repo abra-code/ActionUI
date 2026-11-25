@@ -679,7 +679,7 @@ app.action("readGeometrySize", () => {
     }
 });
 
-// Window-level modals (Controls): presentModal loads a JSON sub-document into a
+// Window-level modals (Controls): presentModal loads JSON for a sub-view into a
 // native <dialog>; its controls bind into the window model by id. The modal's
 // Close button routes an actionID the host maps to dismissModal() - the
 // Modal.json / cross-platform contract. onDismissActionID fires on any close.

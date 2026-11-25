@@ -1,4 +1,4 @@
-// Tests for the address rules a document cannot get around (src/Helpers/URLPolicy.js) and the
+// Tests for the address rules ActionUI JSON cannot get around (src/Helpers/URLPolicy.js) and the
 // elements that apply them: WebView (sandbox and http/https only), Link, Map "Open in Maps",
 // ShareLink, and LoadableView (no "//host" sources, no self-inclusion, a nesting limit).
 
@@ -237,14 +237,14 @@ test("a LoadableView source starting with // is not fetched from another server"
     assert.equal(classifyLoadableSource("Section").kind, "bundle");
 });
 
-// Renders a LoadableView document with fetch answering from `documents` (address suffix to
-// document), lets every load settle, and returns the fetched addresses and the logger.
-async function renderLoadable(rootSource, documents) {
+// Renders a LoadableView with fetch answering from `files` (address suffix to
+// JSON), lets every load settle, and returns the fetched addresses and the logger.
+async function renderLoadable(rootSource, files) {
     const fetched = [];
     globalThis.fetch = async (url) => {
         fetched.push(url);
-        const document = documents(url);
-        return { ok: document !== null, status: document !== null ? 200 : 404, text: async () => JSON.stringify(document) };
+        const json = files(url);
+        return { ok: json !== null, status: json !== null ? 200 : 404, text: async () => JSON.stringify(json) };
     };
     const logger = makeLogger();
     const win = Window.fromJSON({ type: "LoadableView", id: 1, properties: { url: rootSource } }, undefined, logger);
@@ -255,20 +255,20 @@ async function renderLoadable(rootSource, documents) {
 
 const including = (source) => ({ type: "VStack", children: [{ type: "LoadableView", properties: { url: source } }] });
 
-test("a document that loads itself is fetched twice at most, then refused", async () => {
+test("JSON that loads itself is fetched twice at most, then refused", async () => {
     const { fetched, logger } = await renderLoadable("https://example.com/self.json", () => including("https://example.com/self.json"));
     assert.ok(fetched.length <= 2, `fetched ${fetched.length} times`);
     assert.ok(logger.messages.some((m) => m.message.includes("it includes itself")));
 });
 
-test("a loop through two documents is refused", async () => {
+test("a loop through two JSON files is refused", async () => {
     const { fetched, logger } = await renderLoadable("https://example.com/a.json",
         (url) => including(url.endsWith("a.json") ? "https://example.com/b.json" : "https://example.com/a.json"));
     assert.ok(fetched.length <= 3, `fetched ${fetched.length} times`);
     assert.ok(logger.messages.some((m) => m.message.includes("it includes itself")));
 });
 
-test("an endless chain of new documents stops at the nesting limit", async () => {
+test("an endless chain of new JSON files stops at the nesting limit", async () => {
     const { fetched, logger } = await renderLoadable("https://example.com/n0.json", (url) => {
         const n = Number(url.match(/n(\d+)\.json$/)[1]);
         return including(`https://example.com/n${n + 1}.json`);

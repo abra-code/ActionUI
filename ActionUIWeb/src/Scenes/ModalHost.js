@@ -5,7 +5,7 @@
 // presentation layer (Scenes/), after DialogHost.
 //
 // Unlike a window dialog (pure title/message/buttons, Scenes/DialogHost.js), a
-// modal loads a JSON sub-document, builds it through the registry - which registers
+// modal loads JSON for a sub-view, builds it through the registry - which registers
 // every loaded id's value/state binding into the window model, so the value/state/
 // rows API reaches the modal's controls by id (the web's implicit "merge", as in
 // LoadableView) - and removes exactly those bindings again on dismiss (the web

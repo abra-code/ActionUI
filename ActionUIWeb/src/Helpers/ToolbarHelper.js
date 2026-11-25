@@ -8,8 +8,8 @@
 // the view's node in a chrome host: a top bar (leading | title-or-principal |
 // trailing) plus an optional bottom bar, with the original node as the body.
 // The wrap is applied at the single build choke point (ActionUIRegistry's
-// buildElementView), so any view that declares chrome gets it — the document
-// root, a NavigationStack destination, an NSV pane's content, etc.
+// buildElementView), so any view that declares chrome gets it - the root
+// view, a NavigationStack destination, an NSV pane's content, etc.
 //
 // JSON shape (mirrors Apple/Android): a `"toolbar": [ ... ]` array of
 //   { "type": "ToolbarItem", "properties": { "placement": "..." }, "content": {...} }
@@ -72,7 +72,7 @@ function resolveSlot(placement) {
 // The alias exists because a container-level `toolbar` was never a screen toolbar on any
 // host - the web dropped it outright at wrapWithToolbar's guard, macOS put it in the
 // window toolbar where it already persisted - so reading it here gives all four hosts one
-// behavior and keeps existing documents working. ActionUIElement.fromObject warns at parse
+// behavior and keeps existing JSON working. ActionUIElement.fromObject warns at parse
 // time when it sees one. Pure.
 export function persistentToolbarItems(element) {
     return [...element.persistentToolbar(), ...element.toolbar()];
@@ -437,8 +437,8 @@ export function buildPersistentToolbar(items, ctx) {
         const contents = buckets[slot];
         // Persistent secondaryAction items get their own overflow menu at the end of the
         // trailing group. Apple folds them into the screen's single menu; the web cannot,
-        // because a pane's menu is built per pane while this node is built once. So a
-        // document that uses secondaryAction on BOTH a screen and its container shows two
+        // because a pane's menu is built per pane while this node is built once. So JSON
+        // that uses secondaryAction on BOTH a screen and its container shows two
         // "..." menus here where Apple shows one. Documented divergence, not a bug to hunt.
         const overflow = slot === "trailing" && buckets.overflow.length ? buckets.overflow : null;
         if (!contents.length && overflow === null) continue;

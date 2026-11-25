@@ -2,11 +2,11 @@
 // JSONContentOrigin / ActionUITrustPolicy / DefaultTrustPolicy; origins and capabilities are plain
 // objects with the keys the C adapter's JSON uses.
 //
-// A document the host passes in, or one from the page's own origin (a filePath or name, which
+// ActionUI JSON the host passes in, or JSON from the page's own origin (a filePath or name, which
 // is always fetched from the page's server, or a URL on the page's origin), is trusted; one a
 // LoadableView loads from another origin is less trusted, and so is anything inside it. The
 // origin rides on the render context (ctx.origin), so elements with no id and template rows are
-// judged by the document they are in; the model records it per id for the host
+// judged by the JSON they are in; the model records it per id for the host
 // (Window.getElementOrigin).
 //
 //   origin:     { source: "host" | "resource" | "remote", path?, url?, trust: "trusted" | "lessTrusted", parentID? }
@@ -63,7 +63,7 @@ function isOnPageServer(address, base) {
 // What content of `origin` may do when the host does not say: trusted content anything;
 // less-trusted content may open only web and mail links, show only web addresses in a WebView
 // and play only web addresses in a VideoPlayer, give its inline html a base address only of its
-// own document's origin, and neither title the screen nor present its own sheets, covers and
+// own JSON's origin, and neither title the screen nor present its own sheets, covers and
 // popovers. The Swift table, less what the web
 // has no counterpart for (local files, script files, menu commands).
 export function allowsByDefault(capability, origin) {

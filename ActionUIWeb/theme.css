@@ -762,7 +762,7 @@
 /* The `.sheet` / `.fullScreenCover` modifiers (and the host-API presentModal,
    Scenes/ModalHost.js): a native <dialog> shown with showModal() - the browser's
    own top-layer modal with a ::backdrop and Escape-to-cancel. The content is the
-   built subview/sub-document, which brings its own padding. */
+   built subview, which brings its own padding. */
 .aui-modal {
     border: none;
     padding: 0;
@@ -1388,7 +1388,7 @@
 
 /* ---- LoadableView ---- */
 
-/* A dynamic include: a sub-document fetched and rendered inline. A plain block
+/* A dynamic include: JSON for a sub-view fetched and rendered inline. A plain block
    wrapper (so baseline modifiers on the element still apply); the
    spinner/error/deferred placeholders show while loading or on failure. */
 .aui-loadable { display: block; }

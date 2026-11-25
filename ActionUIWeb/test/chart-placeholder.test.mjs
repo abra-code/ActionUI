@@ -14,7 +14,7 @@ before(async () => {
     ({ CHART_PLACEHOLDER } = await import("../src/Views/Chart.js"));
 });
 
-const document = {
+const windowJSON = {
     type: "VStack",
     children: [{
         type: "Chart", id: 10,
@@ -25,7 +25,7 @@ const document = {
 // The stub's querySelector finds nothing, so the chart's node is found by walking the
 // tree, and setElementProperty is pointed at it as the property tests do.
 function present(logger) {
-    const win = Window.fromJSON(document, undefined, logger);
+    const win = Window.fromJSON(windowJSON, undefined, logger);
     const host = makeElement();
     new Application({ name: "T" }).presentWindow(win, host);
     const find = (node) => (node?.dataset?.auiId === "10" ? node : (node?.children ?? []).map(find).find(Boolean) ?? null);
