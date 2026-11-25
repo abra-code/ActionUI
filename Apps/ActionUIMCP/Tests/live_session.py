@@ -8,6 +8,8 @@ Run with the sandbox off:
     /usr/bin/python3 Tests/live_session.py "$(swift build --show-bin-path)/actionui-mcp"
 
 On Linux it needs a desktop session, and what the server has no way to do there is reported as skip.
+On Windows it runs in the user's desktop session (not over SSH), with python.exe; what the server does
+not do there yet (notices, kept windows) is reported as skip.
 """
 import json
 import os
@@ -18,11 +20,17 @@ import threading
 import time
 
 LINUX = sys.platform.startswith("linux")
+WINDOWS = sys.platform == "win32"
+MACOS = not LINUX and not WINDOWS
 # The suffix that is active here: an inactive one rightly does nothing, so it would test nothing.
-SUFFIX = ":linux" if LINUX else ":macos"
+SUFFIX = ":linux" if LINUX else ":windows" if WINDOWS else ":macos"
+# An absolute path where one is only checked, never read.
+ROOT = "C:\\tmp\\" if WINDOWS else "/tmp/"
 # Checks skipped on Linux: those whose labels start with one of these (none). A kept window's frame
 # is its content's size there, as Wayland does not tell where a window is.
 NOT_ON_LINUX = ()
+# Checks skipped on Windows: the server has no notices there yet.
+NOT_ON_WINDOWS = ("notify", "a notice is not a window")
 
 
 class Session:
@@ -32,8 +40,10 @@ class Session:
             env["ACTIONUI_MCP_TEST_PRESS"] = press
         if action:
             env["ACTIONUI_MCP_TEST_ACTION"] = action
+        # Bytes, encoded here: a text pipe on Windows would send each newline as CRLF, which no MCP
+        # client sends.
         self.proc = subprocess.Popen([binary], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                     stderr=sys.stderr, text=True, bufsize=1, env=env)
+                                     stderr=sys.stderr, env=env)
         self.inbox = queue.Queue()
         self.seen = []
         threading.Thread(target=self._read, daemon=True).start()
@@ -48,10 +58,10 @@ class Session:
 
     def _read(self):
         for line in self.proc.stdout:
-            self.inbox.put(json.loads(line))
+            self.inbox.put(json.loads(line.decode("utf-8")))
 
     def send(self, message):
-        self.proc.stdin.write(json.dumps(message) + "\n")
+        self.proc.stdin.write((json.dumps(message) + "\n").encode("utf-8"))
         self.proc.stdin.flush()
 
     def call(self, request_id, name, arguments, meta=None):
@@ -83,7 +93,7 @@ failures = []
 
 
 def check(label, condition, detail=""):
-    if LINUX and label.startswith(NOT_ON_LINUX):
+    if (LINUX and label.startswith(NOT_ON_LINUX)) or (WINDOWS and label.startswith(NOT_ON_WINDOWS)):
         print("skip " + label)
         return
     print(("ok   " if condition else "FAIL ") + label + ("" if condition else "  " + str(detail)))
@@ -207,7 +217,7 @@ s.call(52, "show_ui", {"title": "T", "ui": {"type": "VStack", "properties": {"sp
 message = s.response(52)
 check("show_ui refuses a wrong value type", is_error(message)
       and "expected number, got string" in message["result"]["content"][0]["text"], message)
-s.call(53, "validate_ui", {"ui": {"type": "QuickLook", "properties": {"filePath": "/tmp/x.pdf"}}})
+s.call(53, "validate_ui", {"ui": {"type": "QuickLook", "properties": {"filePath": ROOT + "x.pdf"}}})
 result = structured(s.response(53)) or {}
 check("validate knows add-on elements", result.get("ok") is True and result.get("warnings") == [], result)
 # Files are named by absolute path: the server loads its own copy of the JSON, so a relative path
@@ -216,7 +226,7 @@ s.call(170, "validate_ui", {"ui": {"type": "Image", "properties": {"filePath": "
 result = structured(s.response(170)) or {}
 check("validate refuses a relative Image filePath", result.get("ok") is False
       and any("relative path" in e for e in result.get("errors", [])), result)
-s.call(171, "validate_ui", {"ui": {"type": "Image", "properties": {"filePath": "/tmp/sunset.png"}}})
+s.call(171, "validate_ui", {"ui": {"type": "Image", "properties": {"filePath": ROOT + "sunset.png"}}})
 result = structured(s.response(171)) or {}
 check("validate takes an absolute Image filePath", result.get("ok") is True, result)
 s.call(172, "validate_ui", {"ui": {"type": "Diff", "properties": {"oldFile": "~/a.txt", "newFile": "b.txt"}}})
@@ -235,8 +245,8 @@ result = structured(s.response(178)) or {}
 check("validate refuses a relative filePath in a Canvas layer, suffixed", result.get("ok") is False
       and any("operations[0].operations[0].filePath" in e for e in result.get("errors", [])), result)
 s.call(174, "show_ui", {"title": "Paths", "ui": {"type": "VStack", "children": [
-    {"type": "Image", "id": 1, "properties": {"filePath": "/tmp/x.png"}},
-    {"type": "QuickLook", "id": 2, "properties": {"filePath": "/tmp/x.pdf"}},
+    {"type": "Image", "id": 1, "properties": {"filePath": ROOT + "x.png"}},
+    {"type": "QuickLook", "id": 2, "properties": {"filePath": ROOT + "x.pdf"}},
     {"type": "Image", "id": 3, "properties": {"systemName": "star"}}]}})
 paths_window = (structured(s.response(174)) or {}).get("window")
 s.call(175, "update_window", {"window": paths_window, "properties": {"1": {"filePath": "rel.png"}},
@@ -266,12 +276,12 @@ cases = [("notes.md", "# Title\n\nSome **bold** text.\n", "markdown"),
          ("people.csv", "name,age\nAda,36\n", "table"),
          ("main.swift", "let x = 1\n", "text"),
          ("page.html", "<p>A <b>page</b></p>\n", "web"),
-         ("data.bin", b"\x00\x01\xff", None if LINUX else "quicklook")]
+         ("data.bin", b"\x00\x01\xff", "quicklook" if MACOS else None)]
 for number, (name, content, expected) in enumerate(cases, start=190):
     s.call(number, "show", {"title": name, "kind": "file", "path": file_in(name, content)})
     message = s.response(number)
     if expected is None:
-        check("show kind file refuses " + name + " on Linux", is_error(message), message)
+        check("show kind file refuses " + name + " without Quick Look", is_error(message), message)
         continue
     result = structured(message) or {}
     check("show kind file shows " + name + " as " + expected, result.get("shown_as") == expected and bool(result.get("window")), result)
@@ -410,7 +420,7 @@ message = s.response(145)
 check("show_ui refuses a LoadableView", is_error(message)
       and "LoadableView is not allowed" in message["result"]["content"][0]["text"], message)
 s.call(146, "validate_ui", {"ui": {"type": "VStack", "children": [{"type": "Text", "properties": {"text": "x"}}],
-                                               "children" + SUFFIX: [{"type": "LoadableView", "properties": {"filePath": "/tmp/x.json"}}]}})
+                                               "children" + SUFFIX: [{"type": "LoadableView", "properties": {"filePath": ROOT + "x.json"}}]}})
 result = structured(s.response(146)) or {}
 check("validate refuses a LoadableView behind a platform suffix", result.get("ok") is False
       and any("LoadableView is not allowed" in e for e in result.get("errors", [])), result)
@@ -546,8 +556,9 @@ s.call(58, "screenshot", {"window": "no-such-window"})
 check("screenshot of an unknown window is an error", is_error(s.response(58)))
 s.call(59, "screenshot", {"ui": {"type": "VStack", "properties": {"spacing": "16"}}})
 check("screenshot refuses ActionUI JSON with errors", is_error(s.response(59)))
-# Rendered ActionUI JSON is drawn at the size asked for, title bar included. On Linux a WebView's page
-# is not drawn there, and the result says so; on macOS it is, and nothing is said.
+# Rendered ActionUI JSON is drawn at the size asked for, title bar included (on Windows without one: a
+# capture there is of the content). On Linux and Windows a WebView's page is not drawn there, and the
+# result says so; on macOS it is, and nothing is said.
 s.call(1470, "screenshot", {"ui": {"type": "VStack", "children": [
     {"type": "Text", "properties": {"text": "Above"}},
     {"type": "WebView", "properties": {"html": "<p>Page</p>", "frame": {"width": 300, "height": 120}}}]},
@@ -555,11 +566,13 @@ s.call(1470, "screenshot", {"ui": {"type": "VStack", "children": [
 info = structured(s.response(1470)) or {}
 web_warned = any("WebView" in warning for warning in info.get("warnings", []))
 check("screenshot renders a WebView's ActionUI JSON and says what it leaves out",
-      info.get("width", 0) > 0 and info.get("height", 0) > info.get("width", 0) * 260 / 400
-      and web_warned == LINUX, info)
+      info.get("width", 0) > 0
+      and (abs(info.get("height", 0) - info.get("width", 0) * 260 / 400) <= 2 if WINDOWS
+           else info.get("height", 0) > info.get("width", 0) * 260 / 400)
+      and web_warned == (not MACOS), info)
 
 # pick_path: a bad folder is an error; an unanswered panel times out.
-s.call(42, "pick_path", {"directory": "/no/such/folder"})
+s.call(42, "pick_path", {"directory": ROOT + "no-such-folder" if WINDOWS else "/no/such/folder"})
 check("pick_path rejects a missing folder", is_error(s.response(42)))
 s.call(43, "pick_path", {"kind": "save", "default_name": "x.txt", "timeout_s": 2})
 check("pick_path times out", structured(s.response(43)) == {"action": "timeout", "paths": []})
@@ -639,7 +652,7 @@ s.send({"jsonrpc": "2.0", "id": 3, "method": "resources/list", "params": {"_meta
 listed = [r["uri"] for r in (s.response(3) or {}).get("result", {}).get("resources", [])]
 check("resources/list has the guide and core and add-on elements (%d)" % len(listed),
       {"actionui://docs/guide", "actionui://docs/elements/Button", "actionui://docs/elements/RichText"} <= set(listed)
-      and ("actionui://docs/elements/QuickLook" in listed) != LINUX)
+      and ("actionui://docs/elements/QuickLook" in listed) == MACOS)
 s.send({"jsonrpc": "2.0", "id": 4, "method": "resources/read",
         "params": {"uri": "actionui://docs/templates/TextField", "_meta": s.meta}})
 contents = ((s.response(4) or {}).get("result", {}).get("contents") or [{}])[0]
@@ -690,7 +703,7 @@ s.close()
 
 # Placement and the Window menu (macOS): windows of the same size open a step apart, never on top of
 # one another, and the Window menu lists each of them, a long title shortened in the middle.
-if not LINUX:
+if MACOS:
     import tempfile as _tempfile
     placement = os.path.join(_tempfile.mkdtemp(prefix="actionui-mcp-placement-"), "placement.json")
     s = Session(binary, extra_env={"ACTIONUI_MCP_TEST_PLACEMENT_REPORT": placement})
@@ -715,7 +728,7 @@ if not LINUX:
 # Save on a show window (macOS): the test hook saves each window as the Save button does, into a
 # folder, under the offered name: the text, a table as CSV with the rows as they are, a diff as a
 # unified diff, a copy of a file, a chart as PNG. Content from the network has no Save.
-if not LINUX:
+if MACOS:
     import tempfile as _tempfile
     save_dir = _tempfile.mkdtemp(prefix="actionui-mcp-save-")
     # Elsewhere: saving a file onto itself writes nothing.
@@ -753,6 +766,31 @@ if not LINUX:
     names = sorted(os.listdir(save_dir))
     check("content from the network has no Save", names == ["Change.diff", "Notes.md", "People.csv", "Plot.png", "source.bin"], names)
     s.close()
+
+# The desktop entry that gives the windows their icon on Linux: written for this binary, hidden from
+# the app list, and removed again. macOS has no such step.
+entry_home = tempfile.mkdtemp(prefix="actionui-mcp-entry-")
+entry_env = dict(os.environ, XDG_DATA_HOME=entry_home)
+installed = subprocess.run([binary, "--install-desktop-entry"], env=entry_env, capture_output=True, text=True)
+entry_file = os.path.join(entry_home, "applications", "com.abracode.actionui.mcp.desktop")
+if LINUX:
+    entry_text = open(entry_file).read() if os.path.exists(entry_file) else ""
+    icon_line = next((line for line in entry_text.splitlines() if line.startswith("Icon=")), "")
+    check("desktop entry installed for this binary", installed.returncode == 0
+          and "Exec=" + os.path.realpath(binary) + "\n" in entry_text and "NoDisplay=true" in entry_text
+          and os.path.exists(icon_line[len("Icon="):]), installed.stdout + entry_text)
+    removed = subprocess.run([binary, "--uninstall-desktop-entry"], env=entry_env, capture_output=True, text=True)
+    again = subprocess.run([binary, "--uninstall-desktop-entry"], env=entry_env, capture_output=True, text=True)
+    check("desktop entry removed", removed.returncode == 0 and again.returncode == 0 and not os.path.exists(entry_file),
+          removed.stdout + again.stdout)
+else:
+    check("desktop entry is Linux only", installed.returncode == 2 and not os.path.exists(entry_file), installed.stdout)
+
+# Kept windows are not on Windows yet: the server refuses keep there.
+if WINDOWS:
+    print("skip kept windows (not on Windows yet)")
+    print("%d failure(s)" % len(failures))
+    sys.exit(1 if failures else 0)
 
 # Kept windows: at the end of input the server hands them to a keeper process, which shows them
 # with the same frame and values, then (test hook) closes them a second later and exits.
@@ -846,25 +884,6 @@ s.proc.wait(timeout=5)
 result = wait_for_file(report, 5) or {}
 check("SIGTERM hands off kept windows", [w.get("title") for w in result.get("windows", [])] == ["Kept A"], result)
 check("keeper after SIGTERM exits", process_gone(result.get("pid", -1), 5), result.get("pid"))
-
-# The desktop entry that gives the windows their icon on Linux: written for this binary, hidden from
-# the app list, and removed again. macOS has no such step.
-entry_home = tempfile.mkdtemp(prefix="actionui-mcp-entry-")
-entry_env = dict(os.environ, XDG_DATA_HOME=entry_home)
-installed = subprocess.run([binary, "--install-desktop-entry"], env=entry_env, capture_output=True, text=True)
-entry_file = os.path.join(entry_home, "applications", "com.abracode.actionui.mcp.desktop")
-if LINUX:
-    entry_text = open(entry_file).read() if os.path.exists(entry_file) else ""
-    icon_line = next((line for line in entry_text.splitlines() if line.startswith("Icon=")), "")
-    check("desktop entry installed for this binary", installed.returncode == 0
-          and "Exec=" + os.path.realpath(binary) + "\n" in entry_text and "NoDisplay=true" in entry_text
-          and os.path.exists(icon_line[len("Icon="):]), installed.stdout + entry_text)
-    removed = subprocess.run([binary, "--uninstall-desktop-entry"], env=entry_env, capture_output=True, text=True)
-    again = subprocess.run([binary, "--uninstall-desktop-entry"], env=entry_env, capture_output=True, text=True)
-    check("desktop entry removed", removed.returncode == 0 and again.returncode == 0 and not os.path.exists(entry_file),
-          removed.stdout + again.stdout)
-else:
-    check("desktop entry is Linux only", installed.returncode == 2 and not os.path.exists(entry_file), installed.stdout)
 
 print("%d failure(s)" % len(failures))
 sys.exit(1 if failures else 0)
