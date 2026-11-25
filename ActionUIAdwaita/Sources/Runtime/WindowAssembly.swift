@@ -1,10 +1,10 @@
 // Sources/Runtime/WindowAssembly.swift
 /*
- Fills a GTK window with a document as ActionUI shows one, whoever made the window: ActionUI's own
+ Fills a GTK window with ActionUI JSON as ActionUI shows one, whoever made the window: ActionUI's own
  application (AdwaitaApplication) for the windows it presents, and a host that makes its own
  windows (HostWindow, actionUILoadIntoHostWindow*). So a host's window and ActionUI's look the same:
- the subtitle line, the header bar with the document's toolbars and the primary menu, the toast
- overlay, scrolling for a document larger than the monitor, and the opening size.
+ the subtitle line, the header bar with the JSON's toolbars and the primary menu, the toast
+ overlay, scrolling for ActionUI JSON larger than the monitor, and the opening size.
 */
 
 #if canImport(FoundationEssentials)
@@ -29,31 +29,31 @@ package enum WindowAssembly {
 
     /// Fills `toolbar`, an AdwToolbarView already the content of `window` (so the bars have their
     /// style when measured): the subtitle line (none when nil or empty), the header bar with the
-    /// document's toolbars and the primary menu unless the document brings its own header bars,
+    /// the JSON's toolbars and the primary menu unless the JSON brings its own header bars,
     /// and `content` below them, scrolled when its minimum is larger than the monitor. With
-    /// `presents`, the document's modals, dialogs and toasts start showing. `contentSize` (below
-    /// the bars; a side of zero or less keeps the document's) overrides the document's size.
+    /// `presents`, the JSON's modals, dialogs and toasts start showing. `contentSize` (below
+    /// the bars; a side of zero or less keeps the JSON's) overrides the JSON's size.
     /// Returns the window's opening size, bars included, no larger than the monitor, and the bars'
     /// height above the content (what a size below the bars adds to make the window's).
     package static func assemble(_ window: UnsafeMutablePointer<GtkWindow>, toolbar: WidgetPointer, content: WidgetPointer,
                                  renderTree: AdwaitaWindow?, windowUUID: String, subtitle: String?,
                                  contentSize: (width: Int, height: Int)?, presents: Bool) -> (width: Int32, height: Int32, barsHeight: Int32) {
-        // First of the bars, where a document's toolbar items cannot push it away (WindowSubtitle).
+        // First of the bars, where the JSON's toolbar items cannot push it away (WindowSubtitle).
         if let subtitle, !subtitle.isEmpty {
             WindowSubtitle.set(subtitle, on: window)
             let line = WindowSubtitle.line(subtitle)
             adw_toolbar_view_add_top_bar(OpaquePointer(toolbar), line)
         }
-        // A document that brings its own header bars (a NavigationStack's pages) gets none here.
+        // ActionUI JSON that brings its own header bars (a NavigationStack's pages) gets none here.
         if renderTree?.showsOwnHeaderBars != true {
             let header = adw_header_bar_new()!
             adw_toolbar_view_add_top_bar(OpaquePointer(toolbar), header)
             // The primary menu at the end, outside the toolbars' items.
             adw_header_bar_pack_end(OpaquePointer(header), AppCommands.shared.makeMenuButton())
-            // The document's toolbars show in it.
+            // The JSON's toolbars show in it.
             renderTree?.root?.screenBar = ScreenBar(header: header, toolbarView: toolbar)
         } else {
-            // The document's own header bars carry the primary menu.
+            // The JSON's own header bars carry the primary menu.
             renderTree?.root?.showsPrimaryMenu = true
         }
         // Measured in the window, where the bars have their style, and together, as stacked bars
@@ -66,7 +66,7 @@ package enum WindowAssembly {
         let toastOverlay = adw_toast_overlay_new()!
         adw_toolbar_view_set_content(OpaquePointer(toolbar), toastOverlay)
         if minimum.width > monitor.width || Int(minimum.height) + Int(barsHeight) > Int(monitor.height) {
-            ActionUIModel.shared.logger.log("Window \(windowUUID): the document's minimum size \(minimum.width) x \(minimum.height) is larger than the screen; it scrolls", .warning)
+            ActionUIModel.shared.logger.log("Window \(windowUUID): the JSON's minimum size \(minimum.width) x \(minimum.height) is larger than the screen; it scrolls", .warning)
             let scroller = gtk_scrolled_window_new()!
             gtk_scrolled_window_set_child(opaque(scroller), content)
             ViewportFocus.follow(scroller)
@@ -119,9 +119,9 @@ package enum WindowAssembly {
 
     /// Runs `measure` with every scrolled window in `content` asking for its content's natural
     /// size, then as before. A List, Table or TextEditor is a scrolled window that asks for almost
-    /// nothing along the axis it scrolls, so a document holding one opened as a strip (a
+    /// nothing along the axis it scrolls, so ActionUI JSON holding one opened as a strip (a
     /// ScrollView asks for its content's size itself, ScrollView+Adwaita.swift); it opens tall enough to
-    /// show its content now, up to the monitor, as other documents do. The minimum stays the
+    /// show its content now, up to the monitor, as other JSON files do. The minimum stays the
     /// scrolled windows' own, so the window can still be made small. (SwiftUI's WindowGroup opens
     /// 900 x 418 whatever the content; Linux fits the content.)
     private static func askingForScrolledContent<Result>(in content: WidgetPointer, _ measure: () -> Result) -> Result {

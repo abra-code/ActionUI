@@ -164,7 +164,7 @@ final class StackLayoutTests: XCTestCase {
         XCTAssertEqual(frames(stack, 300, 20).map { $0[2] }, [50, 8, 242])
     }
 
-    func testHugeDocumentLengthsDoNotCrash() throws {
+    func testHugeJSONLengthsDoNotCrash() throws {
         let stack = try render(#"{"type": "HStack", "id": 1, "properties": {"spacing": 1e300}, "children": [{"type": "Spacer", "id": 2, "properties": {"minLength": 1e300}}, \#(block(3, 10, 10))]}"#)
         let (minimum, natural) = measure(stack, GTK_ORIENTATION_HORIZONTAL)
         XCTAssertGreaterThanOrEqual(minimum, Int32(StackSolver.maximumLength))

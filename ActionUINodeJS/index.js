@@ -382,7 +382,7 @@ class Application {
         // registration still calls actionUIRegisterActionHandler so ActionUI's
         // internal routing knows which IDs are claimed.
         _actionui.setDefaultActionHandler(this._actionBridge.bind(this));
-        // The HostSurface element, before the first document loads (on Linux libActionUI.so has it already).
+        // The HostSurface element, before the first ActionUI JSON loads (on Linux libActionUI.so has it already).
         _actionui.hostSurfaceRegister();
     }
 
@@ -792,7 +792,7 @@ function presentPixels(surfaceId, pixels, width, height,
 // Trust policy
 // ---------------------------------------------------------------------------
 
-// How far content is trusted. A document the host passes in, or one in the app's resources, is
+// How far content is trusted. ActionUI JSON the host passes in, or a file in the app's resources, is
 // trusted; one a LoadableView loads from a server or from a file elsewhere is less trusted, as is
 // anything inside it.
 const Trust = Object.freeze({ TRUSTED: 'trusted', LESS_TRUSTED: 'lessTrusted' });

@@ -144,8 +144,8 @@ xcodebuild test -scheme ActionUIHostSurface-Package -destination 'platform=iOS S
 
 They need the sandbox off (SwiftPM, windows). `HostSurfaceLifecycleTests` drives the binding and
 lifecycle rules with real surface views in windows that are never shown; `HostSurfaceInputTests`
-drives input and the focus rules (on macOS with NSEvents); `HostSurfaceDocumentTests`
-hosts real ActionUI documents and checks the event sequence for `hidden`, `padding` (which rebuilds the
+drives input and the focus rules (on macOS with NSEvents); `HostSurfaceJSONTests`
+hosts real ActionUI JSON and checks the event sequence for `hidden`, `padding` (which rebuilds the
 SwiftUI view), element removal and window close.
 
 On Linux, `swift test` in a GNOME session runs `HostSurfaceGtkTests`, a scripted run of a real window: the

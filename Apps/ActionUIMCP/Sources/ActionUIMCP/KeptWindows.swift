@@ -5,7 +5,7 @@
 // https://polyformproject.org/licenses/small-business/1.0.0
 
 // KeptWindows.swift - windows that outlive the session. A window opened with `keep: true` (show,
-// show_ui in window mode) keeps its staged document file. When the session ends (stdin
+// show_ui in window mode) keeps its staged JSON file. When the session ends (stdin
 // closes, or SIGTERM, SIGHUP or SIGINT arrives), the server moves those files into a spool directory, adds
 // a manifest with each window's frame, title and current values, and starts a keeper process:
 // this executable again, as `actionui-mcp --rehost <dir>`, in a session of its own, so a signal
@@ -33,8 +33,8 @@ import MCPStdio
 /// One window handed to the keeper.
 struct KeptWindowRecord: Codable {
     let window: String
-    /// File name of the document inside the spool directory.
-    let document: String
+    /// File name of the window's ActionUI JSON inside the spool directory.
+    let json: String
     let title: String
     let subtitle: String
     /// x, y, width, height of the window frame, in screen coordinates.
@@ -45,7 +45,7 @@ struct KeptWindowRecord: Codable {
     /// Table and list rows, keyed by view id.
     let rows: [String: [[String]]]
     /// Properties update_window set, keyed by view id and name, each value as JSON text. Set again
-    /// after the document loads and before rows and values. Absent in manifests that predate it.
+    /// after the ActionUI JSON loads and before rows and values. Absent in manifests that predate it.
     let properties: [String: [String: String]]?
     /// The window's mark; absent in manifests that predate it (then a line).
     let mark: WindowMark?
@@ -55,7 +55,8 @@ struct KeptWindowRecord: Codable {
 
 struct KeptWindowManifest: Codable {
     static let fileName = "manifest.json"
-    static let currentVersion = 1
+    /// 2: a record names its ActionUI JSON file in `json` (version 1 called it `document`).
+    static let currentVersion = 2
     let version: Int
     /// Back to front: the keeper orders each window front in turn, which restores the stacking.
     let windows: [KeptWindowRecord]
@@ -86,7 +87,7 @@ enum KeptWindowSupport {
 
     /// Properties the agent set (checked when it set them), then rows, then values, so a replaced
     /// chart description is in place before its rows and a table's selection finds its row. Only
-    /// rows and values that differ from the freshly loaded document are written, so nothing the
+    /// rows and values that differ from the freshly loaded ActionUI JSON are written, so nothing the
     /// user did not change is touched.
     static func restore(_ record: KeptWindowRecord) {
         let id = record.window
@@ -179,7 +180,7 @@ extension WindowHost {
     /// Hands every open kept window to a keeper process. Called once, at shutdown. Failures are
     /// logged; the windows then close with the process, as windows that are not kept do.
     func handOffKeptWindows() {
-        let kept = platform.keptWindowStates(Array(keptDocuments.keys))
+        let kept = platform.keptWindowStates(Array(keptJSONFiles.keys))
         guard !kept.isEmpty else { return }
 
         let spool = FileManager.default.temporaryDirectory
@@ -200,16 +201,16 @@ extension WindowHost {
             #endif
             var records: [KeptWindowRecord] = []
             for entry in kept {
-                guard let file = keptDocuments[entry.id] else { continue }
+                guard let file = keptJSONFiles[entry.id] else { continue }
                 let name = entry.id + ".json"
                 try FileManager.default.moveItem(at: file, to: spool.appendingPathComponent(name))
-                keptDocuments[entry.id] = nil
+                keptJSONFiles[entry.id] = nil
                 let state = snapshot(windowID: entry.id)
                 let properties = agentProperties[entry.id].map { byID in
                     Dictionary(uniqueKeysWithValues: byID.map { id, named in (String(id), named.mapValues { $0.serialized() }) })
                 }
                 records.append(KeptWindowRecord(
-                    window: entry.id, document: name, title: entry.title, subtitle: entry.subtitle,
+                    window: entry.id, json: name, title: entry.title, subtitle: entry.subtitle,
                     frame: entry.frame, styleMask: entry.styleMask, values: state.values, rows: state.rows,
                     properties: properties, mark: marks[entry.id], footer: footers[entry.id]))
             }

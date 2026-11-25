@@ -105,7 +105,7 @@ final class HostSurfaceRegistry {
 
     /// The surface view for an element, made on first use and reused by every container SwiftUI
     /// makes for the element until the view is torn down. A different surface name means a different
-    /// element under a reused id (a new document in the same window): it gets a new view, and the old
+    /// element under a reused id (new JSON in the same window): it gets a new view, and the old
     /// one is torn down with its container.
     func obtainSurface(for key: Key, surfaceName: String, make: () -> HostSurfaceView) -> HostSurfaceView {
         if let existing = owned[key] {

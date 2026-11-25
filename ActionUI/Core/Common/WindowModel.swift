@@ -71,7 +71,7 @@ final class WindowModel {
         }
     }
 
-    // Refuses a document larger than maximumJSONSize before anything parses it.
+    // Refuses ActionUI JSON larger than maximumJSONSize before anything parses it.
     private func checkSize(_ data: Data) throws {
         guard data.count > Self.maximumJSONSize else { return }
         logger.log("Not loading ActionUI JSON of \(data.count) bytes in window \(windowUUID): the most is \(Self.maximumJSONSize)", .error)
@@ -109,7 +109,7 @@ final class WindowModel {
             let parsed = try JSONValue(parsing: data)
             return Data(try filtered(parsed, by: filter).text().utf8)
         case "plist":
-            // A property list holds no null, and ActionUI documents use neither its dates nor its
+            // A property list holds no null, and ActionUI JSON uses neither its dates nor its
             // data (AnyCodable refuses them too): decoding one throws "Not a JSON value".
             let parsed = try PropertyListDecoder().decode(JSONValue.self, from: data)
             let encoder = PropertyListEncoder()
@@ -120,10 +120,10 @@ final class WindowModel {
         }
     }
 
-    // The document with PlatformFilter applied. The filter works on Swift-native values and
-    // returns the same kinds, so converting back cannot fail for a parsed document.
-    private func filtered(_ document: JSONValue, by filter: PlatformFilter) throws -> JSONValue {
-        guard let result = JSONValue(any: filter.filter(document.anyValue)) else {
+    // The JSON with PlatformFilter applied. The filter works on Swift-native values and
+    // returns the same kinds, so converting back cannot fail for parsed JSON.
+    private func filtered(_ json: JSONValue, by filter: PlatformFilter) throws -> JSONValue {
+        guard let result = JSONValue(any: filter.filter(json.anyValue)) else {
             throw ActionUIError("Platform filter produced a value with no JSON form")
         }
         return result
@@ -176,7 +176,7 @@ final class WindowModel {
 
         // Less-trusted content may not share an id with a trusted element already in the window: its
         // element would be drawn with that element's view model and read as trusted. Sharing an id
-        // with content as little trusted (two LoadableViews showing one document) gains nothing.
+        // with content as little trusted (two LoadableViews showing one JSON file) gains nothing.
         // Its templates' ids count too: a template row's elements get no view model, but keep the
         // ids their JSON gives them, and a container may find a row's child by its id.
         if origin?.trust == .lessTrusted {
@@ -278,8 +278,8 @@ final class WindowModel {
         // A "toolbar" on a navigation container is the deprecated spelling of "persistentToolbar":
         // it was never a screen toolbar on any platform, and the hosts disagreed about what to do
         // with it. Warned here because this walk visits every element exactly once per load - so
-        // once per document, and once more each time a LoadableView or a modal reloads a subtree
-        // that contains one, which is the right granularity for "this document needs editing".
+        // once per ActionUI JSON, and once more each time a LoadableView or a modal reloads a subtree
+        // that contains one, which is the right granularity for "this JSON needs editing".
         if ToolbarHelper.isNavigationContainer(element.type),
            let aliased = element.subviews?["toolbar"] as? [any ActionUIElementBase], !aliased.isEmpty {
             logger.log("Deprecated: 'toolbar' on \(element.type) (id \(element.id), window \(windowUUID)) is treated as 'persistentToolbar' - its items stay in the bar on every screen inside the container. Rename the key to silence this; declare a screen's own toolbar on that screen's element instead.", .warning)

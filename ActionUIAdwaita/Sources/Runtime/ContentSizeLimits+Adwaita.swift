@@ -46,7 +46,7 @@ public struct ContentSizeLimits: Sendable, Equatable {
 @MainActor
 extension ActionUIModel {
     /// The size limits of the content of the window showing `windowUUID`, or nil when no such
-    /// window is on screen with its document.
+    /// window is on screen with its content.
     public func contentSizeLimits(windowUUID: String) -> ContentSizeLimits? {
         guard let content = WindowRegistry.shared.contentWidget(windowUUID) else {
             return nil

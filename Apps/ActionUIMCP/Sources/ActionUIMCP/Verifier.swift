@@ -4,7 +4,7 @@
 // Licensed under the PolyForm Small Business License 1.0.0
 // https://polyformproject.org/licenses/small-business/1.0.0
 
-// Verifier.swift - the ActionUIVerifier library, set up for agent documents: validated as
+// Verifier.swift - the ActionUIVerifier library, set up for the agent's ActionUI JSON: validated as
 // deployed to this system, with the built-in schemas from the library's resource bundle and add-on
 // schemas found the way the library's own tool finds them.
 //
@@ -22,7 +22,7 @@ import ActionUIVerifier
 
 enum Verifier {
     /// Set up once, on first use. nil when no schemas were found or they failed to load.
-    static let validator: DocumentValidator? = {
+    static let validator: ActionUIJSONValidator? = {
         guard let schemas = schemasDirectory() else {
             HostSupport.logLine("[actionui-mcp] verifier schemas not found; property checks are skipped")
             return nil
@@ -30,7 +30,7 @@ enum Verifier {
         do {
             let extra = SchemaSet.discoverAddOnDirectories(schemasDirectory: schemas, includeCheckout: !isPackaged(schemas))
             let set = try SchemaSet(primary: schemas, extra: extra)
-            return DocumentValidator(schemas: set, targetPlatform: HostPlatform.verifierPlatform)
+            return ActionUIJSONValidator(schemas: set, targetPlatform: HostPlatform.verifierPlatform)
         } catch {
             HostSupport.logLine("[actionui-mcp] could not load verifier schemas from \(schemas.path): \(error.displayText)")
             return nil

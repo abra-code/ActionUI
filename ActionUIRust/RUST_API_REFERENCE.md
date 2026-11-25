@@ -501,7 +501,7 @@ actionui::log::set_logger(|message, level| {
 
 ## `actionui::trust`
 
-A document the host passes in, or one in the app's resources, is trusted; one a LoadableView loads from a server or from a file elsewhere is less trusted, as is anything inside it. A window's own document from a file outside the app's resource folder is less trusted too, unless the policy trusts it. ActionUI's own policy refuses less-trusted content a few things: opening other apps' links, reading or loading the user's files outside the app's resources, titling the window, covering it with its own sheets, showing the host's surfaces, playing media from other addresses than web ones.
+ActionUI JSON the host passes in, or a file in the app's resources, is trusted; one a LoadableView loads from a server or from a file elsewhere is less trusted, as is anything inside it. A window's own ActionUI JSON from a file outside the app's resource folder is less trusted too, unless the policy trusts it. ActionUI's own policy refuses less-trusted content a few things: opening other apps' links, reading or loading the user's files outside the app's resources, titling the window, covering it with its own sheets, showing the host's surfaces, playing media from other addresses than web ones.
 
 | Item | Description |
 |---|---|
@@ -558,7 +558,7 @@ actionui::configure(&serde_json::json!({
 
 ## `actionui::host_surface`
 
-With the `host-surface` feature (macOS, Linux, and Android, where a Rust library is a client of the Kotlin library's element; see BUILD_GUIDE.md): the `HostSurface` element, a part of a window that the program draws with its own renderer while ActionUI draws the rest. `App::new` registers the element on macOS; on Linux `libActionUI.so` registers it itself. A document places it and names it:
+With the `host-surface` feature (macOS, Linux, and Android, where a Rust library is a client of the Kotlin library's element; see BUILD_GUIDE.md): the `HostSurface` element, a part of a window that the program draws with its own renderer while ActionUI draws the rest. `App::new` registers the element on macOS; on Linux `libActionUI.so` registers it itself. ActionUI JSON places it and names it:
 
 ```json
 { "type": "HostSurface", "id": 20, "properties": { "surfaceName": "canvas", "idealWidth": 640, "idealHeight": 480 } }

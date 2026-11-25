@@ -41,8 +41,8 @@ final class NavigationStackRendererTests: XCTestCase {
 
     /// `json` in a window on screen; `nested` puts it in a VStack, so the stack is not the window's root.
     private func present(_ json: String, nested: Bool = false, origin: JSONContentOrigin? = nil) throws -> RenderNode {
-        let document = nested ? #"{"type": "VStack", "id": 900, "children": [\#(json)]}"# : json
-        _ = try ActionUIModel.shared.loadDescription(from: Data(document.utf8), format: "json", windowUUID: windowUUID, origin: origin)
+        let windowJSON = nested ? #"{"type": "VStack", "id": 900, "children": [\#(json)]}"# : json
+        _ = try ActionUIModel.shared.loadDescription(from: Data(windowJSON.utf8), format: "json", windowUUID: windowUUID, origin: origin)
         let tree = AdwaitaWindow(windowModel: try XCTUnwrap(ActionUIModel.shared.windowModels[windowUUID]))
         renderTree = tree
         let window: UnsafeMutablePointer<GtkWindow> = typed(adw_window_new()!)

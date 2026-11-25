@@ -101,7 +101,7 @@ class DialogButton:
 
 
 class Trust(str, Enum):
-    """How far content is trusted. A document the host passes in, or one in the app's
+    """How far content is trusted. ActionUI JSON the host passes in, or a file in the app's
     resources, is trusted; one a LoadableView loads from a server or from a file elsewhere is
     less trusted, as is anything inside it."""
     TRUSTED = "trusted"
@@ -212,7 +212,7 @@ class Application:
             _actionui.app_set_resource_folder(os.path.abspath(resource_folder))
 
         _actionui.set_default_action_handler(self._action_bridge)
-        # The HostSurface element, before the first document loads (on Linux libActionUI.so has it already).
+        # The HostSurface element, before the first ActionUI JSON loads (on Linux libActionUI.so has it already).
         _actionui.host_surface_register()
         # Register internal bridges so we always handle window lifecycle
         # events regardless of whether the user registers their own handlers.
@@ -1143,7 +1143,7 @@ class Window:
         Set a structural property value.
 
         The value is stored as given; the element ignores a value of the
-        wrong type, as it does in a document.
+        wrong type, as it does in ActionUI JSON.
         """
         _actionui.set_element_property_json(self.uuid, view_id, name,
                                           json.dumps(value))

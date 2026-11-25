@@ -175,7 +175,7 @@ void actionUISetTrustPolicy(ActionUITrustCallback trust, ActionUICapabilityCallb
 // Set it before loading content. Called on the main thread, often (as elements draw).
 ```
 
-A window's own document is classified like any other: one from a file outside the app's resource folder is less trusted unless the trust callback trusts it, and its LoadableViews then load no local files outside the resource folder. Rows are judged as the content they are shown in: row text a template places into an address (`"url": "$1"` on a Link, an AsyncImage, a VideoPlayer, a WebView or a LoadableView, or a Table's link and image cells) opens or loads with that content's trust, so a host that sets rows from text it got elsewhere (search results, file names, a server's data) checks the addresses in it first.
+A window's own ActionUI JSON is classified like any other: one from a file outside the app's resource folder is less trusted unless the trust callback trusts it, and its LoadableViews then load no local files outside the resource folder. Rows are judged as the content they are shown in: row text a template places into an address (`"url": "$1"` on a Link, an AsyncImage, a VideoPlayer, a WebView or a LoadableView, or a Table's link and image cells) opens or loads with that content's trust, so a host that sets rows from text it got elsewhere (search results, file names, a server's data) checks the addresses in it first.
 
 ### Configuration
 
@@ -490,7 +490,7 @@ app = actionui.Application(name="My App", icon="icon.png")  # both
 app = actionui.Application(resource_folder="ui")  # where the app's resources are
 # resource_folder: where LoadableView names, Image resourceName and WebView script
 # resources are looked up before the main bundle (Python's). If omitted, the folder
-# of the main script, so an app's documents can be named without a path. A
+# of the main script, so an app's JSON files can be named without a path. A
 # relative resource_folder is taken from the current directory, not the script's.
 app = actionui.Application(name="My App", application_id="org.example.MyApp")
 # application_id: the reverse-DNS ID Linux matches the app's windows to its
@@ -820,7 +820,7 @@ actionui.clear_error()
 ### HostSurface
 
 The `HostSurface` element is a part of a window that the program draws itself (the ActionUIHostSurface add-on;
-linked in on macOS, part of `libActionUI.so` on Linux, registered by `Application()`). A document names it:
+linked in on macOS, part of `libActionUI.so` on Linux, registered by `Application()`). ActionUI JSON names it:
 
 ```json
 { "type": "HostSurface", "id": 5, "properties": { "surfaceName": "canvas", "idealWidth": 320, "idealHeight": 240 } }
@@ -863,7 +863,7 @@ positive right and down) with their unit and phase, pressure, tilt, and for keys
 
 What a surface is:
 
-- `"kind": "sink"` in the document: a frame sink (`SurfaceKind.FRAME_SINK`) on macOS and Linux alike. Render at
+- `"kind": "sink"` in the ActionUI JSON: a frame sink (`SurfaceKind.FRAME_SINK`) on macOS and Linux alike. Render at
   the pixel size anywhere (NumPy, Pillow, Cairo, wgpu-py offscreen) and hand the frames to `present_pixels`,
   from any thread. A script that uses it runs unchanged on both platforms.
 - No kind (or `"native"`): a frame sink on Linux too; on macOS a Metal layer (`SurfaceKind.METAL_LAYER`,

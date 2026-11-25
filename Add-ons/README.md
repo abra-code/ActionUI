@@ -105,7 +105,7 @@ The core verifier only knows built-in elements; add the add-on's schema director
 ```sh
 python3 Tools/verifier/validate_actionui.py \
     --schema-dir Add-ons/ActionUIQuickLook/Schemas \
-    <document.json>
+    <file.json>
 ```
 
 ## Adding a new add-on

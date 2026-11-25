@@ -16,8 +16,8 @@ enum LayoutParityPixels {
         let red: Double, green: Double, blue: Double
     }
 
-    /// The Colors of a document (id and "#RRGGBB" color).
-    static func leaves(of document: Any) -> [Leaf] {
+    /// The Colors of ActionUI JSON (id and "#RRGGBB" color).
+    static func leaves(of json: Any) -> [Leaf] {
         var result: [Leaf] = []
         func walk(_ value: Any) {
             if let object = value as? [String: Any] {
@@ -32,13 +32,13 @@ enum LayoutParityPixels {
                 array.forEach(walk)
             }
         }
-        walk(document)
+        walk(json)
         return result
     }
 
     /// The root's fixed frame size, which every fixture's root has.
-    static func rootSize(of document: Any, fixture: String) throws -> (width: Double, height: Double) {
-        let frame = try XCTUnwrap(((document as? [String: Any])?["properties"] as? [String: Any])?["frame"] as? [String: Any],
+    static func rootSize(of json: Any, fixture: String) throws -> (width: Double, height: Double) {
+        let frame = try XCTUnwrap(((json as? [String: Any])?["properties"] as? [String: Any])?["frame"] as? [String: Any],
                                   "\(fixture): the root needs a fixed frame")
         let width = try XCTUnwrap(frame["width"] as? Double ?? (frame["width"] as? Int).map(Double.init))
         let height = try XCTUnwrap(frame["height"] as? Double ?? (frame["height"] as? Int).map(Double.init))

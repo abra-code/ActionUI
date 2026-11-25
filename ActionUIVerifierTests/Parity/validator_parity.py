@@ -11,8 +11,8 @@ output is compared line by line, summary line included. Two parts of a line are 
     /usr/bin/python3 ActionUIVerifierTests/Parity/validator_parity.py [--binary <actionui-verify>] [files or dirs...]
 
 Without --binary, Apps/ActionUIVerifier is built first and its actionui-verify is used. Without
-paths, every .json document under the usual sample folders and the fixtures next to this script
-is checked (fixtures/ holds documents that break every rule on purpose). Exit 1 on any difference.
+paths, every .json file under the usual sample folders and the fixtures next to this script
+is checked (fixtures/ holds files that break every rule on purpose). Exit 1 on any difference.
 """
 import os
 import re

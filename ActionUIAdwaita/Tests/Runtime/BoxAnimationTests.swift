@@ -156,10 +156,10 @@ final class BoxAnimationTests: XCTestCase {
     /// A test Rectangle 40 x 20 with these extra properties (JSON members), in a window on screen.
     private func show(_ modifiers: String) throws -> RenderNode {
         let json = ##"{"type": "Rectangle", "id": 1, "properties": {"w": 40, "h": 20, "## + modifiers + "}}"
-        return try showDocument(json)
+        return try showJSON(json)
     }
 
-    private func showDocument(_ json: String) throws -> RenderNode {
+    private func showJSON(_ json: String) throws -> RenderNode {
         _ = try ActionUIModel.shared.loadDescription(from: Data(json.utf8), format: "json", windowUUID: windowUUID)
         let model = try XCTUnwrap(ActionUIModel.shared.windowModels[windowUUID])
         let window = AdwaitaWindow(windowModel: model)
@@ -314,7 +314,7 @@ final class BoxAnimationTests: XCTestCase {
     }
 
     func testAGroupAnimatesEachChild() throws {
-        let node = try showDocument(##"""
+        let node = try showJSON(##"""
         {"type": "Group", "id": 1, "properties": {"opacity": 1, "animation": {"curve": "linear", "duration": 0.6}}, "children": [
             {"type": "Rectangle", "id": 2, "properties": {"w": 40, "h": 20}},
             {"type": "Rectangle", "id": 3, "properties": {"w": 40, "h": 20}}]}
@@ -337,7 +337,7 @@ final class BoxAnimationTests: XCTestCase {
 
     /// A VStack (id 1) holding a 40 x 20 test Rectangle (id 2), on screen.
     private func showStack(_ firstChild: String = ##"{"type": "Rectangle", "id": 2, "properties": {"w": 40, "h": 20}}"##) throws -> RenderNode {
-        try showDocument(##"{"type": "VStack", "id": 1, "children": ["## + firstChild + "]}")
+        try showJSON(##"{"type": "VStack", "id": 1, "children": ["## + firstChild + "]}")
     }
 
     /// Inserts `json` at the end of the VStack and returns its node, synced.

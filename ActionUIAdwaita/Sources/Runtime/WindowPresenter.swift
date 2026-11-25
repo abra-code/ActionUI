@@ -191,7 +191,7 @@ package final class WindowPresenter {
     static func responseID(_ index: Int) -> String { "button-\(index)" }
 
     /// The order the buttons are added in, which libadwaita shows from left to right: the GNOME
-    /// order, cancel first and the main action last (as on macOS). A document lists the main
+    /// order, cancel first and the main action last (as on macOS). ActionUI JSON lists the main
     /// action first, as SwiftUI places buttons by role, so the others come in reverse.
     static func displayOrder(_ buttons: [DialogButton]) -> [Int] {
         let cancel = buttons.indices.filter { buttons[$0].role == .cancel }

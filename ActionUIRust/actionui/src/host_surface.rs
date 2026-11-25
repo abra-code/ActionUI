@@ -8,14 +8,14 @@
 //! renderer (Metal, wgpu, ...), while ActionUI does the rest of the window. Needs the
 //! `host-surface` feature (macOS, Linux, and Android); on macOS `App::new` registers the element.
 //!
-//! A document places the element and names it:
+//! ActionUI JSON places the element and names it:
 //!
 //! ```json
 //! { "type": "HostSurface", "id": 5, "properties": { "surfaceName": "canvas" } }
 //! ```
 //!
 //! The program binds a [`SurfaceDelegate`] to that name with [`set_delegate`] (or `App::set_surface_delegate`),
-//! before or after the document loads, and gets the native surface of every element with that
+//! before or after the JSON loads, and gets the native surface of every element with that
 //! name, in every window:
 //!
 //! - [`SurfaceDelegate::created`]: build the renderer on [`SurfaceInfo::handle`] (on macOS a
@@ -235,7 +235,7 @@ pub enum SurfaceHandle {
 #[derive(Clone, Debug)]
 pub struct SurfaceInfo {
     pub id: SurfaceId,
-    /// The window and element ID of the HostSurface element, as in the document.
+    /// The window and element ID of the HostSurface element, as in the ActionUI JSON.
     pub window_uuid: String,
     pub view_id: i64,
     pub handle: SurfaceHandle,

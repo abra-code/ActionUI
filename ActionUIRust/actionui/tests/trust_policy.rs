@@ -3,8 +3,8 @@
 //
 // One window loaded from a temporary folder, outside the app's resources (this crate's
 // folder, named explicitly):
-// - root.json, the window's own document, is made trusted by the policy, as a host trusts a
-//   document it chose itself;
+// - root.json, the window's own ActionUI JSON, is made trusted by the policy, as a host trusts
+//   JSON it chose itself;
 // - less.json, in its first LoadableView, keeps ActionUI's own decision, less trusted; its
 //   Image reads a file there, which reaches the policy's allows with a refusal as the default;
 // - trusted.json, in the second, is made trusted by the policy.
@@ -129,7 +129,7 @@ fn later(delay: Duration, work: impl FnOnce() + Send + 'static) {
 fn check_at_termination() {
     let origins = ORIGINS.lock().unwrap().clone();
     let root = origins.get(&1).cloned().flatten();
-    check("the window's own document is a file, trusted by the policy, with no parent",
+    check("the window's own JSON is a file, trusted by the policy, with no parent",
         matches!(&root, Some(Origin { source: Source::File { path }, trust: Trust::Trusted, parent_id: None }) if path.ends_with("root.json")));
     check("less.json is a file, less trusted, inside LoadableView 3",
         matches!(origins.get(&20), Some(Some(Origin { source: Source::File { path }, trust: Trust::LessTrusted, parent_id: Some(3) })) if path.ends_with("less.json")));
@@ -137,11 +137,11 @@ fn check_at_termination() {
         matches!(origins.get(&30), Some(Some(Origin { trust: Trust::Trusted, parent_id: Some(4), .. }))));
     check("an element the window does not have has no origin", matches!(origins.get(&999), Some(None)));
     let calls = TRUST_CALLS.lock().unwrap().clone();
-    check("the policy was asked for both documents",
+    check("the policy was asked for both JSON files",
         calls.iter().any(|call| path_of(&call.0).ends_with("less.json")) && calls.iter().any(|call| path_of(&call.0).ends_with("trusted.json")));
     check("every call had less trusted as the default (all are outside the resources)",
         !calls.is_empty() && calls.iter().all(|call| call.2 == Trust::LessTrusted));
-    check("the window's document had no parent, the LoadableViews' the trusted root",
+    check("the window's JSON had no parent, the LoadableViews' the trusted root",
         calls.iter().all(|call| (call.1.is_none() == path_of(&call.0).ends_with("root.json")) && (call.1.is_none() || call.1 == root)));
     let reads: Vec<_> = ALLOWS_CALLS.lock().unwrap().iter()
         .filter(|call| matches!(&call.0, Capability::ReadLocalFile { path } if path.ends_with("pic.png")))

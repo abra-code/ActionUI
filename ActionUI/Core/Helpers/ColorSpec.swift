@@ -1,6 +1,6 @@
 // Core/Helpers/ColorSpec.swift
 /*
- A color as an ActionUI document writes it, parsed into a portable description that each renderer
+ A color as ActionUI JSON writes it, parsed into a portable description that each renderer
  turns into its own color type (SwiftUI: Helpers/ColorHelper.swift).
 
  Forms accepted, compared without case and leading or trailing white space:
@@ -11,7 +11,7 @@
  "background", "fill.tertiary", "separator", ...
 */
 
-/// The named colors a document can use. Some follow light and dark mode (primary, secondary,
+/// The named colors ActionUI JSON can use. Some follow light and dark mode (primary, secondary,
 /// accentColor), so they stay names and each renderer resolves them in its own appearance.
 public enum ColorName: String, CaseIterable, Sendable {
     case red, blue, green, yellow, orange, purple, pink, mint, teal, cyan, indigo, brown, gray
@@ -20,7 +20,7 @@ public enum ColorName: String, CaseIterable, Sendable {
     case accentColor = "accentcolor"
 }
 
-/// The value of a Color or ColorPicker element, and what every color string in a document parses
+/// The value of a Color or ColorPicker element, and what every color string in ActionUI JSON parses
 /// to. On Apple, ColorHelper turns it into a SwiftUI Color.
 public indirect enum ColorSpec: Sendable, Equatable {
     /// Components in 0...1.

@@ -1,6 +1,6 @@
 // Core/Helpers/KeyName.swift
 /*
- The key of a keyboard shortcut, parsed from a document's "keyboardShortcut": { "key": ... }.
+ The key of a keyboard shortcut, parsed from the JSON's "keyboardShortcut": { "key": ... }.
  Each renderer maps it to its own key type (SwiftUI: Helpers/KeyEquivalentHelper.swift).
 */
 

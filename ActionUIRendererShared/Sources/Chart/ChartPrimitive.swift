@@ -49,7 +49,7 @@ enum ChartPrimitive: Equatable {
     /// Along `rect`, across if not `vertical`, its ends past the stops in their colors.
     case gradientBar(ChartRect, stops: [ChartGradientStop], vertical: Bool)
 
-    /// Whether GSK can take it: values from a document or rows can pass what its floats hold (they
+    /// Whether GSK can take it: values from ActionUI JSON or rows can pass what its floats hold (they
     /// would reach it as infinities), and a line needs a width.
     var isDrawable: Bool {
         func finite(_ values: Double...) -> Bool { values.allSatisfy { Float($0).isFinite } }

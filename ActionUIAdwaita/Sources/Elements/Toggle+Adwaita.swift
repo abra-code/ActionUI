@@ -1,6 +1,6 @@
 // Sources/Elements/Toggle+Adwaita.swift
 /*
- Toggle on GTK, in the style the document names:
+ Toggle on GTK, in the style the JSON names:
  - checkbox, and no style: a GtkCheckButton with the title as its label. macOS's default toggle
    is a checkbox, and Linux is a desktop as macOS is.
  - switch: the title beside a GtkSwitch, as macOS shows a switch toggle's label before it. An

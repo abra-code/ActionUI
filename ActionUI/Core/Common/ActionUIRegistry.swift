@@ -6,7 +6,7 @@ import Foundation
 #endif
 
 /*
- ActionUIRegistry holds every element type's spec and answers what a document load needs (value
+ ActionUIRegistry holds every element type's spec and answers what loading ActionUI JSON needs (value
  type, initial value and states, string conversions, insertable containers). The renderer half
  (SwiftUI: Common/ActionUIRegistry+SwiftUI.swift) holds the renderer table and builds views.
  Built-in elements are loaded during initialization of ActionUIRegistry.shared.
@@ -15,7 +15,7 @@ import Foundation
 
 @MainActor
 public class ActionUIRegistry {
-    // Each element type's spec, keyed by the JSON "type" token. It answers everything a document
+    // Each element type's spec, keyed by the JSON "type" token. It answers everything loading ActionUI JSON
     // load needs (value type, initial value and states, string conversions, insertable containers);
     // the renderer table, keyed the same way, is in the renderer half.
     internal var specs: [String: any ActionUIElementSpec.Type] = [:]

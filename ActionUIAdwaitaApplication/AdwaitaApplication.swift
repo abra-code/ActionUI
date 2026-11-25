@@ -276,7 +276,7 @@ public final class AdwaitaApplication {
 
     /// Whether the window showing `windowUUID` holds its JSON, false when it shows why the
     /// JSON could not be loaded (or is not on screen).
-    public func showsDocument(_ windowUUID: String) -> Bool {
+    public func showsContent(_ windowUUID: String) -> Bool {
         windows[windowUUID]?.renderTree?.root != nil
     }
 
@@ -522,7 +522,7 @@ public final class AdwaitaApplication {
         queuedModelRemovals.remove(windowUUID)
         let replacesWindow = windows[windowUUID] != nil || remoteLoads[windowUUID] != nil
         dropRemoteLoad(windowUUID)
-        closeForNewDocument(windowUUID)
+        closeForNewContent(windowUUID)
         // No window need follow, unlike in present: the host closed this one (see "Closing" above).
         if replacesWindow, windows.isEmpty, remoteLoads.isEmpty {
             holdWhileWindowless()
@@ -545,7 +545,7 @@ public final class AdwaitaApplication {
 
     /// Closes the window under `windowUUID`, with no handler asked or told: new JSON is
     /// taking its model.
-    private func closeForNewDocument(_ windowUUID: String) {
+    private func closeForNewContent(_ windowUUID: String) {
         guard let existing = windows[windowUUID] else { return }
         ActionUIModel.shared.logger.log("A window \(windowUUID) is already on screen; closing it for the new one", .warning)
         existing.closingByHost = true
@@ -563,7 +563,7 @@ public final class AdwaitaApplication {
             loadRemote(text, windowUUID: windowUUID, title: title, options: options, application: application)
             return
         }
-        closeForNewDocument(windowUUID)
+        closeForNewContent(windowUUID)
         let loaded = load(source, windowUUID: windowUUID)
         // Only now: JSON prepared and refused adds nothing to the user's menu.
         if let commands = loaded.commands {
@@ -859,7 +859,7 @@ public final class AdwaitaApplication {
         var error: String? = nil
     }
 
-    private struct DocumentError: Error, CustomStringConvertible {
+    private struct ContentError: Error, CustomStringConvertible {
         let description: String
     }
 
@@ -867,7 +867,7 @@ public final class AdwaitaApplication {
     /// `url`: the file or http address the JSON was read from (its origin), nil for host JSON.
     private func loadContent(_ group: WindowContent, format: String, windowUUID: String, from url: URL? = nil) throws {
         if let error = group.error {
-            throw DocumentError(description: error)
+            throw ContentError(description: error)
         }
         try ActionUIModel.shared.loadWindowContent(group.data, format: format, windowUUID: windowUUID, from: url)
     }

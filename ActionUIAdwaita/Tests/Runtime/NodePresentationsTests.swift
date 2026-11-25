@@ -184,7 +184,7 @@ final class NodePresentationsTests: XCTestCase {
 
     // MARK: Popovers
 
-    private static let popoverDocument = #"""
+    private static let popoverJSON = #"""
         {"type": "VStack", "id": 1, "children": [
             {"type": "Button", "id": 2, "properties": {"title": "Pop", "popoverArrowEdge": "bottom", "popoverActionID": "test.shown"},
              "popover": {"type": "Text", "id": 20, "properties": {"text": "In the popover"}}},
@@ -194,7 +194,7 @@ final class NodePresentationsTests: XCTestCase {
         """#
 
     func testAButtonsPopoverSitsWhereItsArrowEdgeSaysAndItsClicksShowAndHideIt() throws {
-        let root = try present(Self.popoverDocument)
+        let root = try present(Self.popoverJSON)
         record("test.shown")
         let button = try XCTUnwrap(root.childNodes[2])
         let presentations = try XCTUnwrap(button.presentations)
@@ -214,7 +214,7 @@ final class NodePresentationsTests: XCTestCase {
     }
 
     func testAClickOnATextTogglesItsPopoverAndTheUsersCloseSetsTheStateFalse() throws {
-        let root = try present(Self.popoverDocument)
+        let root = try present(Self.popoverJSON)
         let text = try XCTUnwrap(root.childNodes[3])
         let presentations = try XCTUnwrap(text.presentations)
         let gesture = try XCTUnwrap(clickGesture(on: text.outerWidget))
@@ -247,7 +247,7 @@ final class NodePresentationsTests: XCTestCase {
     }
 
     func testARemovedElementsOpenPopoverIsReleasedWithItsNode() throws {
-        let root = try present(Self.popoverDocument)
+        let root = try present(Self.popoverJSON)
         let model = try XCTUnwrap(root.childNodes[3]?.model)
         model.states["popoverVisible"] = true
         XCTAssertTrue(wait { root.childNodes[3]?.presentations?.widget(.popover).map { gtk_widget_get_mapped($0) != 0 } ?? false })

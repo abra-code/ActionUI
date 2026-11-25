@@ -33,12 +33,12 @@ enum ToolbarHelper {
     // The alias exists because a container-level "toolbar" was never a screen toolbar on any
     // host: macOS applied it outside the stack (where it reached the shared window toolbar and
     // persisted), while iOS, Android and Web each dropped or misplaced it. Reading it here
-    // gives all four hosts one behavior and keeps existing macOS documents working unchanged.
+    // gives all four hosts one behavior and keeps existing macOS JSON files working unchanged.
     // WindowModel logs a one-time deprecation warning naming the element when it sees one.
     //
     // Order is only meaningful against the SCREEN's own items, which are applied first so the
     // persistent ones sit at the outer edge; between these two keys it is unspecified, and a
-    // document should author one or the other, never both.
+    // ActionUI JSON should author one or the other, never both.
     static func persistentToolbarItems(of element: any ActionUIElementBase) -> [any ActionUIElementBase] {
         guard let subviews = element.subviews else { return [] }
         let persistent = subviews["persistentToolbar"] as? [any ActionUIElementBase] ?? []

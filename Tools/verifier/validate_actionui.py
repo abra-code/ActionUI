@@ -10,14 +10,14 @@ Usage:
     validate_actionui.py --platform <p> <path>  validate as deployed to platform <p>
     validate_actionui.py --schema-dir <dir> ... add an add-on schema directory (repeatable)
 
-Without --platform, files are validated as cross-platform authoring documents:
+Without --platform, files are validated as cross-platform ActionUI JSON:
 platform-specific keys must carry a `:<platform>` suffix. With --platform, the
-document is validated as if deployed to that one platform (other-platform
+JSON is validated as if deployed to that one platform (other-platform
 variants are dropped, just as they are at runtime).
 
 --schema-dir extends the built-in element set with schemas shipped by optional
-add-on libraries (e.g. ActionUIQuickLook/Schemas), so documents using an add-on's
-element type validate without that type being baked into the core schemas. The
+add-on libraries (e.g. ActionUIQuickLook/Schemas), so JSON using an add-on's
+element type validates without that type being baked into the core schemas. The
 built-in schemas take precedence on a name collision. The option is repeatable.
 
 The core element schemas are read from schemas/ next to this script in a packaged
@@ -107,12 +107,12 @@ def discover_addon_schema_dirs(script_dir: Path) -> list[Path]:
     return dirs
 
 
-# Top-level element types allowed in a menu-bar document (MainMenu.json).
+# Top-level element types allowed in menu-bar JSON (MainMenu.json).
 _MENUBAR_TYPES = ("CommandMenu", "CommandGroup")
 
 
 def validate_menubar(data: list, path: str, validator: ElementValidator) -> list:
-    """Validate a menu-bar document (MainMenu.json): a top-level JSON array of
+    """Validate menu-bar JSON (MainMenu.json): a top-level JSON array of
     CommandMenu / CommandGroup elements.  Deletion is expressed as a CommandGroup
     with placement "replacing" and no children (matching SwiftUI's
     CommandGroup(replacing:))."""
@@ -130,7 +130,7 @@ def validate_menubar(data: list, path: str, validator: ElementValidator) -> list
             issues.append(ValidationIssue("error", epath, "menu-bar element missing 'type'"))
         else:
             issues.append(ValidationIssue("error", epath,
-                f"'{etype}' is not valid at the top level of a menu-bar document; "
+                f"'{etype}' is not valid at the top level of menu-bar JSON; "
                 f"expected one of: {', '.join(_MENUBAR_TYPES)}"))
     return issues
 
@@ -173,8 +173,8 @@ def validate_file(path: Path, validator: ElementValidator, strict: bool) -> tupl
         print(f"[ERROR] {path}: cannot read file — {e}", file=sys.stderr)
         return 1, 0
 
-    # A top-level JSON array is a menu-bar document (MainMenu.json) — an array of
-    # CommandMenu / CommandGroup elements.  A view document has an object root.
+    # A top-level JSON array is menu-bar JSON (MainMenu.json) - an array of
+    # CommandMenu / CommandGroup elements.  View JSON has an object root.
     if isinstance(data, list):
         try:
             return _report_issues(path, validate_menubar(data, str(path), validator))

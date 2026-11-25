@@ -1,6 +1,6 @@
 //! Where content came from, and the host's trust policy.
 //!
-//! A document the host passes in, or one in the app's resources, is trusted; one a
+//! ActionUI JSON the host passes in, or a file in the app's resources, is trusted; JSON a
 //! LoadableView loads from a server or from a file elsewhere is less trusted, as is
 //! anything inside it. ActionUI's own policy refuses less-trusted content a few things
 //! (opening other apps' links, reading the user's files, titling the window, covering it

@@ -58,7 +58,7 @@ extension AppKitPlatform {
     }
 
     /// The frames of the windows on screen of every actionui-mcp process, front to back, in AppKit
-    /// screen coordinates, leaving out the window that renders a document off every screen. Kept
+    /// screen coordinates, leaving out the window that renders content off every screen. Kept
     /// windows live on in keeper processes of the same name, one per ended session. The window server tells any process where other processes' windows are; only their
     /// names need the screen recording permission, and they are not read.
     static func siblingWindowFrames() -> [NSRect] {

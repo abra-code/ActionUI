@@ -15,7 +15,7 @@
  monospaced design also gets libadwaita's monospace class). The rounded design has no common
  Linux font and uses the default.
 
- A font name comes from the document and is written into CSS, so it is quoted and stripped of
+ A font name comes from the JSON and is written into CSS, so it is quoted and stripped of
  anything that could end the string.
 */
 

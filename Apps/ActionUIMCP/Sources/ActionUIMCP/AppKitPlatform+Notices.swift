@@ -25,7 +25,7 @@ final class Notice {
     let panel: NSPanel
     /// Owns the SwiftUI tree.
     let controller: NSViewController
-    /// The ActionUI window its document was loaded for, whose model goes with the notice.
+    /// The ActionUI window the notice's JSON was loaded for, whose model goes with the notice.
     let windowID: String
     var dismissTask: Task<Void, Never>?
 
@@ -52,13 +52,13 @@ extension AppKitPlatform {
         children.append(["type": "Text", "properties": ["markdown": message, "font": ["size": 13],
                                                        "frame": ["maxWidth": "infinity", "alignment": "leading"]]])
         children.append(["type": "Text", "properties": ["text": subtitle, "font": "caption", "foregroundStyle": "secondary"]])
-        let document: [String: Any] = [
+        let ui: [String: Any] = [
             "type": "VStack",
             "properties": ["alignment": "leading", "spacing": 4, "padding": 14, "frame": ["width": Self.noticeWidth]],
             "children": children,
         ]
         let windowID = UUID().uuidString
-        let loaded = try host.load(document: document, windowID: windowID)
+        let loaded = try host.load(ui: ui, windowID: windowID)
         let errors = loaded.entries.filter { $0.level == .error }.map(\.message)
         guard errors.isEmpty else {
             host.forgetModel(windowID)

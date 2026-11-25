@@ -1,7 +1,7 @@
-// Tests/Common/DocumentJSONLayerTests.swift
+// Tests/Common/JSONLayerTests.swift
 /*
- The document paths that moved from JSONSerialization and PropertyListSerialization to JSONValue:
- a JSON or property-list document through the platform filter, and Map's coordinate text.
+ The ActionUI JSON paths that moved from JSONSerialization and PropertyListSerialization to JSONValue:
+ a JSON or property-list file through the platform filter, and Map's coordinate text.
 */
 
 import Foundation
@@ -9,7 +9,7 @@ import XCTest
 @testable import ActionUI
 
 @MainActor
-final class DocumentJSONLayerTests: XCTestCase {
+final class JSONLayerTests: XCTestCase {
     private let model = ActionUIModel.shared
 
     override func setUp() async throws {
@@ -30,28 +30,28 @@ final class DocumentJSONLayerTests: XCTestCase {
         return model.windowModels[windowUUID]?.viewModels[root.id]?.properties["text"] as? String
     }
 
-    // MARK: - Platform filter on a document
+    // MARK: - Platform filter on ActionUI JSON
 
-    func testJSONDocumentIsFiltered() throws {
+    func testJSONIsFiltered() throws {
         let json = #"{"id": 1, "type": "Text", "properties": {"text": "base", "text:apple": "apple", "text:android": "android", "count": 2.0, "ratio": 0.1}}"#
         XCTAssertEqual(try loadedText(Data(json.utf8), format: "json"), "apple")
     }
 
-    func testPropertyListDocumentIsFiltered() throws {
-        let document: [String: Any] = ["id": 1, "type": "Text", "properties": ["text": "base", "text:apple": "apple", "flag": true, "size": 1.5]]
-        let data = try PropertyListSerialization.data(fromPropertyList: document, format: .xml, options: 0)
+    func testPropertyListIsFiltered() throws {
+        let json: [String: Any] = ["id": 1, "type": "Text", "properties": ["text": "base", "text:apple": "apple", "flag": true, "size": 1.5]]
+        let data = try PropertyListSerialization.data(fromPropertyList: json, format: .xml, options: 0)
         XCTAssertEqual(try loadedText(data, format: "plist"), "apple")
-        let binary = try PropertyListSerialization.data(fromPropertyList: document, format: .binary, options: 0)
+        let binary = try PropertyListSerialization.data(fromPropertyList: json, format: .binary, options: 0)
         XCTAssertEqual(try loadedText(binary, format: "plist"), "apple", "A binary property list loads too")
     }
 
     func testPropertyListWithADateIsRefusedWithAnError() throws {
-        let document: [String: Any] = ["id": 1, "type": "Text", "properties": ["text": "a", "when": Date(timeIntervalSince1970: 0)]]
-        let data = try PropertyListSerialization.data(fromPropertyList: document, format: .xml, options: 0)
-        XCTAssertThrowsError(try loadedText(data, format: "plist"), "ActionUI documents hold no dates; AnyCodable refuses them too")
+        let json: [String: Any] = ["id": 1, "type": "Text", "properties": ["text": "a", "when": Date(timeIntervalSince1970: 0)]]
+        let data = try PropertyListSerialization.data(fromPropertyList: json, format: .xml, options: 0)
+        XCTAssertThrowsError(try loadedText(data, format: "plist"), "ActionUI JSON holds no dates; AnyCodable refuses them too")
     }
 
-    func testMalformedJSONDocumentIsRefusedWithAnError() {
+    func testMalformedJSONIsRefusedWithAnError() {
         XCTAssertThrowsError(try loadedText(Data(#"{"id": 1, "type": "Text""#.utf8), format: "json"))
     }
 

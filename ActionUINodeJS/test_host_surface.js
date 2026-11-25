@@ -25,7 +25,7 @@ const actionui = require('./index.js');
 const IS_LINUX = process.platform === 'linux';
 const SAFETY_TIMEOUT_MS = 20000;
 
-const DOCUMENT = {
+const UI_JSON = {
     type: 'VStack', properties: { frame: { width: 300 } }, children: [
         { type: 'HostSurface', id: 5, properties: { surfaceName: 'js.canvas', kind: 'sink', frame: { width: 200, height: 120 } } },
         ...(IS_LINUX ? [{ type: 'HostSurface', id: 6,
@@ -160,8 +160,8 @@ console.log('ActionUI HostSurface Integration Test (Node.js)');
 // The UI description is the app's own (its folder is the resource folder): the trust policy shows no host surface to
 // less-trusted content, such as a file outside the app's resources.
 const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'actionui-hostsurface-test-'));
-const documentPath = path.join(folder, 'HostSurface.json');
-fs.writeFileSync(documentPath, JSON.stringify(DOCUMENT));
+const jsonPath = path.join(folder, 'HostSurface.json');
+fs.writeFileSync(jsonPath, JSON.stringify(UI_JSON));
 
 const app = new actionui.Application({ name: 'HostSurfaceTest', resourceFolder: folder });
 actionui.setSurfaceDelegate('js.canvas', first);
@@ -169,7 +169,7 @@ if (IS_LINUX) app.setSurfaceDelegate('js.gl', glClient);
 else app.setSurfaceDelegate('js.metal', metalClient);
 
 app.onDidFinishLaunching(() => {
-    const window = app.loadAndPresentWindow(documentPath, null, 'HostSurface Test');
+    const window = app.loadAndPresentWindow(jsonPath, null, 'HostSurface Test');
     setTimeout(() => {
         // A raw bridge (without index.js's try/catch) that throws a Symbol, which cannot be shown as text, at every
         // call: that exception must not stay pending, or the next call into JS fails (a callback is lost, or the

@@ -23,7 +23,7 @@ import MCPStdio
 final class DialogSession {
     enum Kind {
         case canned(DialogSpec)
-        case document(DocumentDialog)
+        case ui(UIDialog)
     }
 
     let kind: Kind
@@ -37,7 +37,7 @@ final class DialogSession {
     var buttons: [DialogButton] {
         switch kind {
         case .canned(let spec): return spec.buttons
-        case .document(let dialog): return dialog.buttons
+        case .ui(let dialog): return dialog.buttons
         }
     }
 }
@@ -47,7 +47,7 @@ extension WindowHost {
 
     /// Opens an ask_user dialog and registers its session. The caller then awaits result(of:).
     func beginDialog(spec: DialogSpec, subtitle: String, timeout: Double) throws -> String {
-        let windowID = try openWindow(document: spec.document(footer: Self.dialogFooter), title: spec.title,
+        let windowID = try openWindow(ui: spec.ui(footer: Self.dialogFooter), title: spec.title,
                                       subtitle: subtitle, sizing: .fitting(resizable: false), activate: true,
                                       queuesEvents: false).id
         // Picker has no property for its initial selection; set it through the value API.
@@ -60,13 +60,13 @@ extension WindowHost {
         return windowID
     }
 
-    /// Opens an agent document inside dialog chrome and registers its session.
-    func beginDocumentDialog(document: AgentDocument, dialog: DocumentDialog, title: String, subtitle: String,
+    /// Opens the agent's ActionUI JSON inside dialog chrome and registers its session.
+    func beginUIDialog(ui: AgentUI, dialog: UIDialog, title: String, subtitle: String,
                              size: ContentSize?, timeout: Double) throws -> (id: String, warnings: [String]) {
-        let opened = try openWindow(document: dialog.wrap(document.foundation, footer: Self.dialogFooter), title: title,
+        let opened = try openWindow(ui: dialog.wrap(ui.foundation, footer: Self.dialogFooter), title: title,
                                     subtitle: subtitle, sizing: size.map { .fixed($0) } ?? .fitting(resizable: true),
                                     activate: true, queuesEvents: false, rejectLoadErrors: true)
-        register(DialogSession(kind: .document(dialog)), windowID: opened.id, timeout: timeout)
+        register(DialogSession(kind: .ui(dialog)), windowID: opened.id, timeout: timeout)
         return opened
     }
 
@@ -124,7 +124,7 @@ extension WindowHost {
             updateSliderReadout(actionID: actionID, windowUUID: windowUUID, spec: spec)
             return
         }
-        if case .document(let dialog) = session.kind, dialog.closeActions.contains(actionID) {
+        if case .ui(let dialog) = session.kind, dialog.closeActions.contains(actionID) {
             settle(windowUUID, result: ["action": "accept", "button": .null, "close_action": .string(actionID),
                                         "values": .object(values(windowID: windowUUID, ids: nil))])
             return
@@ -136,7 +136,7 @@ extension WindowHost {
             return
         }
         switch session.kind {
-        case .document:
+        case .ui:
             settle(windowUUID, result: ["action": "accept", "button": .string(button.title),
                                         "values": .object(values(windowID: windowUUID, ids: nil))])
         case .canned(let spec):
@@ -170,7 +170,7 @@ extension WindowHost {
     /// warnings; its load errors refuse the window, as show_ui's do.
     func openViewer(spec: ViewerSpec, subtitle: String, keep: Bool) throws -> (id: String, warnings: [String]) {
         let isChart = spec.kind == .chart
-        let opened = try openWindow(document: spec.root, title: spec.title, subtitle: subtitle,
+        let opened = try openWindow(ui: spec.root, title: spec.title, subtitle: subtitle,
                                     sizing: .fixed(ContentSize(width: spec.width, height: spec.height)),
                                     activate: false, queuesEvents: false, rejectLoadErrors: isChart, keep: keep, mark: .strip,
                                     footer: spec.footer())

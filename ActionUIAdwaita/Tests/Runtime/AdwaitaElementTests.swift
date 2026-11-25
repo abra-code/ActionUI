@@ -44,7 +44,7 @@ final class AdwaitaElementTests: XCTestCase {
         ActionUIRegistry.shared.loadBuiltIns()
     }
 
-    private let document = """
+    private let windowJSON = """
         {"type": "FixtureBadge", "id": 1, "properties": {"text": "seed"}}
         """
 
@@ -62,51 +62,51 @@ final class AdwaitaElementTests: XCTestCase {
     }
 
     func testARegisteredTokenShowsTheElementsWidgetInsteadOfThePlaceholder() throws {
-        XCTAssertEqual(text(try render(document)), "seed")
+        XCTAssertEqual(text(try render(windowJSON)), "seed")
     }
 
     func testAnUnregisteredTokenStillShowsThePlaceholder() throws {
         ActionUIRegistry.shared.loadBuiltIns()
-        let node = try render(document)
+        let node = try render(windowJSON)
         XCTAssertEqual(text(node), "FixtureBadge is not available on Linux yet")
     }
 
     func testTheSpecGivesTheElementItsInitialValueAndStates() throws {
-        let node = try render(document)
+        let node = try render(windowJSON)
         XCTAssertEqual(node.model.value as? String, "")
         XCTAssertEqual(node.model.states["prefix"] as? String, "")
     }
 
     func testTheElementSeesItsProperties() throws {
-        let node = try render(document)
+        let node = try render(windowJSON)
         XCTAssertEqual(node.properties["text"] as? String, "seed")
         XCTAssertEqual(FixtureBadge.seenWindow, windowUUID)
         XCTAssertEqual(FixtureBadge.seenType, "FixtureBadge")
     }
 
     func testAValueChangeRunsUpdateAgain() throws {
-        let node = try render(document)
+        let node = try render(windowJSON)
         ActionUIModel.shared.setElementValue(windowUUID: windowUUID, viewID: 1, value: "changed")
         AdwaitaTestHost.drainMainLoop()
         XCTAssertEqual(text(node), "changed")
     }
 
     func testAStateChangeRunsUpdateAgain() throws {
-        let node = try render(document)
+        let node = try render(windowJSON)
         ActionUIModel.shared.setElementState(windowUUID: windowUUID, viewID: 1, key: "prefix", value: "> ")
         AdwaitaTestHost.drainMainLoop()
         XCTAssertEqual(text(node), "> seed")
     }
 
     func testAPropertyChangeRunsUpdateAgain() throws {
-        let node = try render(document)
+        let node = try render(windowJSON)
         ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 1, propertyName: "text", value: "new")
         AdwaitaTestHost.drainMainLoop()
         XCTAssertEqual(text(node), "new")
     }
 
     func testSetNeedsUpdateRunsUpdateForAChangeTheModelCannotReport() throws {
-        let node = try render(document)
+        let node = try render(windowJSON)
         FixtureBadge.suffix = "!"
         AdwaitaTestHost.drainMainLoop()
         XCTAssertEqual(text(node), "seed", "nothing the model tracks changed")
@@ -136,7 +136,7 @@ final class AdwaitaElementTests: XCTestCase {
     }
 
     func testANodeHeldAfterItsWindowClosedRunsNoUpdate() throws {
-        _ = try render(document)
+        _ = try render(windowJSON)
         assertTheHeldNodeStopsUpdatingWhenTheWindowCloses()
     }
 
@@ -170,14 +170,14 @@ final class AdwaitaElementTests: XCTestCase {
     }
 
     func testTheElementsStateGoesWithItsNode() throws {
-        let node = try render(document)
+        let node = try render(windowJSON)
         XCTAssertNotNil(node.state)
         XCTAssertTrue(FixtureBadge.kept === node.state, "the node keeps what makeWidget gave it")
         FixtureBadge.node = nil
     }
 
     func testTheElementsStateIsReleasedWithTheWindow() throws {
-        _ = try render(document)
+        _ = try render(windowJSON)
         XCTAssertNotNil(FixtureBadge.kept)
         FixtureBadge.node = nil
         window = nil
@@ -205,7 +205,7 @@ final class AdwaitaElementTests: XCTestCase {
 
     func testALaterRegistrationReplacesTheFirst() throws {
         ActionUIRegistry.shared.register(FixtureBadge.Replacement.self, as: "FixtureBadge")
-        XCTAssertEqual(text(try render(document)), "replacement")
+        XCTAssertEqual(text(try render(windowJSON)), "replacement")
     }
 
     func testTheTokenDefaultsToTheTypesName() throws {

@@ -33,7 +33,7 @@ final class HiddenRenderTests: XCTestCase {
     /// A 200 x 100 white window: a decorated 80 x 40 VStack (blue background, green border, red
     /// overlay Color, shadow), hidden or not, above a 20 x 20 black Color.
     private func render(hidden: Bool) throws -> NSBitmapImageRep {
-        let document: [String: Any] = [
+        let json: [String: Any] = [
             "type": "VStack", "id": 1,
             "properties": ["spacing": 0, "background": "#FFFFFF", "frame": ["width": 200, "height": 100]],
             "children": [
@@ -48,7 +48,7 @@ final class HiddenRenderTests: XCTestCase {
         let model = ActionUIModel.shared
         ActionUIModel.resetForTesting()
         let windowUUID = UUID().uuidString
-        let element = try model.loadDescription(from: document, windowUUID: windowUUID)
+        let element = try model.loadDescription(from: json, windowUUID: windowUUID)
         let viewModel = try XCTUnwrap(model.windowModels[windowUUID]?.viewModels[element.id])
         let host = NSHostingView(rootView: ActionUIView(element: element, model: viewModel, windowUUID: windowUUID))
         host.frame = NSRect(x: 0, y: 0, width: 200, height: 100)

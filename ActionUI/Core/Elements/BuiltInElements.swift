@@ -2,7 +2,7 @@
 /*
  The built-in element types whose spec is portable, keyed by their JSON "type" token. The registry
  reads its spec table from this list; each renderer adds its own table of the same names. The keys
- are the names documents use, so they must not change.
+ are the names ActionUI JSON uses, so they must not change.
 */
 
 #if canImport(FoundationEssentials)

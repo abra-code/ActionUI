@@ -4,7 +4,7 @@
 // Licensed under the PolyForm Small Business License 1.0.0
 // https://polyformproject.org/licenses/small-business/1.0.0
 
-// DocumentValidator.swift - the Swift twin of the Python ActionUI JSON verifier (Tools/verifier),
+// ActionUIJSONValidator.swift - the Swift twin of the Python ActionUI JSON verifier (Tools/verifier),
 // driven by the same schema files (ActionUIVerifier/Schemas), so the two cannot drift on content.
 // It catches what ActionUI's loader accepts silently: unknown property names (typos), wrong value
 // types, unknown enum values, unexpected top-level keys, missing required properties, unknown
@@ -250,7 +250,7 @@ func pyList(_ strings: [String]) -> String {
 
 // MARK: - Validator
 
-public struct DocumentValidator: Sendable {
+public struct ActionUIJSONValidator: Sendable {
     /// Every platform token a key suffix or `targetPlatform` may name.
     public static var knownPlatforms: Set<String> { Platforms.all }
 
@@ -282,10 +282,10 @@ public struct DocumentValidator: Sendable {
     private let viewProperties: [String: JSONValue]
     /// When set, validate as deployed to this platform: each key is resolved as the runtime
     /// resolves it, and platform-restricted properties used here are flagged. When nil, validate
-    /// as a cross-platform authoring document.
+    /// as cross-platform ActionUI JSON.
     private let targetPlatform: String?
 
-    /// - Parameter targetPlatform: one of `knownPlatforms`, or nil for a cross-platform document.
+    /// - Parameter targetPlatform: one of `knownPlatforms`, or nil for cross-platform ActionUI JSON.
     public init(schemas: SchemaSet, targetPlatform: String? = nil) {
         self.schemas = schemas
         self.viewProperties = schemas.schema("View")?["properties"]?.object ?? [:]
@@ -295,23 +295,23 @@ public struct DocumentValidator: Sendable {
     /// Parses `data` as ActionUI's loader does (trailing commas are accepted, comments are not) and
     /// validates it. Throws the parse error for invalid JSON.
     public func validate(data: Data, rootPath: String) throws -> [ValidationIssue] {
-        validate(document: try JSONValue(parsing: data), rootPath: rootPath)
+        validate(json: try JSONValue(parsing: data), rootPath: rootPath)
     }
 
-    /// Validates a view document (object root) or a menu-bar document (array root), given as
+    /// Validates view JSON (object root) or menu-bar JSON (array root), given as
     /// parsed objects: JSONSerialization output on Apple; on Linux Bool, Int, Double, String, [Any]
     /// and [String: Any], so not the output of the full Foundation's JSONSerialization, whose
     /// numbers would read as booleans there (pass that text to `validate(data:rootPath:)`).
     /// `rootPath` prefixes every issue path, as the file name does in the Python verifier. Issues
     /// are sorted by path, then severity.
     public func validate(jsonObject: Any, rootPath: String) -> [ValidationIssue] {
-        validate(document: JSONValue(any: jsonObject), rootPath: rootPath)
+        validate(json: JSONValue(any: jsonObject), rootPath: rootPath)
     }
 
-    func validate(document: JSONValue, rootPath: String) -> [ValidationIssue] {
+    func validate(json: JSONValue, rootPath: String) -> [ValidationIssue] {
         var issues: [ValidationIssue] = []
         var seenIDs: Set<Int> = []
-        switch document {
+        switch json {
         case .object(let node):
             issues = validate(node: node, path: rootPath, seenIDs: &seenIDs, isRoot: true)
         case .array(let elements):
@@ -329,7 +329,7 @@ public struct DocumentValidator: Sendable {
                 case let other?:
                     let shown = other.string ?? pyRepr(other)
                     issues.append(.init(severity: .error, path: path, message:
-                        "'\(shown)' is not valid at the top level of a menu-bar document; expected one of: \(Self.menuBarTypes.joined(separator: ", "))"))
+                        "'\(shown)' is not valid at the top level of menu-bar JSON; expected one of: \(Self.menuBarTypes.joined(separator: ", "))"))
                 }
             }
         default:
@@ -626,7 +626,7 @@ public struct DocumentValidator: Sendable {
         }
         guard let suffix else {
             return [.init(severity: .warning, path: "\(path).\(label)", message:
-                "'\(base)' is platform-specific (available on: \(pyList(platforms))); in a cross-platform document suffix it (e.g. '\(base):\(platforms.first ?? "")') so it is applied only where supported")]
+                "'\(base)' is platform-specific (available on: \(pyList(platforms))); in cross-platform JSON, suffix it (e.g. '\(base):\(platforms.first ?? "")') so it is applied only where supported")]
         }
         if !Platforms.include(platforms, suffix) {
             return [.init(severity: .warning, path: "\(path).\(label)", message:

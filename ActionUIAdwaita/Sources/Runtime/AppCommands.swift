@@ -32,12 +32,12 @@
  Button is the one action item, as on macOS: its title, its keyboardShortcut as the action's
  accelerator (command and control are Ctrl, option Alt, shift Shift; no modifiers given, or none
  known, is Ctrl), disabled or no actionID greying it out, as AppKit does. Choosing one fires its
- actionID for the active window's document, with the element's id as viewID.
+ actionID for the active window's JSON, with the element's id as viewID.
 
  A WindowGroup's commands (load(json:once:)) join under the group's key, once for all its windows,
  and leave with its last window (removeWindowGroup); a CommandGroup of theirs that replaces
  appTermination is ignored, and so is a keyboardShortcut of theirs that is Ctrl+Q (the item
- stays, with no shortcut), so a document cannot take Quit or its shortcut away. The host's own
+ stays, with no shortcut), so ActionUI JSON cannot take Quit or its shortcut away. The host's own
  commands (load(json:)) may do both.
  Each item is an action of the application, so its shortcut works in every window, as a menu bar
  shortcut does. The application is the one start() gave (ActionUI's own, AdwaitaApplication), else
@@ -127,7 +127,7 @@ package final class AppCommands {
         startedName ?? swiftString(g_get_application_name()) ?? ProcessInfo.processInfo.processName
     }
 
-    /// The UUID of the active window of the application in use, "" when it shows no document.
+    /// The UUID of the active window of the application in use, "" when it shows no ActionUI JSON.
     func activeWindowUUID() -> String {
         WindowRegistry.shared.activeWindowUUID(of: application)
     }
@@ -220,9 +220,9 @@ package final class AppCommands {
     /// The key a WindowGroup's commands are loaded under, apart from any key a host uses.
     private static func windowGroupKey(_ key: String) -> String { "\u{1}WindowGroup:" + key }
 
-    /// A WindowGroup's commands (its document's `commands` array), unless that group's are in the
+    /// A WindowGroup's commands (its JSON's `commands` array), unless that group's are in the
     /// menu already (each window of the group brings them). A CommandGroup that replaces
-    /// appTermination is left out, with a warning: a document must not take Quit away, even an
+    /// appTermination is left out, with a warning: ActionUI JSON must not take Quit away, even an
     /// app's own. A Button's keyboardShortcut that is Ctrl+Q is left out too, with a warning (the
     /// item stays): GTK does not say which of two actions with one accelerator wins. They stay
     /// until `removeWindowGroup` takes them away, when the group's last window closes. Returns false, logging why and changing nothing, for JSON that is not an array.
@@ -542,7 +542,7 @@ package final class AppCommands {
     /// start() gave, over the active window.
     private static func showAbout() {
         let dialog = AppCommands.shared.makeAboutDialog()
-        // The active window, whether or not it shows a document (a host's own window may not)
+        // The active window, whether or not it shows ActionUI JSON (a host's own window may not)
         let parent = WindowRegistry.activeWindow(of: AppCommands.shared.application)
         adw_dialog_present(typed(dialog), parent.map { WidgetPointer(OpaquePointer($0)) })
     }

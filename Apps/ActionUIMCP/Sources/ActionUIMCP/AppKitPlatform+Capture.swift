@@ -27,7 +27,7 @@ extension AppKitPlatform {
     }
 
     /// In a window off every screen, which the app does not activate. Closed again before this
-    /// returns. The document was built when it loaded, so its warnings are the load's.
+    /// returns. The content was built when it loaded, so its warnings are the load's.
     func renderOffscreen(_ content: Content, size: ContentSize?, delay: Double) async throws -> (image: CapturedImage, warnings: [String]) {
         let window = OffscreenCaptureWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 200),
                                             styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)

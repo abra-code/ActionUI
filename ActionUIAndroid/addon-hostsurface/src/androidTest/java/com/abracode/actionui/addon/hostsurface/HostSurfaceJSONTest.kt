@@ -19,7 +19,7 @@ import org.junit.runner.RunWith
  * CREATED; removing the element destroys the surface.
  */
 @RunWith(AndroidJUnit4::class)
-class HostSurfaceDocumentTest {
+class HostSurfaceJSONTest {
     @get:Rule
     val rule = createComposeRule()
 

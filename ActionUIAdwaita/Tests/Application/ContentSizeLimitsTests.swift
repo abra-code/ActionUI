@@ -19,7 +19,7 @@ import Glibc
 /// What the did-finish-launching handler measured, by window; a C function pointer cannot capture.
 nonisolated(unsafe) private var measured: [String: ContentSizeLimits?] = [:]
 
-private let documents: [String: String] = [
+private let windowJSON: [String: String] = [
     "csl-fixed": #"{"type": "Text", "id": 1, "properties": {"text": "Fixed", "frame": {"width": 300, "height": 200}}}"#,
     "csl-flexible": #"{"type": "Color", "id": 1, "properties": {"color": "red", "frame": {"minWidth": 100, "maxWidth": 400, "minHeight": 50, "maxHeight": 300}}}"#,
     "csl-color": #"{"type": "Color", "id": 1, "properties": {"color": "blue"}}"#,
@@ -38,7 +38,7 @@ final class ContentSizeLimitsTests: XCTestCase {
 
     override func tearDown() async throws {
         actionUIAppSetDidFinishLaunchingHandler(nil)
-        for windowUUID in documents.keys {
+        for windowUUID in windowJSON.keys {
             ActionUIModel.shared.windowModels[windowUUID] = nil
         }
         ActionUIModel.shared.windowModels["csl-model-only"] = nil
@@ -46,16 +46,16 @@ final class ContentSizeLimitsTests: XCTestCase {
     }
 
     func testWindowsOnScreenReportTheirContentsLimits() throws {
-        for (windowUUID, json) in documents {
+        for (windowUUID, json) in windowJSON {
             actionUIAppLoadAndPresentWindowFromJSON(json, windowUUID, nil)
         }
         actionUIAppSetDidFinishLaunchingHandler {
             MainActor.assumeIsolated {
-                for windowUUID in documents.keys {
+                for windowUUID in windowJSON.keys {
                     measured[windowUUID] = ActionUIModel.shared.contentSizeLimits(windowUUID: windowUUID)
                 }
                 measured["csl-unknown"] = ActionUIModel.shared.contentSizeLimits(windowUUID: "csl-unknown")
-                for windowUUID in documents.keys {
+                for windowUUID in windowJSON.keys {
                     actionUIAppCloseWindow(windowUUID)
                 }
             }
@@ -89,7 +89,7 @@ final class ContentSizeLimitsTests: XCTestCase {
         XCTAssertEqual(measured["csl-unknown"], .some(nil), "an unknown window has none")
 
         // As on Apple, the minimum is never above the maximum, text that wraps included.
-        for windowUUID in documents.keys {
+        for windowUUID in windowJSON.keys {
             let limits = try XCTUnwrap(measured[windowUUID] ?? nil, windowUUID)
             XCTAssertLessThanOrEqual(limits.minSize.width, limits.maxSize.width, windowUUID)
             XCTAssertLessThanOrEqual(limits.minSize.height, limits.maxSize.height, windowUUID)

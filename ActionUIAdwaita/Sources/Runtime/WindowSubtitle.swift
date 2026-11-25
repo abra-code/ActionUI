@@ -1,7 +1,7 @@
 // Sources/Runtime/WindowSubtitle.swift
 /*
  A window's subtitle (AdwaitaApplication.WindowOptions), the line a host counts on being there
- whatever the document does. It is a line of its own, not part of a header bar: a document can put
+ whatever the JSON does. It is a line of its own, not part of a header bar: ActionUI JSON can put
  its own items in place of a header bar's title (principal toolbar items) and brings its own header
  bars with a navigation container at its root.
 
@@ -9,7 +9,7 @@
  AdwDialog in the window's dialog host, above the window's content), so each shows the line too.
  The subtitle is kept on the GTK window for them to find.
 
- A document sets how large a window or a sheet gets: a toolbar item makes the header bar taller than
+ ActionUI JSON sets how large a window or a sheet gets: a toolbar item makes the header bar taller than
  the screen, and a sheet can be wider and taller than its window, which then shows only the sheet's
  top left corner (measured with libadwaita 1.9). So the line is the first of the bars, above any
  header bar, and starts at the left: centered, it would be in the middle of a sheet 2000 wide, out

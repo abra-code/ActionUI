@@ -278,8 +278,8 @@ final class WebLayoutParityTests: XCTestCase {
     /// Renders the fixture and lists each Color frame that differs from SwiftUI's.
     private func differences(_ fixture: URL, _ expected: LayoutParityExpectation, in webView: WKWebView) async throws -> [String] {
         let data = try Data(contentsOf: fixture)
-        let document = try JSONSerialization.jsonObject(with: data)
-        let (width, height) = try LayoutParityPixels.rootSize(of: document, fixture: fixture.lastPathComponent)
+        let parsed = try JSONSerialization.jsonObject(with: data)
+        let (width, height) = try LayoutParityPixels.rootSize(of: parsed, fixture: fixture.lastPathComponent)
         // Rendered, its layout forced, then a turn of the page's event loop. (Animation frames do
         // not run for a window WebKit thinks is hidden.) The children of a lazy stack or grid and
         // a List's rows have content-visibility: auto, which skips drawing them until the browser
@@ -306,7 +306,7 @@ final class WebLayoutParityTests: XCTestCase {
             try await webView.takeSnapshot(configuration: configuration)
         }
         let bitmap = try XCTUnwrap(image.tiffRepresentation.flatMap(NSBitmapImageRep.init(data:)))
-        let measured = LayoutParityPixels.frames(in: bitmap, width: width, leaves: LayoutParityPixels.leaves(of: document),
+        let measured = LayoutParityPixels.frames(in: bitmap, width: width, leaves: LayoutParityPixels.leaves(of: parsed),
                                                  fixture: fixture.lastPathComponent)
         var result: [String] = []
         for (id, frame) in expected.frames.sorted(by: { $0.key < $1.key }) {

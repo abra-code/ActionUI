@@ -22,7 +22,7 @@ import CoreGraphics
 import ScreenCaptureKit
 
 // Optional ActionUI add-ons. This viewer is a separate package that links core ActionUI AND the
-// add-ons, so it can preview documents that use add-on element types. Each add-on's register() must
+// add-ons, so it can preview JSON files that use add-on element types. Each add-on's register() must
 // be called once at launch (see handleApplicationLaunch). Add an import + register() line per add-on.
 import ActionUIQuickLook
 import ActionUIChat
@@ -141,15 +141,15 @@ func printUsage() {
     """)
 }
 
-/// The Viewer shows the document the user names, wherever it is: that local file is trusted (no
+/// The Viewer shows the JSON the user names, wherever it is: that local file is trusted (no
 /// less than the bundle's would be), and so is a local file it names, though never above the
-/// content around it, so a remote document that names a local file keeps that file less trusted.
+/// content around it, so a remote JSON file that names a local file keeps that file less trusted.
 /// Remote ActionUI JSON (here, the downloaded copy of it) keeps ActionUI's default, and a local file
 /// named where ActionUI cannot tell the content around it stays less trusted: it gets a less-trusted
 /// parent, never none.
 struct ViewerTrustPolicy: ActionUITrustPolicy {
-    /// The resolved path of the local document the user named, as JSONContentOrigin.Source.file
-    /// gives it; nil for a remote document.
+    /// The resolved path of the local JSON file the user named, as JSONContentOrigin.Source.file
+    /// gives it; nil for a remote JSON file.
     let jsonPath: String?
 
     func trust(for source: JSONContentOrigin.Source, inside parent: JSONContentOrigin?,
@@ -214,7 +214,7 @@ class ActionUIViewerAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
 
     @MainActor
     func handleApplicationLaunch() async {
-        // Register optional add-on element types before any document is loaded, so a JSON file that
+        // Register optional add-on element types before any JSON is loaded, so a JSON file that
         // uses an add-on element (e.g. "QuickLook") renders instead of erroring as an unknown type.
         // Built-in element types self-register inside core on first registry access.
         ActionUIQuickLook.register()
@@ -223,7 +223,7 @@ class ActionUIViewerAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         ActionUICachedImage.register()
         ActionUIRichText.register()
         ActionUIHostSurface.register()
-        // The viewer is a pure viewer: it renders documents but never injects a runtime transport. A
+        // The viewer is a pure viewer: it renders JSON files but never injects a runtime transport. A
         // Chat element takes its protocol/transport only from a host-injected states["config"], so in
         // the viewer (which injects nothing) a Chat stays INERT - composer disabled, no transport. A
         // real app supplies the transport itself at runtime via setElementState("config", ...) after
@@ -237,8 +237,8 @@ class ActionUIViewerAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         var hideWindow = false
 
         let args = CommandLine.arguments
-        // An option that needs a value and has none, an unknown option, or a second document is
-        // refused, as the Linux viewer does: taken as the document or ignored, a mistyped option
+        // An option that needs a value and has none, an unknown option, or a second JSON file is
+        // refused, as the Linux viewer does: taken as the JSON or ignored, a mistyped option
         // left the window open waiting, or loaded the option's text as a file.
         func refuse(_ message: String) {
             print("Error: \(message)")
@@ -297,7 +297,7 @@ class ActionUIViewerAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
                     return
                 }
                 guard jsonFilePath == nil else {
-                    refuse("more than one document given (\(args[i]))")
+                    refuse("more than one JSON file given (\(args[i]))")
                     return
                 }
                 jsonFilePath = args[i]
@@ -318,7 +318,7 @@ class ActionUIViewerAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         
         var url: URL
         var displayTitle: String
-        // The downloaded copy of a remote document, removed once it has been read.
+        // The downloaded copy of a remote JSON file, removed once it has been read.
         var downloadedFile: URL?
         
         // A URL scheme is not case-sensitive: "HTTPS://" is a remote address, not a file path.
@@ -401,13 +401,13 @@ class ActionUIViewerAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         ActionUIModel.shared.trustPolicy = ViewerTrustPolicy(
             jsonPath: downloadedFile == nil ? url.resolvingSymlinksInPath().standardizedFileURL.path : nil)
         let hostingController = ActionUISwift.loadHostingController(from: url, windowUUID: windowUUID, isContentView: true)
-        // The document was read when the view was made (FileLoadableView reads in its init), so
+        // The JSON was read when the view was made (FileLoadableView reads in its init), so
         // the downloaded copy is not needed any more; left in place it collected one per run.
         if let downloadedFile {
             try? FileManager.default.removeItem(at: downloadedFile)
         }
         window.contentView = hostingController.view
-        // layoutSize is the area the document lays out in. The content view spans the titlebar,
+        // layoutSize is the area the JSON lays out in. The content view spans the titlebar,
         // so add the titlebar's height; the layout pass first, so that a SwiftUI toolbar, which
         // makes the titlebar taller, is in place before measuring.
         window.layoutIfNeeded()

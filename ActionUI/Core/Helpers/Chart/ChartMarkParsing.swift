@@ -652,7 +652,7 @@ extension ChartDescription {
         return false
     }
 
-    // Through the document decoder, which reads every subview key an element may have.
+    // Through the JSON decoder, which reads every subview key an element may have.
     private static func decodeElement(_ object: [String: Any], logger: (any ActionUILogger)?) -> ActionUIElement? {
         guard let json = JSONValue(any: ActionUIRendererHooks.nativeValue(object)), let text = try? json.text() else {
             return nil

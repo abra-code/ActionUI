@@ -57,7 +57,7 @@ final class JSONValueTests: XCTestCase {
         }
     }
 
-    // What JSONDecoder accepted, which documents and adapters may rely on.
+    // What JSONDecoder accepted, which JSON files and adapters may rely on.
     func testAcceptsWhatJSONDecoderAccepts() throws {
         let cases: [(String, JSONValue)] = [
             ("1E2", .int(100)), ("1e+2", .int(100)), ("1.0e0", .int(1)), ("100e-2", .int(1)), ("5e-1", .double(0.5)),
@@ -148,27 +148,27 @@ final class JSONValueTests: XCTestCase {
         XCTAssertTrue(parsed)
     }
 
-    // The parser against JSONDecoder, which it replaced, on generated documents: the same value
+    // The parser against JSONDecoder, which it replaced, on generated JSON files: the same value
     // for each, numbers included (compared as written, so a Double's every bit counts).
-    func testMatchesJSONDecoderOnGeneratedDocuments() throws {
+    func testMatchesJSONDecoderOnGeneratedJSON() throws {
         var state: UInt64 = 0x9E37_79B9_7F4A_7C15
         func random(_ range: ClosedRange<Int>) -> Int {
             state = state &* 6364136223846793005 &+ 1442695040888963407
             return range.lowerBound + Int((state >> 33) % UInt64(range.count))
         }
-        func document(_ depth: Int) -> String {
+        func json(_ depth: Int) -> String {
             switch random(0...(depth > 4 ? 4 : 7)) {
             case 0: return "\(random(-1000...1000))"
             case 1: return "\(Double(random(-1_000_000...1_000_000)) / Double(random(1...977)))"
             case 2: return #""s\n\#(random(0...9))éé\/""#
             case 3: return ["true", "false", "null"][random(0...2)]
             case 4: return "\(random(-3...3))e\(random(-3...20))"
-            case 5, 6: return "[" + (0..<random(0...4)).map { _ in document(depth + 1) }.joined(separator: ",") + "]"
-            default: return "{" + (0..<random(0...4)).map { _ in "\"k\(random(0...3))\" : " + document(depth + 1) }.joined(separator: ",") + "}"
+            case 5, 6: return "[" + (0..<random(0...4)).map { _ in json(depth + 1) }.joined(separator: ",") + "]"
+            default: return "{" + (0..<random(0...4)).map { _ in "\"k\(random(0...3))\" : " + json(depth + 1) }.joined(separator: ",") + "}"
             }
         }
         for _ in 0..<2000 {
-            let data = Data(document(0).utf8)
+            let data = Data(json(0).utf8)
             let decoded = try JSONDecoder().decode(JSONValue.self, from: data)
             let parsed = try JSONValue(parsing: data)
             XCTAssertEqual(parsed, decoded)

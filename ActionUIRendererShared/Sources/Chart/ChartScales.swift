@@ -87,7 +87,7 @@ enum ChartTicks {
     }
 
     /// The multiples of `step` inside `lo...hi`; none where there are none, or more than an axis
-    /// draws (ChartAxisStrideLimit), which a stride from a document can ask for.
+    /// draws (ChartAxisStrideLimit), which a stride from ActionUI JSON can ask for.
     static func multiples(of step: Double, _ lo: Double, _ hi: Double) -> [Double] {
         let first = ceil(lo / step), last = floor(hi / step)
         let intervals = last - first
@@ -95,7 +95,7 @@ enum ChartTicks {
         return (0...Int(intervals)).map { (first + Double($0)) * step }
     }
 
-    /// How many decimals write all of `values`, so ticks a document chose share theirs (measured on
+    /// How many decimals write all of `values`, so ticks ActionUI JSON chose share theirs (measured on
     /// macOS 27: 0.5 and 1.25 show 0.50 and 1.25, 1 and 2 show none, whatever the axis's own step).
     static func fractionDigits(of values: [Double]) -> Int {
         var digits = 0

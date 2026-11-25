@@ -56,7 +56,7 @@ struct KeptWindowState {
 
 @MainActor
 protocol WindowPlatform: AnyObject {
-    /// A document built and ready to show.
+    /// Content built and ready to show.
     associatedtype Content
     /// A file type a panel can be limited to.
     associatedtype FileType: Sendable
@@ -68,14 +68,14 @@ protocol WindowPlatform: AnyObject {
     /// How a notice shows, in the notify tool's description: its first sentences, up to "nothing
     /// comes back from it".
     nonisolated static var noticeDescription: String { get }
-    /// The platform documents are verified for.
+    /// The platform ActionUI JSON is verified for.
     nonisolated static var verifierPlatform: String { get }
     /// Whether windows opened with `keep` can outlive the session.
     nonisolated static var keepsWindows: Bool { get }
     /// Whether the layer removes a closed window's ActionUI model itself. Otherwise the host does.
     nonisolated static var removesClosedWindowModels: Bool { get }
 
-    /// Registers the add-ons this system has. Before any document loads.
+    /// Registers the add-ons this system has. Before any ActionUI JSON loads.
     static func registerAddOns()
     /// Sets up the application, before the first window. A keeper serves no one.
     static func prepareApplication(isKeeper: Bool)
@@ -84,14 +84,14 @@ protocol WindowPlatform: AnyObject {
     static func terminateApplication()
 
     /// The layer tells the host when a window closes, whoever closed it, and may use it to load
-    /// documents of its own.
+    /// ActionUI JSON of its own.
     var host: WindowHost? { get set }
 
     /// False when no window can appear (no graphical session); a dialog would then wait forever.
     var hasGraphicalSession: Bool { get }
 
-    /// Loads the document in `file`, as far as can be done with no window and no network: the host
-    /// calls this inside its log capture to refuse a bad document, and to check one that never
+    /// Loads the ActionUI JSON in `file`, as far as can be done with no window and no network: the host
+    /// calls this inside its log capture to refuse bad ActionUI JSON, and to check JSON that never
     /// shows. The file can go once this returns.
     func loadContent(file: URL, windowID: String) -> Content
 
@@ -111,8 +111,8 @@ protocol WindowPlatform: AnyObject {
     func capture(_ windowID: String) async throws -> CapturedImage
 
     /// Draws `content` where the user never sees it, after `delay` seconds. With `size` nil, at
-    /// the document's own size. Returns the image, with the warnings and errors of a layer that
-    /// builds the document only here, and what the image leaves out.
+    /// its own size. Returns the image, with the warnings and errors of a layer that
+    /// builds the content only here, and what the image leaves out.
     func renderOffscreen(_ content: Content, size: ContentSize?, delay: Double) async throws -> (image: CapturedImage, warnings: [String])
 
     /// Shows a short notice for `duration` seconds, without taking the focus. Returns once the

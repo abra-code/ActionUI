@@ -1,7 +1,7 @@
 // Core/Helpers/JSONParser.swift
 /*
  JSON text to JSONValue in one pass over the bytes. It accepts what JSONDecoder accepts for
- JSONValue, which documents and adapters relied on: a trailing comma in an array or object, the
+ JSONValue, which JSON files and adapters relied on: a trailing comma in an array or object, the
  first of a repeated key, a UTF-8 byte order mark, a bare string, number, bool or null, and nesting
  to 512 levels; every number that fits an Int without loss is `.int`, negative zero is `.double`.
 
@@ -33,7 +33,7 @@ struct JSONParseError: Error, CustomStringConvertible {
 
 #if !canImport(FoundationEssentials)
 /// On Apple, a JSONParseError's localizedDescription is the sentence JSONDecoder's DecodingError
-/// gave, the error this parser replaces, so a document that does not parse still reads "Failed to
+/// gave, the error this parser replaces, so ActionUI JSON that does not parse still reads "Failed to
 /// load view: The data couldn't be read because it isn't in the correct format." in a
 /// LoadableView. The description above, with the byte offset, is for logs and the adapters' last
 /// error. LocalizedError is Foundation's, which Core imports only on Apple.

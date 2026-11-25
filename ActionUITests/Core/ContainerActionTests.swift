@@ -74,7 +74,7 @@ final class ContainerActionTests: XCTestCase {
                            "\(type) should be tappable")
         }
         // Everything else keeps its own actionID semantics (Button, Toggle, ...) or none.
-        // This is what stops the change from altering hit-testing across every document.
+        // This is what stops the change from altering hit-testing across every JSON file.
         for type in ["Text", "Image", "List", "Button", "LazyVGrid"] {
             XCTAssertNil(ContainerAction.resolve(
                 element: try element(type: type, id: 5),

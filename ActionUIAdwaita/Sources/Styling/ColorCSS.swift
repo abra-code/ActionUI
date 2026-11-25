@@ -7,7 +7,7 @@
  (fill, separator, the foreground levels) are the current text color at an opacity, so dark mode
  follows.
 
- Every value is built from parsed numbers and fixed names, never from document text, so it cannot
+ Every value is built from parsed numbers and fixed names, never from ActionUI JSON text, so it cannot
  carry other CSS.
 */
 

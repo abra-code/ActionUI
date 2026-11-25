@@ -321,7 +321,7 @@ final class HostApplicationTests: XCTestCase {
         XCTAssertEqual(outside.trust, .lessTrusted, "a file outside the resource folder, as on Apple: \(outside)")
     }
 
-    func testAPlainGtkWindowIsRefusedAndABadDocumentShowsWhy() throws {
+    func testAPlainGtkWindowIsRefusedAndABadJSONShowsWhy() throws {
         // Not an AdwApplicationWindow or AdwWindow: nothing done
         let plain: UnsafeMutablePointer<GtkWindow> = typed(gtk_window_new()!)
         defer { gtk_window_destroy(plain) }

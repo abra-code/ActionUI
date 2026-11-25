@@ -170,7 +170,7 @@ final class ToolbarRendererTests: XCTestCase {
         XCTAssertEqual(edit.environment.buttonStyle, .borderless, "a changed environment reaches the toolbar items")
     }
 
-    func testTheWindowsBarShowsTheDocumentsToolbarOnceItHasOne() throws {
+    func testTheWindowsBarShowsItsContentsToolbarOnceItHasOne() throws {
         let root = try present(#"{"type": "VStack", "id": 1, "toolbar": [{"type": "ToolbarItem", "id": 10, "content": \#(Self.button(11))}]}"#)
         let header = adw_header_bar_new()!
         let holder = OwnedObject(retaining: header)
