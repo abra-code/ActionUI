@@ -1,4 +1,4 @@
-// Add-ons/ActionUIHostSurface/Tests/HostSurfaceDocumentTests.swift
+// Add-ons/ActionUIHostSurface/Tests/HostSurfaceJSONTests.swift
 //
 // The element inside real ActionUI documents, hosted by SwiftUI, driven through ActionUIModel like a
 // host app: the event sequence for hidden, padding (whose first use rebuilds the SwiftUI view),
@@ -15,7 +15,7 @@ import ActionUI
 @testable import ActionUIHostSurface
 
 @MainActor
-final class HostSurfaceDocumentTests: XCTestCase {
+final class HostSurfaceJSONTests: XCTestCase {
     private var window: TestWindow!
     private var windowUUID = ""
     private let client = RecordingClient()
@@ -35,7 +35,7 @@ final class HostSurfaceDocumentTests: XCTestCase {
         ActionUIHostSurface.register()
         ActionUIHostSurface.setDelegate(client, forSurfaceName: "document")
         windowUUID = UUID().uuidString
-        let root = FileLoadableView(data: Data(document.utf8), sourceName: "HostSurfaceDocumentTests.json",
+        let root = FileLoadableView(data: Data(document.utf8), sourceName: "HostSurfaceJSONTests.json",
                                     windowUUID: windowUUID, isContentView: true,
                                     logger: ConsoleLogger(maxLevel: .warning))
         window = TestHost.makeWindow(width: 400, height: 300)

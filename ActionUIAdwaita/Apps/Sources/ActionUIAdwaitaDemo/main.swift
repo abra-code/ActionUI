@@ -76,7 +76,7 @@ if actionArgument != nil && openName == nil {
 }
 
 /// The launcher: a list of the documents, a click opening one.
-let launcherDocument = """
+let launcherJSON = """
     {"type": "List", "id": \(launcherListID), "properties": {"actionID": "\(openActionID)", "doubleClickActionID": "\(openActionID)",
      "frame": {"minWidth": 260, "idealWidth": 320, "minHeight": 360, "idealHeight": 640}}}
     """
@@ -192,7 +192,7 @@ MainActor.assumeIsolated {
         app.loadMenuBar(json: json)
     }
 
-    app.presentWindow(json: Data(launcherDocument.utf8), windowUUID: launcherUUID, title: "ActionUI Demo")
+    app.presentWindow(json: Data(launcherJSON.utf8), windowUUID: launcherUUID, title: "ActionUI Demo")
     if let openName {
         guard names.contains(openName) else {
             print("ActionUIDemo: no document \(openName).json in \(folder)")

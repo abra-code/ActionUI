@@ -70,13 +70,13 @@ enum ProgramTestSupport {
 
 /// An http server on the loopback address, on a thread of its own: /view.json answers with the document, anything
 /// else with 404.
-final class TestDocumentServer {
+final class TestJSONServer {
     private let listener: Int32
     private let finished = DispatchSemaphore(value: 0)
     /// The server's address, "http://127.0.0.1:<port>", without a trailing slash.
     let base: String
 
-    init(document: String) throws {
+    init(json: String) throws {
         let listener = socket(AF_INET, Int32(SOCK_STREAM.rawValue), 0)
         guard listener >= 0 else {
             throw XCTSkip("no loopback http server: errno \(errno)")
@@ -104,7 +104,7 @@ final class TestDocumentServer {
                 // stop() ends the wait with an error.
                 let connection = accept(listener, nil, nil)
                 guard connection >= 0 else { return }
-                Self.answer(connection, document: document)
+                Self.answer(connection, json: json)
                 close(connection)
             }
         }
@@ -112,7 +112,7 @@ final class TestDocumentServer {
 
     /// Reads the request, which can arrive in pieces, to the end of its headers and writes the answer. Closing with
     /// bytes unread would reset the connection, which can lose the answer.
-    private static func answer(_ connection: Int32, document: String) {
+    private static func answer(_ connection: Int32, json: String) {
         var request = ""
         var bytes = [UInt8](repeating: 0, count: 4096)
         while !request.contains("\r\n\r\n") {
@@ -121,7 +121,7 @@ final class TestDocumentServer {
             request += String(decoding: bytes[0..<count], as: UTF8.self)
         }
         let target = request.split(separator: " ").dropFirst().first
-        let body = target == "/view.json" ? document : ""
+        let body = target == "/view.json" ? json : ""
         let status = target == "/view.json" ? "200 OK" : "404 Not Found"
         let response = "HTTP/1.1 \(status)\r\nContent-Type: application/json\r\nContent-Length: \(body.utf8.count)\r\n"
             + "Connection: close\r\n\r\n\(body)"

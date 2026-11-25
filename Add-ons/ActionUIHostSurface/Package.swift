@@ -56,7 +56,7 @@ let package = Package(
             ],
             path: "Tests",
             // The AppKit and UIKit tests.
-            exclude: ["HostSurfaceDocumentTests.swift", "HostSurfaceInputTests.swift", "HostSurfaceLifecycleTests.swift",
+            exclude: ["HostSurfaceJSONTests.swift", "HostSurfaceInputTests.swift", "HostSurfaceLifecycleTests.swift",
                       "HostSurfaceTestSupport.swift"]
         ),
     ]

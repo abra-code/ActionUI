@@ -1,4 +1,4 @@
-// Tests/Common/DocumentJSONLayerTests.swift
+// Tests/Common/JSONLayerTests.swift
 /*
  The document paths that moved from JSONSerialization and PropertyListSerialization to JSONValue:
  a JSON or property-list document through the platform filter, and Map's coordinate text.
@@ -9,7 +9,7 @@ import XCTest
 @testable import ActionUI
 
 @MainActor
-final class DocumentJSONLayerTests: XCTestCase {
+final class JSONLayerTests: XCTestCase {
     private let model = ActionUIModel.shared
 
     override func setUp() async throws {

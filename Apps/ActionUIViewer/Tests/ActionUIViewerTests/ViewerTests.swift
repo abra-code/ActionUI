@@ -97,7 +97,7 @@ final class ViewerTests: XCTestCase {
 
     func testAnHTTPDocumentOpensOnceItHasLoaded() throws {
         let document = try String(contentsOfFile: sample, encoding: .utf8)
-        let server = try TestDocumentServer(document: document)
+        let server = try TestJSONServer(json: document)
         defer { server.stop() }
         let path = NSTemporaryDirectory() + "actionui-viewer-http-\(ProcessInfo.processInfo.processIdentifier).png"
         files.append(path)
@@ -106,7 +106,7 @@ final class ViewerTests: XCTestCase {
     }
 
     func testAnHTTPDocumentThatCannotBeLoadedFailsTheRun() throws {
-        let server = try TestDocumentServer(document: "")
+        let server = try TestJSONServer(json: "")
         defer { server.stop() }
         let path = NSTemporaryDirectory() + "actionui-viewer-http-missing-\(ProcessInfo.processInfo.processIdentifier).png"
         files.append(path)

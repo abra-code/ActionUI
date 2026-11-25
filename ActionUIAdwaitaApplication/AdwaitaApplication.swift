@@ -859,7 +859,7 @@ public final class AdwaitaApplication {
         var error: String? = nil
     }
 
-    private struct DocumentError: Error, CustomStringConvertible {
+    private struct ContentError: Error, CustomStringConvertible {
         let description: String
     }
 
@@ -867,7 +867,7 @@ public final class AdwaitaApplication {
     /// `url`: the file or http address the JSON was read from (its origin), nil for host JSON.
     private func loadContent(_ group: WindowContent, format: String, windowUUID: String, from url: URL? = nil) throws {
         if let error = group.error {
-            throw DocumentError(description: error)
+            throw ContentError(description: error)
         }
         try ActionUIModel.shared.loadWindowContent(group.data, format: format, windowUUID: windowUUID, from: url)
     }
