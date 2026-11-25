@@ -28,7 +28,8 @@ const FRAMEWORKS: [&str; 5] = [
     "ActionUIRemote",
 ];
 
-// The HostSurface add-on, linked with the host-surface feature (macOS; on Linux it is in libActionUI.so).
+// The HostSurface add-on, linked with the host-surface feature (macOS; it is in libActionUI.so on Linux and in
+// ActionUI.dll on Windows).
 const HOST_SURFACE_FRAMEWORK: &str = "ActionUIHostSurface";
 
 // System frameworks ActionUI's Swift code uses. Most are named by the object files

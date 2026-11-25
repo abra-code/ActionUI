@@ -1,5 +1,5 @@
 // Runs a real application with a HostSurface element and checks the binding rules through the
-// Rust API: a delegate gets "created" with a Metal layer (macOS) or a frame sink (Linux); hidden
+// Rust API: a delegate gets "created" with a Metal layer (macOS) or a frame sink (Linux, Windows); hidden
 // and padding changes do not destroy the surface; a delegate bound inside a callback takes over
 // after it, with "destroyed" first, also when bound inside the "destroyed" of a delegate being
 // replaced; an unbound delegate gets "destroyed"; closing the window destroys the surface.
@@ -34,7 +34,7 @@ struct Event {
     event: &'static str,
     surface: u64,
     pixels: (u32, u32),
-    /// The platform's handle: a Metal layer on macOS, a frame sink on Linux.
+    /// The platform's handle: a Metal layer on macOS, a frame sink on Linux and Windows.
     native_handle: bool,
 }
 
@@ -132,7 +132,7 @@ fn check_created() {
     let created = all.iter().find(|event| event.delegate == "second" && event.event == "created");
     check("the second delegate got created", created.is_some());
     if let Some(created) = created {
-        check("with a Metal layer (macOS) or a frame sink (Linux)", created.native_handle);
+        check("with a Metal layer (macOS) or a frame sink (Linux, Windows)", created.native_handle);
         check(&format!("and a nonzero pixel size (got {:?})", created.pixels), created.pixels.0 > 0 && created.pixels.1 > 0);
         let first_destroyed = all.iter().position(|event| event.delegate == "first" && event.event == "destroyed");
         let second_created = all.iter().position(|event| event.delegate == "second" && event.event == "created");

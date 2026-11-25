@@ -6,8 +6,9 @@
 
 //! Raw declarations of the HostSurface add-on (`ActionUIHostSurface.h`): an ActionUI element
 //! whose pixels the program draws with its own renderer. Compiled with the `host-surface`
-//! feature, which also links `ActionUIHostSurface.framework` on macOS (on Linux the add-on is in
-//! `libActionUI.so`). No logic lives here; use `actionui::host_surface`.
+//! feature, which also links `ActionUIHostSurface.framework` on macOS (the add-on is in
+//! `libActionUI.so` on Linux and in `ActionUI.dll` on Windows). No logic lives here; use
+//! `actionui::host_surface`.
 //!
 //! The C names are kept for the types and the struct fields; enum values are in upper case
 //! (`AUIHostSurfaceCreated` is [`AUI_HOST_SURFACE_CREATED`]). `tests/host_surface_declarations.rs`

@@ -3,11 +3,11 @@
  * Integration test of the HostSurface API (setSurfaceDelegate, presentPixels, ...).
  *
  * Starts a real application run loop with a window that holds HostSurface elements, and checks:
- * - a bound delegate of a "kind": "sink" element gets "created" as a frame sink, on macOS and Linux alike;
+ * - a bound delegate of a "kind": "sink" element gets "created" as a frame sink, on macOS, Linux and Windows alike;
  * - a delegate bound inside a callback takes over after it: the old one gets "destroyed" first, the new one
  *   "created" with a new surface ID;
  * - presentPixels from a worker thread, and the argument checks;
- * - on Linux, a "gl" element's render callback;
+ * - on Linux, a "gl" element's render callback; on Windows, an element with no kind is a frame sink too;
  * - window close sends "destroyed".
  *
  * Requirements: a graphical session, and the addon built (node-gyp rebuild). Run: node test_host_surface.js
@@ -23,6 +23,7 @@ const { Worker } = require('worker_threads');
 const actionui = require('./index.js');
 
 const IS_LINUX = process.platform === 'linux';
+const IS_WINDOWS = process.platform === 'win32';
 const SAFETY_TIMEOUT_MS = 20000;
 
 const UI_JSON = {
@@ -30,7 +31,8 @@ const UI_JSON = {
         { type: 'HostSurface', id: 5, properties: { surfaceName: 'js.canvas', kind: 'sink', frame: { width: 200, height: 120 } } },
         ...(IS_LINUX ? [{ type: 'HostSurface', id: 6,
             properties: { surfaceName: 'js.gl', kind: 'gl', frame: { width: 80, height: 60 } } }]
-            // No kind: on macOS the surface stays a Metal layer, which takes no presented frames.
+            // No kind: on macOS the surface stays a Metal layer, which takes no presented frames; on Windows it is a
+            // frame sink.
             : [{ type: 'HostSurface', id: 8, properties: { surfaceName: 'js.metal', frame: { width: 80, height: 60 } } }]),
         { type: 'HostSurface', id: 7, properties: { surfaceName: 'js.throws', frame: { width: 40, height: 40 } } },
     ],
@@ -139,7 +141,11 @@ function report() {
     }
     check(`a bridge that threw a Symbol got its later calls (${state.thrower})`,
         state.thrower !== null && state.thrower[0] === 'created' && state.thrower[state.thrower.length - 1] === 'destroyed');
-    if (!IS_LINUX) {
+    if (IS_WINDOWS) {
+        const metal = state.metal;
+        check(`an element with no kind is a frame sink with no handle, and takes frames (${metal})`,
+            metal != null && metal[0] === actionui.SurfaceKind.FRAME_SINK && metal[1] === null && metal[2] === true);
+    } else if (!IS_LINUX) {
         const metal = state.metal;
         check(`an element with no kind is a Metal layer with a handle, and takes no frames (${metal})`,
             metal != null && metal[0] === actionui.SurfaceKind.METAL_LAYER && typeof metal[1] === 'bigint'

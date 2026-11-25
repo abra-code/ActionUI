@@ -1463,9 +1463,9 @@ def check_node(package, results, summary, msvc):
 
 def check_rust(package, results, summary, msvc):
     """Builds the Rust crates (ActionUIRust: actionui-sys, actionui and its examples) against the library package
-    with the MSVC linker, runs their tests that need no window, and the trust policy test, which runs the
-    application (ACTIONUI_GUI_TESTS; window_lifecycle needs the menu bar and the remote server, not on Windows
-    yet). True when all passed; no cargo, or a toolchain of another architecture, is reported and not run."""
+    with the MSVC linker, runs their tests that need no window, and the trust policy and HostSurface window tests,
+    which run the application (ACTIONUI_GUI_TESTS; window_lifecycle needs the menu bar and the remote server, not
+    on Windows yet). True when all passed; no cargo, or a toolchain of another architecture, is reported and not run."""
     cargo = shutil.which("cargo")
     if cargo is None:
         summary["findings"].append("rust: not run: no cargo on PATH")
@@ -1483,7 +1483,9 @@ def check_rust(package, results, summary, msvc):
     for name, command, extra in [
             ("rust-build", [cargo, "build", "--workspace", "--examples"], {}),
             ("rust-test", [cargo, "test", "--workspace", "--all-targets"], {}),
-            ("rust-trust-policy", [cargo, "test", "-p", "actionui", "--test", "trust_policy"], {"ACTIONUI_GUI_TESTS": "1"})]:
+            ("rust-trust-policy", [cargo, "test", "-p", "actionui", "--test", "trust_policy"], {"ACTIONUI_GUI_TESTS": "1"}),
+            ("rust-host-surface", [cargo, "test", "-p", "actionui", "--features", "host-surface", "--lib", "--test",
+                                   "host_surface_window"], {"ACTIONUI_GUI_TESTS": "1"})]:
         step = run_step(name, command, results, dict(env, **extra), cwd=workspace, timeout=STEP_TIMEOUT_SECONDS)
         summary["steps"].append(step)
         summary["findings"].append(f"{name}: {'passed' if step['status'] == 0 else 'FAILED, exit ' + str(step['status'])}")
@@ -1495,12 +1497,13 @@ def check_rust(package, results, summary, msvc):
     return passed
 
 
-# The Node.js tests CI runs on Windows: not test_menu_bar and test_host_surface (not on Windows yet).
+# The Node.js tests CI runs on Windows: not test_menu_bar (no menu bar on Windows yet).
 NODE_TESTS = ["test_native", "test_native_api_surface", "test_insert_api", "test_action_id_lookup", "test_app_api",
               "test_configuration", "test_app_lifecycle", "test_trust_policy", "test_uv_run_integration",
-              "test_worker_guard"]
+              "test_worker_guard", "test_host_surface"]
 # The tests that print a "PASSED" line when every check of theirs passed (the others exit 1 on a failure).
-NODE_TESTS_REPORTING_PASSED = {"test_configuration", "test_app_lifecycle", "test_trust_policy", "test_uv_run_integration"}
+NODE_TESTS_REPORTING_PASSED = {"test_configuration", "test_app_lifecycle", "test_trust_policy", "test_uv_run_integration",
+                               "test_host_surface"}
 
 
 # The Python tests CI runs on Windows: not test_file_panels (it waits for a person) and test_menu_bar (not on

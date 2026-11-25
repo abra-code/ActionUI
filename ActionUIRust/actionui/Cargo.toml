@@ -9,10 +9,10 @@ repository.workspace = true
 
 [features]
 # The HostSurface element and actionui::host_surface: a part of the window drawn by the program
-# with its own renderer. macOS and Linux.
+# with its own renderer. macOS, Linux and Windows (and Android, as a client only).
 host-surface = ["actionui-sys/host-surface"]
 # actionui::host_surface::wgpu_surface: a wgpu surface on a HostSurface, and a device and frame
-# handling that work wherever the element does.
+# handling that work wherever the element does. Not on Windows yet (a compile error there).
 wgpu = ["host-surface", "dep:wgpu"]
 
 [dependencies]

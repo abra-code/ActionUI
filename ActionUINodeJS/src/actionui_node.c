@@ -1998,51 +1998,6 @@ static napi_value node_app_run_alert(napi_env env, napi_callback_info info) {
 
 // MARK: - HostSurface (ActionUIHostSurface.h)
 
-#if defined(_WIN32)
-/* Not in this binding on Windows yet (ActionUI.dll has the element; Python's binding has it there). Registering
- * does nothing (ActionUI.dll registers the element itself); the rest throw. The header's constants are exported as
- * elsewhere, for index.js's names. */
-static napi_value host_surface_not_yet(napi_env env) {
-    napi_throw_error(env, NULL, "HostSurface is not available on Windows yet");
-    return NULL;
-}
-
-static napi_value node_host_surface_register(napi_env env, napi_callback_info info) {
-    (void)info;
-    if (!require_main_env(env, "hostSurfaceRegister")) return NULL;
-    napi_value undefined;
-    napi_get_undefined(env, &undefined);
-    return undefined;
-}
-
-static napi_value node_host_surface_set_delegate(napi_env env, napi_callback_info info) {
-    (void)info;
-    if (!require_main_env(env, "hostSurfaceSetDelegate")) return NULL;
-    return host_surface_not_yet(env);
-}
-
-static napi_value node_host_surface_request_frame(napi_env env, napi_callback_info info) {
-    (void)info;
-    return host_surface_not_yet(env);
-}
-
-static napi_value node_host_surface_set_continuous(napi_env env, napi_callback_info info) {
-    (void)info;
-    return host_surface_not_yet(env);
-}
-
-static napi_value node_host_surface_set_cursor(napi_env env, napi_callback_info info) {
-    (void)info;
-    if (!require_main_env(env, "hostSurfaceSetCursor")) return NULL;
-    return host_surface_not_yet(env);
-}
-
-static napi_value node_host_surface_present_pixels(napi_env env, napi_callback_info info) {
-    (void)info;
-    return host_surface_not_yet(env);
-}
-#else
-
 /*
  * A HostSurface client: the JS bridge the surface events, frames, input and renders of one binding go to
  * (index.js dispatches them to the delegate's methods). One per actionUIHostSurfaceSetDelegate call, on the
@@ -2482,7 +2437,6 @@ static napi_value node_host_surface_present_pixels(napi_env env, napi_callback_i
     return result;
 }
 
-#endif  /* !_WIN32 */
 
 #define EXPORT_FN(exports, name, fn) do { \
     napi_value _fn; \

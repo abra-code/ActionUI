@@ -382,7 +382,8 @@ class Application {
         // registration still calls actionUIRegisterActionHandler so ActionUI's
         // internal routing knows which IDs are claimed.
         _actionui.setDefaultActionHandler(this._actionBridge.bind(this));
-        // The HostSurface element, before the first ActionUI JSON loads (on Linux libActionUI.so has it already).
+        // The HostSurface element, before the first ActionUI JSON loads (libActionUI.so on Linux and ActionUI.dll on
+        // Windows have it already; registering again does nothing).
         _actionui.hostSurfaceRegister();
     }
 

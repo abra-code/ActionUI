@@ -6,7 +6,7 @@
 
 //! The `HostSurface` element: a part of the window that the program draws with its own
 //! renderer (Metal, wgpu, ...), while ActionUI does the rest of the window. Needs the
-//! `host-surface` feature (macOS, Linux, and Android); on macOS `App::new` registers the element.
+//! `host-surface` feature (macOS, Linux, Windows and Android); on macOS `App::new` registers the element.
 //!
 //! ActionUI JSON places the element and names it:
 //!
@@ -19,7 +19,7 @@
 //! name, in every window:
 //!
 //! - [`SurfaceDelegate::created`]: build the renderer on [`SurfaceInfo::handle`] (on macOS a
-//!   `CAMetalLayer`; on Linux, and for an element with "kind": "sink", a frame sink, see
+//!   `CAMetalLayer`; on Linux and Windows, and for an element with "kind": "sink", a frame sink, see
 //!   [`SurfaceId::present_pixels`]), sized in pixels.
 //!   With the `wgpu` feature, [`wgpu_surface`] does it for wgpu.
 //! - [`SurfaceDelegate::changed`]: resize to the new pixel size before the next frame.
@@ -222,7 +222,7 @@ pub enum SurfaceHandle {
     NativeWindow(NonNull<c_void>),
     /// A GtkGLArea (Linux, the element's "kind" "gl"): no handle; draw in [`SurfaceDelegate::render`].
     GlArea,
-    /// A frame sink (the element's "kind": "sink", and Linux's native kind): no handle; render anywhere at the
+    /// A frame sink (the element's "kind": "sink", and the native kind on Linux and Windows): no handle; render anywhere at the
     /// surface's pixel size and present the pixels with [`SurfaceId::present_pixels`]. For wgpu:
     /// `wgpu_surface::FrameSink` (the `wgpu` feature).
     FrameSink,
@@ -704,7 +704,8 @@ unsafe extern "C" fn on_input(
     unsafe { with_delegate("HostSurface input", user_data, |delegate| delegate.input(SurfaceId(surface_id), &event)) };
 }
 
-/// Registers the element; called by [`App::new`]. On Linux libActionUI.so registers it itself.
+/// Registers the element; called by [`App::new`]. On Linux libActionUI.so registers it itself, on Windows
+/// ActionUI.dll.
 #[cfg(target_os = "macos")]
 pub(crate) fn register_element() {
     unsafe { sys::ActionUIHostSurface_register() };

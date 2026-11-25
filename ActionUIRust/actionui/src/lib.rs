@@ -66,8 +66,13 @@ mod dialog;
 mod error;
 #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows", target_os = "android"))]
 mod ffi;
-#[cfg(all(feature = "host-surface", any(target_os = "macos", target_os = "linux", target_os = "android")))]
+#[cfg(all(feature = "host-surface", any(target_os = "macos", target_os = "linux", target_os = "windows", target_os = "android")))]
 pub mod host_surface;
+
+// wgpu has no backend for Windows here (its dependency names Metal, and Vulkan and OpenGL ES on Linux and Android):
+// a build with the feature would fail only at run time, finding no adapter.
+#[cfg(all(feature = "wgpu", target_os = "windows"))]
+compile_error!("the wgpu feature is not supported on Windows yet: use host-surface and present frames with SurfaceId::present_pixels");
 #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 pub mod log;
 #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows", target_os = "android"))]
