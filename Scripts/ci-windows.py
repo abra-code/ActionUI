@@ -437,7 +437,7 @@ def xctest_counts(log_path):
     finished last, not to the whole run."""
     text = log_path.read_text(encoding="utf-8", errors="replace")
     matches = re.findall(r"Test Suite 'All tests' (?:passed|failed) at [^\n]*\n"
-                         r"\s*Executed (\d+) tests?, with (\d+) failures?", text)
+                         r"\s*Executed (\d+) tests?, with (?:\d+ tests? skipped and )?(\d+) failures?", text)
     if not matches:
         return None
     return {"executed": sum(int(executed) for executed, _ in matches),

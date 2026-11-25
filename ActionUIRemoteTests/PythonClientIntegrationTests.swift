@@ -11,7 +11,7 @@
 // the server hops every request to the main queue, so blocking the main thread here would
 // starve the script's very first call and every request would come back 1005.
 
-#if os(macOS) || os(Linux)
+#if os(macOS) || os(Linux) || os(Windows)
 
 import XCTest
 #if canImport(Darwin)
@@ -75,8 +75,7 @@ final class PythonClientIntegrationTests: XCTestCase {
         windowUUID = UUID().uuidString
         try loadFixtureWindow(uuid: windowUUID)
 
-        socketPath = FileManager.default.temporaryDirectory
-            .appendingPathComponent("aui-py-\(getpid())-\(UInt32.random(in: 0...UInt32.max)).sock").path
+        socketPath = makeTestEndpoint("aui-py")
         server = ActionUIRemoteServer(host: .init(name: Self.hostName, version: "0.1"))
         server.logger = logger
         try server.start(socketPath: socketPath)
@@ -85,7 +84,7 @@ final class PythonClientIntegrationTests: XCTestCase {
     override func tearDown() async throws {
         server?.stop()
         server = nil
-        unlink(socketPath)
+        removeTestEndpoint(socketPath)
         ActionUIModel.resetForRemoteTests()
         // No super.tearDown(), for the reason in setUp.
     }
@@ -113,16 +112,11 @@ final class PythonClientIntegrationTests: XCTestCase {
 
     // MARK: - Locating the interpreter and the script
 
-    /// The first python3 on PATH, then the usual fixed locations. PATH first because that is
-    /// what a `#!/usr/bin/env python3` handler would pick up.
+    /// The first Python on PATH, then the usual fixed locations (pythonCandidates). PATH first
+    /// because that is what a `#!/usr/bin/env python3` handler would pick up.
     private static func pythonExecutable() -> String? {
         let fileManager = FileManager.default
-        var candidates: [String] = []
-        if let path = ProcessInfo.processInfo.environment["PATH"] {
-            candidates.append(contentsOf: path.split(separator: ":").map { String($0) + "/python3" })
-        }
-        candidates.append(contentsOf: ["/usr/bin/python3", "/usr/local/bin/python3", "/opt/homebrew/bin/python3"])
-        return candidates.first { fileManager.isExecutableFile(atPath: $0) }
+        return pythonCandidates().first { fileManager.isExecutableFile(atPath: $0) }
     }
 
     /// ActionUIRemote/Python/test_live_client.py, resolved from this file rather than from the
@@ -242,6 +236,9 @@ final class PythonClientIntegrationTests: XCTestCase {
     /// from the child's environment, which is the whole point: its exec-time snapshot, which is
     /// what `ps` reads, never contains the token.
     private func runPythonHoldingTokenOnStdin(_ source: String, token: String?) throws -> (status: Int32, output: String) {
+        guard tokenDescriptorsAreSupported else {
+            throw XCTSkip("a token on a descriptor is for macOS and Linux; Windows hands a child its token otherwise")
+        }
         guard let python = Self.pythonExecutable() else {
             throw XCTSkip("python3 is not available on this machine")
         }

@@ -151,4 +151,17 @@ func removeTestEndpoint(_ path: String) {
 let absentAbsolutePath = "/nonexistent/modal.json"
 let notARegularFilePath = "/dev/zero"
 
+/// Where a Python interpreter may be: python3 in each PATH folder, then the usual fixed places.
+func pythonCandidates() -> [String] {
+    var candidates: [String] = []
+    if let path = ProcessInfo.processInfo.environment["PATH"] {
+        candidates.append(contentsOf: path.split(separator: ":").map { String($0) + "/python3" })
+    }
+    candidates.append(contentsOf: ["/usr/bin/python3", "/usr/local/bin/python3", "/opt/homebrew/bin/python3"])
+    return candidates
+}
+
+/// A host may hand a child its token on an inherited descriptor (PROTOCOL.md section 10).
+let tokenDescriptorsAreSupported = true
+
 #endif

@@ -97,6 +97,10 @@ def check_discovery(win, uuid, expected_host):
         # model only, so null (ActionUIAdwaita's tests measure windows on screen).
         check_equal(limits, None, "content_size_limits is None on Linux for a window not on screen")
         return
+    if os.name == "nt":
+        # The host here has no renderer (the core check), and WinUI does not measure yet: null.
+        check_equal(limits, None, "content_size_limits is None on Windows")
+        return
     check(isinstance(limits, tuple) and len(limits) == 4
           and all(isinstance(number, (int, float)) for number in limits),
           "content_size_limits must be a 4-tuple of numbers, got %r" % (limits,))
@@ -222,7 +226,8 @@ def check_errors(win, uuid):
     check_raises(-32602, "a missing param", win.connection.call, "actionui.getValue", {"window": uuid})
     # Without a host resolver only an absolute path is accepted, and it has to exist.
     check_raises(-32602, "a relative modal path with no host resolver", win.present_modal, path="relative.json")
-    check_raises(1003, "an absolute modal path that does not exist", win.present_modal, path="/nonexistent/modal.json")
+    absent = "C:\\nonexistent\\modal.json" if os.name == "nt" else "/nonexistent/modal.json"
+    check_raises(1003, "an absolute modal path that does not exist", win.present_modal, path=absent)
 
 
 def check_batches_and_notifications(win):

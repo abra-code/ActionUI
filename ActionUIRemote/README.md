@@ -3,9 +3,9 @@
 Out-of-process access to ActionUI windows. A host that embeds ActionUI starts a small server
 on a Unix domain socket; any process running as the same user can then read and mutate the
 host's windows over newline-delimited JSON-RPC 2.0, with the same verbs and the same value
-encoding as the in-process adapters. On macOS, and on Linux as part of `libActionUI.so`
+encoding as the in-process adapters. On macOS, on Linux as part of `libActionUI.so`
 (`actionUIApp*RemoteServer*`; `actionui.contentSizeLimits` measures a window on screen there, see
-PROTOCOL.md).
+PROTOCOL.md), and on Windows as part of `ActionUI.dll`, over a named pipe ("On Windows" below).
 
 The wire contract is in [PROTOCOL.md](PROTOCOL.md). The Python client lives in `Python/`.
 
@@ -197,6 +197,22 @@ actionui_hold_token                                 # take the token out of the 
 name=$(actionui_get_string 2)
 /path/to/actionui_remote.sh get-rows 5              # command: same commands and exit codes
 ```
+
+## On Windows
+
+The server listens on a local named pipe instead of a socket (PROTOCOL.md section 12): only the
+user may open it, at the server's integrity level or above, other computers are refused, and each
+client's identity is read before anything it sent is used. The default endpoint is
+`\\.\pipe\actionui-<process id>-<random>`, new for each start.
+
+- Nothing goes into the environment: a host gives a child it starts the endpoint
+  (`actionUIAppRemoteServerEndpoint`) and a token minted for that child (`actionUIAppRemoteMintToken`)
+  in `ACTIONUI_REMOTE_ENDPOINT` and `ACTIONUI_REMOTE_TOKEN`. `ACTIONUI_REMOTE_TOKEN_FD` is not used on
+  Windows.
+- The Python client needs `Python/actionui_remote_windows.py` beside `actionui_remote.py`. Before it
+  sends a token it checks that the endpoint is a local pipe name (never another computer's), opens
+  the pipe for identification only, and checks that the pipe's owner is its own user.
+- `actionui.contentSizeLimits` answers null on Windows.
 
 ## Security model
 

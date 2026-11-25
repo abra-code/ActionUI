@@ -2,7 +2,8 @@
 
 Speaks ActionUI Remote Protocol version 1 (see PROTOCOL.md next to this file): newline-delimited
 JSON-RPC 2.0 over a Unix domain socket to a host that embeds ActionUI and runs
-ActionUIRemoteServer. Pure standard library, Python 3.9 or newer, no threads.
+ActionUIRemoteServer; on Windows over a local named pipe (actionui_remote_windows.py, beside this
+file, and PROTOCOL.md section 12). Pure standard library, Python 3.9 or newer, no threads.
 
 The Window API mirrors the in-process `actionui.Window` naming and argument order, so code
 written against the in-process bridge ports here by changing the import and the constructor.
@@ -51,6 +52,16 @@ import weakref
 
 if sys.version_info < (3, 9):
     raise ImportError("actionui_remote requires Python 3.9 or newer; this is %s" % sys.version.split()[0])
+
+_WINDOWS = os.name == "nt"
+if _WINDOWS:
+    # The named-pipe transport, loaded from this file's own folder rather than from sys.path, so
+    # that a module of the same name in the current folder cannot stand in for it.
+    import importlib.util as _importlib_util
+    _windows_spec = _importlib_util.spec_from_file_location(
+        "actionui_remote_windows", os.path.join(os.path.dirname(os.path.abspath(__file__)), "actionui_remote_windows.py"))
+    _windows = _importlib_util.module_from_spec(_windows_spec)
+    _windows_spec.loader.exec_module(_windows)
 
 __all__ = [
     "PROTOCOL_VERSION", "ENDPOINT_ENV", "WINDOW_ENV", "TOKEN_ENV", "TOKEN_FD_ENV",
@@ -112,7 +123,13 @@ def _check_endpoint(path):
     listens. The path must be absolute and name a socket (not a link) of this user's, in a folder
     owned by this user or root that nobody else can change (or sticky, so nobody else can rename
     the socket). A process of the same user can still put its own socket there; no file check
-    stops that."""
+    stops that.
+
+    On Windows the endpoint must be a local pipe name instead; the pipe's owner is checked once it
+    is open (actionui_remote_windows.py)."""
+    if _WINDOWS:
+        _windows.check_endpoint(path, EndpointError)
+        return
     if not os.path.isabs(path):
         raise EndpointError("socket path is not absolute: %s" % path)
     try:
@@ -292,6 +309,9 @@ def _read_token_descriptor():
     raw = os.environ.get(TOKEN_FD_ENV)
     if not raw:
         return None
+    if _WINDOWS:
+        _token_descriptor_failure("%s is not used on Windows: a host gives a child its token in %s"
+                                  % (TOKEN_FD_ENV, TOKEN_ENV))
     # isdigit() alone accepts superscripts and other unicode digits that int() then rejects.
     if not (raw.isascii() and raw.isdigit()):
         _token_descriptor_failure("%s must be a descriptor number, not %r" % (TOKEN_FD_ENV, raw))
@@ -420,6 +440,12 @@ class Connection:
     # -- lifecycle
 
     def _connect(self):
+        if _WINDOWS:
+            # The endpoint's form, the identification-only open and the pipe's owner, all before
+            # anything is sent (actionui_remote_windows.py).
+            self._sock = _windows.open_pipe(self.endpoint, self.timeout, EndpointError)
+            self._buffer = b""
+            return
         # Measured here rather than left to connect(): CPython refuses an over-long AF_UNIX path
         # itself, with an OSError that carries no errno, so the caller would get a message that
         # neither names the limit nor says which path was too long. In bytes, because sun_path
@@ -1100,7 +1126,7 @@ def _build_parser(argparse):
                "An argument starting with a dash that is not a number needs -- before it, "
                "as in `set-string 2 -- -hello`.")
     parser.add_argument("--endpoint", default=os.environ.get(ENDPOINT_ENV),
-                        help="socket path (default: $%s)" % ENDPOINT_ENV)
+                        help="socket path, or pipe name on Windows (default: $%s)" % ENDPOINT_ENV)
     parser.add_argument("--window", default=os.environ.get(WINDOW_ENV),
                         help="window UUID (default: $%s)" % WINDOW_ENV)
     # Normally inherited, so this is for driving a host by hand from a shell that is not its

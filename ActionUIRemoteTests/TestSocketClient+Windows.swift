@@ -149,4 +149,18 @@ func removeTestEndpoint(_ path: String) {
 let absentAbsolutePath = "C:\\nonexistent\\modal.json"
 let notARegularFilePath = "C:\\Windows"
 
+/// Where a Python interpreter may be: python.exe in each PATH folder, except the WindowsApps folder,
+/// whose python.exe is a stub that offers the Microsoft Store.
+func pythonCandidates() -> [String] {
+    guard let path = ProcessInfo.processInfo.environment["PATH"] ?? ProcessInfo.processInfo.environment["Path"] else {
+        return []
+    }
+    return path.split(separator: ";")
+        .filter { !$0.lowercased().contains("\\windowsapps") }
+        .map { String($0) + "\\python.exe" }
+}
+
+/// Windows has no descriptor delivery of a token; a host gives a child its token in the environment.
+let tokenDescriptorsAreSupported = false
+
 #endif
