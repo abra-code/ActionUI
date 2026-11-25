@@ -33,6 +33,11 @@ import CLinuxSocket
 #endif
 import Dispatch
 
+/// The transport ActionUIRemoteServer uses on this system (NamedPipeServer on Windows).
+typealias RemoteTransport = UnixSocketServer
+/// What starting it throws on this system.
+public typealias RemoteTransportError = UnixSocketServerError
+
 /// Errors from starting a UnixSocketServer.
 public enum UnixSocketServerError: Error, CustomStringConvertible {
     case alreadyStarted

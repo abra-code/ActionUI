@@ -431,16 +431,17 @@ def environment_facts():
 
 
 def xctest_counts(log_path):
-    """The 'Executed N tests, with M failures' line under XCTest's 'All tests' suite, as numbers;
-    None when the run printed no total (it crashed or ran nothing). A crashed run's last
-    'Executed' line belongs to whichever suite finished last, not to the whole run."""
+    """The 'Executed N tests, with M failures' lines under XCTest's 'All tests' suite, added up over the
+    test bundles the run ran (one per test target on Windows), as numbers; None when the run printed no
+    total (it crashed or ran nothing). A crashed run's last 'Executed' line belongs to whichever suite
+    finished last, not to the whole run."""
     text = log_path.read_text(encoding="utf-8", errors="replace")
     matches = re.findall(r"Test Suite 'All tests' (?:passed|failed) at [^\n]*\n"
                          r"\s*Executed (\d+) tests?, with (\d+) failures?", text)
     if not matches:
         return None
-    executed, failures = matches[-1]
-    return {"executed": int(executed), "failures": int(failures)}
+    return {"executed": sum(int(executed) for executed, _ in matches),
+            "failures": sum(int(failures) for _, failures in matches)}
 
 
 def testing_counts(log_path):

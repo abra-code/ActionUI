@@ -13,7 +13,7 @@
 //
 // Bool: all @c functions use Swift's CBool (= stdbool.h bool).
 
-#if os(macOS) || os(Linux)
+#if os(macOS) || os(Linux) || os(Windows)
 
 #if canImport(FoundationEssentials)
 import FoundationEssentials
@@ -24,6 +24,8 @@ import Foundation
 import Darwin
 #elseif canImport(Glibc)
 import Glibc
+#elseif os(Windows)
+import ucrt
 #endif
 import Dispatch
 import ActionUI
@@ -42,14 +44,14 @@ private func setTokenCString(_ token: String?) {
     tokenLock.lock()
     defer { tokenLock.unlock() }
     free(tokenCString)
-    tokenCString = token.map { strdup($0) } ?? nil
+    tokenCString = token.map { copyCString($0) } ?? nil
 }
 
 private func setEndpointCString(_ path: String?) {
     endpointLock.lock()
     defer { endpointLock.unlock() }
     free(endpointCString)
-    endpointCString = path.map { strdup($0) } ?? nil
+    endpointCString = path.map { copyCString($0) } ?? nil
 }
 
 // MARK: - Diagnostics
@@ -136,7 +138,7 @@ public func actionUIRemoteStartServer(_ socketPath: UnsafePointer<CChar>?,
     do {
         let bound = try ActionUIRemoteServer.startShared(socketPath: path, host: host, logger: logger)
         setEndpointCString(bound)
-        setTokenCString(getenv(ActionUIRemoteEnvironment.token).map { String(cString: $0) })
+        setTokenCString(ActionUIRemoteServer.sharedStartupToken)
         if logger == nil {
             attachEngineLoggerAsync()
         }
@@ -360,8 +362,8 @@ public func actionUIRemoteSetRequiresToken(_ required: CBool) -> CBool {
 ///   to remove.
 @c
 public func actionUIRemoteUnexportToken() -> CBool {
-    guard getenv(ActionUIRemoteEnvironment.token) != nil else { return false }
-    unsetenv(ActionUIRemoteEnvironment.token)
+    guard environmentValue(ActionUIRemoteEnvironment.token) != nil else { return false }
+    removeEnvironmentValue(ActionUIRemoteEnvironment.token)
     return true
 }
 

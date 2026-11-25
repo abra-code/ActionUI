@@ -185,6 +185,12 @@ public extension ActionUIRemoteServer {
         return shared?.endpoint
     }
 
+    /// The token `startShared` minted for the host (label "host"), as the environment holds it: nil
+    /// when the server requires none, or once `actionUIRemoteUnexportToken` removed it.
+    static var sharedStartupToken: String? {
+        return environmentValue(ActionUIRemoteEnvironment.token)
+    }
+
     /// The limits the next `startShared` gives its server: open connections, seconds to
     /// authenticate (0 for no limit), and unauthenticated connections that may hold a large
     /// unfinished line (see `connectionLimit`, `authenticationTimeout`,

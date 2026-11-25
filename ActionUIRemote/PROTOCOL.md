@@ -351,3 +351,40 @@ and rely on `-32601` for methods a host lacks.
 
 Reserved for a later version: server-initiated notifications (`actionui.event`) and a
 subscription method, for long-running clients that want actions pushed to them.
+
+## 12. On Windows
+
+The same protocol over a local named pipe instead of a Unix socket. Framing, the envelope, the
+methods, the limits and authentication (sections 2 to 8, 10 and 11) do not change.
+
+- The endpoint is a pipe name, `\\.\pipe\` and then letters, digits, `.`, `-` or `_`, at most 256
+  characters. The reference server's default is `\\.\pipe\actionui-<process id>-<32 random hex
+  digits>`, new for each start. Pipe names are one list for the whole computer that any user can
+  read, so the name is no secret; the random part is there so nobody can make it first.
+- Only the user may open the pipe. The server gives it a security descriptor of its own in the call
+  that creates it (Windows' default would let everyone read): the user is its owner and the only
+  account allowed in, and its integrity label is the server's own level with no reading or writing
+  up, so a process at a lower level (a sandboxed renderer) cannot open it. Every instance refuses
+  other computers (`PIPE_REJECT_REMOTE_CLIENTS`), which would otherwise reach it as
+  `\\host\pipe\name`. The user's own processes in an SSH or WinRM session are served, as over a
+  Unix socket. A start fails when a pipe of that name exists already
+  (`FILE_FLAG_FIRST_PIPE_INSTANCE`); it never joins one.
+- Before using anything a client sent, the server reads the client's own token: it must be the
+  server's user, at the server's integrity level or above, not an app container, and not a
+  restricted token; any other is closed. An anonymous client cannot be read and is closed too. So a
+  server in an elevated process (High) serves only elevated clients of the same user.
+- There is no half-close on a pipe: a client keeps its end open until it has read the replies it is
+  waiting for. Closing it ends the connection, and replies not yet read are lost.
+- Nothing goes into the environment: the reference server sets none of section 9's variables. Many
+  processes start from a Windows host's environment (WebView2's browser, GPU and renderer
+  processes, a program Windows starts for a link), so a host gives the endpoint, and a token minted
+  for that child (`actionUIRemoteMintToken`), to the child it starts, under section 9's names.
+- A client must check the endpoint before it sends a token: it begins with `\\.\pipe\` (never
+  another computer's name, which would send the token, and the user's sign-in, over the network).
+  It opens the pipe for identification only (`SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION`),
+  so the server may read who the client is but not act as it, and checks that the pipe's owner is
+  its own user (`GetSecurityInfo`) before sending the token: a pipe somebody else made after the
+  server ended gets nothing. A client that cannot make these calls (one written in plain
+  JavaScript) says so in its documentation.
+- As on every system, a process of the same user at the same level can read the token out of the
+  host's or a client's memory; the pipe does not claim to stop that.

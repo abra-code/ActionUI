@@ -2,9 +2,10 @@
 //
 // What the remote binding needs from the platform beyond Swift and Dispatch, written against the
 // C library so the same code serves every platform: a lock (Foundation's NSLock is not in
-// FoundationEssentials) and the main-thread test (nor is Foundation's Thread).
+// FoundationEssentials) and the main-thread test (nor is Foundation's Thread). On Windows the lock and
+// the C library calls are in RemoteSupport+Windows.swift.
 
-#if os(macOS) || os(Linux)
+#if os(macOS) || os(Linux) || os(Windows)
 
 #if canImport(Darwin)
 import Darwin
@@ -12,6 +13,28 @@ import Darwin
 import Glibc
 #endif
 import Dispatch
+
+#if !os(Windows)
+
+/// A copy of `text` in memory the caller frees with free(3).
+func copyCString(_ text: String) -> UnsafeMutablePointer<CChar>? {
+    return strdup(text)
+}
+
+/// The environment variable `name`, or nil when it is not set.
+func environmentValue(_ name: String) -> String? {
+    return getenv(name).map { String(cString: $0) }
+}
+
+/// Removes the environment variable `name` from this process's environment.
+func removeEnvironmentValue(_ name: String) {
+    unsetenv(name)
+}
+
+/// Whether `path` names a file on this computer from the root: it begins with "/".
+func isAbsoluteLocalPath(_ path: String) -> Bool {
+    return path.hasPrefix("/")
+}
 
 /// A mutual-exclusion lock over a pthread mutex. Not reentrant. The mutex lives in allocated
 /// memory, not in a stored property: a pthread mutex must not move once initialized, and Swift
@@ -39,6 +62,8 @@ final class Lock: @unchecked Sendable {
         pthread_mutex_unlock(mutex)
     }
 }
+
+#endif
 
 // The main queue carries this key, and the main thread runs with the main queue as its current
 // queue except inside another queue's work, so the key is present on the main thread and absent on

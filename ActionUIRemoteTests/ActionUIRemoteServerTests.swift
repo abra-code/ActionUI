@@ -5,7 +5,7 @@
 // main run loop through XCTest's wait(for:): the server hops every request to the main queue,
 // so a blocking read on the main thread would starve it and every request would time out.
 
-#if os(macOS) || os(Linux)
+#if os(macOS) || os(Linux) || os(Windows)
 
 import XCTest
 #if canImport(Darwin)
@@ -47,8 +47,7 @@ final class ActionUIRemoteServerTests: XCTestCase {
         windowUUID = UUID().uuidString
         try loadFixtureWindow(uuid: windowUUID)
 
-        socketPath = FileManager.default.temporaryDirectory
-            .appendingPathComponent("aui-rpc-\(getpid())-\(UInt32.random(in: 0...UInt32.max)).sock").path
+        socketPath = makeTestEndpoint("aui-rpc")
         server = ActionUIRemoteServer(host: .init(name: "TestHost", version: "0.1"))
         server.logger = logger
         try server.start(socketPath: socketPath)
@@ -59,7 +58,7 @@ final class ActionUIRemoteServerTests: XCTestCase {
         client = nil
         server?.stop()
         server = nil
-        unlink(socketPath)
+        removeTestEndpoint(socketPath)
         ActionUIModel.resetForRemoteTests()
         // No super.tearDown(), for the reason in setUp.
     }
@@ -418,9 +417,9 @@ final class ActionUIRemoteServerTests: XCTestCase {
         XCTAssertNil(windowModel.windowModal)
         assertFailure("actionui.presentModal", windowParams(["element": ["type": "Text"], "style": "popover"]), code: -32602)
         assertFailure("actionui.presentModal", windowParams(["path": "relative.json"]), code: -32602)
-        assertFailure("actionui.presentModal", windowParams(["path": "/nonexistent/modal.json"]), code: 1003)
+        assertFailure("actionui.presentModal", windowParams(["path": absentAbsolutePath]), code: 1003)
         // Only a regular file: /dev/zero would never finish reading on the main thread.
-        assertFailure("actionui.presentModal", windowParams(["path": "/dev/zero"]), code: 1003)
+        assertFailure("actionui.presentModal", windowParams(["path": notARegularFilePath]), code: 1003)
         // A file over the configured size limit is refused before it is read.
         let big = FileManager.default.temporaryDirectory.appendingPathComponent("modal-\(UUID().uuidString).json")
         try Data(#"{ "id": 300, "type": "Text", "properties": { "text": "a modal over the limit" } }"#.utf8).write(to: big)
@@ -589,7 +588,7 @@ final class ActionUIRemoteServerTests: XCTestCase {
         try guarded.start(socketPath: path)
         defer {
             guarded.stop()
-            unlink(path)
+            removeTestEndpoint(path)
         }
         let stranger = try TestSocketClient(path: path, timeoutSeconds: 5)
         let member = try TestSocketClient(path: path, timeoutSeconds: 5)

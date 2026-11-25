@@ -413,12 +413,16 @@ let package = Package(
 )
 #if os(Windows)
 // On Windows the core job also checks the document verifier, as portable as the core (no
-// resources, as on Linux: SchemaSet.swift says why).
+// resources, as on Linux: SchemaSet.swift says why), and the remote server over a named pipe
+// (ActionUIRemote/NamedPipeServer.swift), which needs no renderer.
 package.products.append(.library(name: "ActionUIVerifier", targets: ["ActionUIVerifier"]))
 package.targets += [
     .target(name: "ActionUIVerifier", path: "ActionUIVerifier", exclude: ["Schemas"]),
     .testTarget(name: "ActionUIVerifierTests", dependencies: ["ActionUIVerifier"], path: "ActionUIVerifierTests",
                 exclude: ["Parity"]),
+    .target(name: "ActionUIRemote", dependencies: ["ActionUI"], path: "ActionUIRemote",
+            exclude: ["Node", "PROTOCOL.md", "Python", "README.md", "Shell"]),
+    .testTarget(name: "ActionUIRemoteTests", dependencies: ["ActionUIRemote", "ActionUI"], path: "ActionUIRemoteTests"),
 ]
 #endif
 return package
@@ -625,6 +629,9 @@ Package(
         .library(name: "ActionUIStatic", targets: ["ActionUI"]),
         // The C adapter, for ActionUI.dll (ActionUIWinUI/Library).
         .library(name: "ActionUICAdapter", targets: ["ActionUICAdapter"]),
+        // The remote server over a named pipe (ActionUIRemote/PROTOCOL.md), in ActionUI.dll through the
+        // application layer, as in libActionUI.so on Linux.
+        .library(name: "ActionUIRemote", targets: ["ActionUIRemote"]),
         .executable(name: "ActionUIWinUISmoke", targets: ["ActionUIWinUISmoke"]),
         .executable(name: "ActionUIWinUIPreview", targets: ["ActionUIWinUIPreview"]),
         // The preview tool, for ActionUIWinUI/Library's ActionUIWinUIAddOnPreview.
@@ -684,9 +691,19 @@ Package(
             name: "ActionUIAppHeaders",
             path: "ActionUIWinUI/AppHeaders"
         ),
+        // The remote server (ActionUIRemote/PROTOCOL.md): JSON-RPC over a named pipe, so other
+        // processes of the user read and change the application's windows. The same sources as on
+        // macOS and Linux, with NamedPipeServer.swift as the transport; the clients and the protocol
+        // text are not compiled.
+        .target(
+            name: "ActionUIRemote",
+            dependencies: ["ActionUI"],
+            path: "ActionUIRemote",
+            exclude: ["Node", "PROTOCOL.md", "Python", "README.md", "Shell"]
+        ),
         .target(
             name: "ActionUIWinUIApplication",
-            dependencies: ["ActionUI", "ActionUIAppHeaders", "CWinUI"],
+            dependencies: ["ActionUI", "ActionUIAppHeaders", "CWinUI", "ActionUIRemote"],
             path: "ActionUIWinUIApplication"
         ),
         // The renderer's smoke test from Swift: WinUI through the shim, the main-queue bridge, a

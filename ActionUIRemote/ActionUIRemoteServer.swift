@@ -21,7 +21,7 @@
 //   queue); different connections interleave at request granularity on the main queue. A batch
 //   is one main-queue block, so its members apply within one frame.
 
-#if os(macOS) || os(Linux)
+#if os(macOS) || os(Linux) || os(Windows)
 
 #if canImport(FoundationEssentials)
 import FoundationEssentials
@@ -105,7 +105,7 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
     // Guarded by `lock`.
     private var _mainThreadTimeout: TimeInterval = 10
     private var _logger: (any ActionUILogger)?
-    private var socketServer: UnixSocketServer?
+    private var socketServer: RemoteTransport?
     private var starting = false
     /// token -> label. Many are live at once: a host mints one per unit of work it spawns, so a
     /// grant can be withdrawn when that work ends without disturbing anything else.
@@ -116,7 +116,7 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
     /// Connections that have already presented a valid token, with that token. A client may send
     /// it once and then stop, or send it on every request; both work. Revoking the token ends the
     /// connection's authentication.
-    private var _authenticated: [UnixSocketServer.ConnectionID: String] = [:]
+    private var _authenticated: [RemoteTransport.ConnectionID: String] = [:]
 
     /// Main-actor state: the method table and the modal resolver.
     let registry = MethodRegistry()
@@ -168,11 +168,11 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
     }
 
     // Guarded by `lock`.
-    private var _limits = UnixSocketServer.Limits()
+    private var _limits = RemoteTransport.Limits()
 
     /// Whether a connection counts as trusted for the socket server's limits: always when no
     /// token is required, else once it has presented a valid one.
-    private func isTrusted(_ connectionID: UnixSocketServer.ConnectionID) -> Bool {
+    private func isTrusted(_ connectionID: RemoteTransport.ConnectionID) -> Bool {
         lock.lock()
         defer { lock.unlock() }
         return !_requiresToken || _authenticated[connectionID] != nil
@@ -295,8 +295,9 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
 
     // MARK: - Lifecycle
 
-    /// Bind the socket and start serving. Throws `UnixSocketServerError`; see it for the path
-    /// length limit and the already-started case.
+    /// Bind the socket (on Windows, make the pipe) and start serving. Throws `RemoteTransportError`
+    /// (`UnixSocketServerError`, or `NamedPipeServerError` on Windows); see it for the path length limit
+    /// and the already-started case.
     public func start(socketPath: String) throws {
         // Claim the start under the lock so two concurrent starts cannot both bind; the socket
         // server itself is created and started outside the lock, because it logs through this
@@ -308,7 +309,7 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
         }
         lock.unlock()
         guard claimed else {
-            throw UnixSocketServerError.alreadyStarted
+            throw RemoteTransportError.alreadyStarted
         }
         defer {
             lock.lock()
@@ -318,7 +319,7 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
         lock.lock()
         let limits = _limits
         lock.unlock()
-        let server = UnixSocketServer(
+        let server = RemoteTransport(
             path: socketPath,
             limits: limits,
             isTrusted: { [weak self] connectionID in
@@ -477,7 +478,7 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
 
     // MARK: - Request processing (connection queue)
 
-    private func handle(line: Data, connectionID: UnixSocketServer.ConnectionID) {
+    private func handle(line: Data, connectionID: RemoteTransport.ConnectionID) {
         lock.lock()
         let server = socketServer
         let timeout = _mainThreadTimeout
@@ -588,7 +589,7 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
     /// are third-party code by definition and have no business reading a credential that was not
     /// addressed to them.
     private func authenticate(_ entries: [Result<JSONRPCRequest, JSONRPCRejection>],
-                              connectionID: UnixSocketServer.ConnectionID)
+                              connectionID: RemoteTransport.ConnectionID)
         -> (entries: [Result<JSONRPCRequest, JSONRPCRejection>], tokenLabel: String?, scope: TokenScope?) {
         lock.lock()
         let required = _requiresToken

@@ -135,4 +135,20 @@ func leaveStaleSocket(at path: String) -> Int32 {
     return result == 0 ? 0 : errno
 }
 
+/// A socket path for one test's server, in the temporary folder (a pipe name on Windows:
+/// TestSocketClient+Windows.swift).
+func makeTestEndpoint(_ stem: String) -> String {
+    return FileManager.default.temporaryDirectory
+        .appendingPathComponent("\(stem)-\(getpid())-\(UInt32.random(in: 0...UInt32.max)).sock").path
+}
+
+/// Removes a test server's socket file.
+func removeTestEndpoint(_ path: String) {
+    unlink(path)
+}
+
+/// An absolute path to nothing, and one to something other than a regular file.
+let absentAbsolutePath = "/nonexistent/modal.json"
+let notARegularFilePath = "/dev/zero"
+
 #endif

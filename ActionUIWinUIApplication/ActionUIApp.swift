@@ -16,7 +16,12 @@
  - actionUIAppRunAlert, actionUIAppRunOpenPanel and actionUIAppRunSavePanel wait for the user's answer,
    the application running underneath (AppPanels).
 
- Not yet on Windows (logged; NULL or false): the menu bar and the remote server.
+ - The remote server (ActionUIRemote) starts from any thread, before the run or during it, and stops
+   when the run ends. On Windows it serves a named pipe and puts nothing in the environment: a host
+   gives a child it starts the endpoint (actionUIAppRemoteServerEndpoint) and a token of its own
+   (actionUIAppRemoteMintToken). ActionUIRemote/PROTOCOL.md, "On Windows".
+
+ Not yet on Windows (logged; NULL or false): the menu bar.
 */
 
 #if canImport(FoundationEssentials)
@@ -29,6 +34,7 @@ import Synchronization
 import ucrt
 import ActionUI
 import ActionUIAppHeaders
+import ActionUIRemote
 
 // MARK: - Main thread
 
@@ -45,6 +51,10 @@ private var isMainThread: Bool {
 /// True from just before actionUIAppRun runs the application until it returns: then the main thread
 /// runs the main queue (MainLoopBridge) and another thread may wait for it.
 private let applicationRuns = Atomic<Bool>(false)
+
+/// The name actionUIAppSetName set, readable from any thread: the remote server answers
+/// `actionui.hello` with it, and it may be started from a worker before the run.
+private let appName = Mutex<String?>(nil)
 
 /// Runs `operation` on the main actor: at once on the main thread, else queued there.
 private func runOnMainActorAsync(_ operation: @escaping @MainActor () -> Void) {
@@ -140,7 +150,11 @@ public func actionUIAppSetWindowWillPresentHandler(_ handler: ActionUIAppWindowH
 @c
 public func actionUIAppSetName(_ name: UnsafePointer<CChar>) {
     let swiftName = String(cString: name)
-    runOnMainActorSync { WinUIApplication.shared.name = swiftName }
+    runOnMainActorSync {
+        // In here, so a refused call (from a worker before the run) leaves the name unchanged.
+        appName.withLock { $0 = swiftName }
+        WinUIApplication.shared.name = swiftName
+    }
 }
 
 /// Nothing on Windows: an unpackaged program has no application identity to set.
@@ -182,6 +196,10 @@ public func actionUIAppRun() {
     }
     if !alreadyRunning {
         applicationRuns.store(false, ordering: .releasing)
+        // After the willTerminate handler (in the run), so it could still use the bridge. The C
+        // function, not ActionUIRemoteServer.stopShared(): it also forgets the endpoint and token it
+        // hands out, which a host that goes on after the run would otherwise still read.
+        actionUIRemoteStopServer()
     }
 }
 
@@ -269,50 +287,76 @@ public func actionUIAppRunSavePanel(_ configJSON: UnsafePointer<CChar>?) -> Unsa
     return chosen.map { path in path.withCString { _strdup($0) } }
 }
 
-// MARK: - The remote server (not yet on Windows)
+// MARK: - The remote server
 
+/// Starts the remote server on the pipe `socketPath` (`\\.\pipe\...`), or on a new pipe of its own
+/// when it is NULL (`\\.\pipe\actionui-<process id>-<random>`). Nothing goes into the environment on
+/// Windows: give a child the endpoint and a token of its own. `actionui.hello` answers with the name set
+/// with actionUIAppSetName. Safe from any thread; false when a server is already running or the pipe
+/// could not be made (logged).
 @c
 public func actionUIAppStartRemoteServer(_ socketPath: UnsafePointer<CChar>?) -> CBool {
-    notYet("actionUIAppStartRemoteServer")
-    return false
+    guard let name = appName.withLock({ $0 }) else {
+        return actionUIRemoteStartServer(socketPath, nil, nil)
+    }
+    return name.withCString { actionUIRemoteStartServer(socketPath, $0, nil) }
 }
 
+/// Stops the server and closes its connections.
 @c
 public func actionUIAppStopRemoteServer() {
+    actionUIRemoteStopServer()
 }
 
+/// The token the running server requires, or NULL when it requires none; owned by the library and
+/// valid until the next start or stop.
 @c
 public func actionUIAppRemoteServerToken() -> UnsafePointer<CChar>? {
-    return nil
+    return actionUIRemoteServerToken()
 }
 
+/// The same token, copied into the caller's buffer under the library's lock: what a host with more
+/// than one thread should use (a concurrent stop frees the buffer the pointer form returns).
 @c
 public func actionUIAppRemoteCopyServerToken(_ outToken: UnsafeMutablePointer<CChar>?, _ outTokenSize: Int) -> CBool {
-    return false
+    return actionUIRemoteCopyServerToken(outToken, outTokenSize)
 }
 
+/// Turn on the running server's `actionui.performAction`, which fires an element's action as a click
+/// would, for a test harness. Off until this is called; it ends with the server. False when no server
+/// is running.
 @c
 public func actionUIAppRemoteEnablePerformAction() -> CBool {
-    return false
+    return actionUIRemoteEnablePerformAction()
 }
 
+/// The pipe name of the running server, or NULL when none is running; owned by the library and valid
+/// until the next start or stop.
 @c
 public func actionUIAppRemoteServerEndpoint() -> UnsafePointer<CChar>? {
-    return nil
+    return actionUIRemoteServerEndpoint()
 }
 
-/// No server runs, so no token was put in the environment: nothing to remove.
+/// Removes `ACTIONUI_REMOTE_TOKEN` from this process's environment. The server never puts it there on
+/// Windows, so this is false unless the host (or its parent) did. The token stays valid.
 @c
 public func actionUIAppRemoteUnexportToken() -> CBool {
-    return false
+    return actionUIRemoteUnexportToken()
 }
 
-/// No server runs, so no token can be minted.
+/// Mint a new token for the running server under `label`, for one child or one piece of work, and
+/// write it, NUL-terminated, to `outToken` (128 bytes is always enough). Withdraw it with
+/// `actionUIAppRemoteRevokeTokensWithLabel` when that work ends. False when no server is running, the
+/// label is empty, or the buffer is too small.
 @c
-public func actionUIAppRemoteMintToken(_ label: UnsafePointer<CChar>?, _ outToken: UnsafeMutablePointer<CChar>?, _ outTokenSize: Int) -> CBool {
-    return false
+public func actionUIAppRemoteMintToken(_ label: UnsafePointer<CChar>?, _ outToken: UnsafeMutablePointer<CChar>?,
+                                       _ outTokenSize: Int) -> CBool {
+    return actionUIRemoteMintToken(label, outToken, outTokenSize)
 }
 
+/// Withdraw every token minted under `label`; a connection that presented one is refused from its
+/// next request.
 @c
 public func actionUIAppRemoteRevokeTokensWithLabel(_ label: UnsafePointer<CChar>?) {
+    actionUIRemoteRevokeTokensWithLabel(label)
 }

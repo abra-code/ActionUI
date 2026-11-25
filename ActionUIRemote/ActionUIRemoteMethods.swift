@@ -8,7 +8,7 @@
 // come back as null, and getValueString is the supported path for those, exactly as with the C
 // adapter.
 
-#if os(macOS) || os(Linux)
+#if os(macOS) || os(Linux) || os(Windows)
 
 #if canImport(FoundationEssentials)
 import FoundationEssentials
@@ -390,10 +390,10 @@ enum ActionUIRemoteMethods {
             let url: URL?
             if let resolver {
                 url = resolver(path)
-            } else if path.hasPrefix("/") {
+            } else if isAbsoluteLocalPath(path) {
                 url = URL(fileURLWithPath: path)
             } else {
-                throw ActionUIRemoteError.invalidParams("\"path\" must be absolute: this host does not resolve resource names")
+                throw ActionUIRemoteError.invalidParams("\"path\" must be an absolute path on this computer: this host does not resolve resource names")
             }
             guard let url else {
                 throw ActionUIRemoteError(code: ActionUIRemoteError.engineFailure, message: "Modal resource not found: \(path)")
