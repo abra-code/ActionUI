@@ -493,6 +493,10 @@ def build_warnings(log_path, limit=40):
     folder (the VM's) may pass on warnings a fresh build reports; GitHub's builds are fresh."""
     text = ANSI_ESCAPE.sub("", log_path.read_text(encoding="utf-8", errors="replace"))
     found = re.findall(r"^\S.*:\d+:\d+: warning: .*$", text, flags=re.MULTILINE)
+    # Not a warning located in a compiled module of the toolchain (WinSDK.swiftmodule): Swift 6.4.2 on Windows
+    # reports "reference to type 'wchar_t' broken by a context change" from WinSDK in every fresh build of a
+    # module that imports it, which no source here can change.
+    found = [line for line in found if not re.match(r"^.*\.(swiftmodule|swiftinterface):\d+:\d+: warning: ", line)]
     found += [line for line in text.splitlines()
               if (line.startswith("warning:") and "which are unhandled" in line) or "lld-link: warning" in line]
     seen = []

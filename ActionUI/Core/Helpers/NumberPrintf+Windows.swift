@@ -21,7 +21,8 @@ extension NumberPrintf {
         guard length >= 0 else { return nil }
         var buffer = [CChar](repeating: 0, count: Int(length) + 1)
         let written = buffer.withUnsafeMutableBufferPointer { bytes in
-            withVaList([argument]) { _vsnprintf_l(bytes.baseAddress, bytes.count, format, cLocale, $0) }
+            // The secure form: at most `length` characters and the terminating NUL, in a buffer of length + 1.
+            withVaList([argument]) { _vsnprintf_s_l(bytes.baseAddress, bytes.count, Int(length), format, cLocale, $0) }
         }
         guard written == length else { return nil }
         return String(decoding: buffer.prefix(Int(length)).map { UInt8(bitPattern: $0) }, as: UTF8.self)

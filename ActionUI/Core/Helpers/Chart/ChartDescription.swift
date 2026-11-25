@@ -586,7 +586,7 @@ enum ChartDescription {
             let count = (raw as? [Any])?.count ?? 1
             let axes = names?.compactMap { ["horizontal": ChartAxes.horizontal, "vertical": .vertical][$0] } ?? []
             // A repeated axis merges into one, as the verifier accepts it.
-            if let names, !axes.isEmpty, axes.count == count {
+            if names != nil, !axes.isEmpty, axes.count == count {
                 axes.forEach { spec.axes.formUnion($0) }
                 cleaned["chartScrollableAxes"] = raw
             } else {
