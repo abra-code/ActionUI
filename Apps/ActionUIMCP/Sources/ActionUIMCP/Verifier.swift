@@ -44,7 +44,7 @@ enum Verifier {
     /// ActionUI checkout the server was built from, which may still be on the machine, has others
     /// (QuickLook, Chat) that it cannot show. Elsewhere add-on schemas are found as before.
     private static func isPackaged(_ schemas: URL) -> Bool {
-        #if os(Linux)
+        #if os(Linux) || os(Windows)
         guard let executable = HostSupport.executablePath else { return false }
         let shipped = URL(fileURLWithPath: executable).deletingLastPathComponent().deletingLastPathComponent()
             .appendingPathComponent("share/actionui/schemas")
@@ -63,7 +63,7 @@ enum Verifier {
             if hasSchemas(url) { return url }
             HostSupport.logLine("[actionui-mcp] ACTIONUI_MCP_SCHEMA_DIR=\(path) holds no View.json; looking elsewhere")
         }
-        #if os(Linux)
+        #if os(Linux) || os(Windows)
         // The library has no resource bundle on Linux; it finds its schemas by path.
         return SchemaSet.bundledSchemasDirectory
         #else

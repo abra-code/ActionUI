@@ -6,6 +6,8 @@
 
 // KeeperLauncher.swift - starts the process that keeps windows after the session (KeptWindows.swift).
 
+#if !os(Windows)
+
 #if canImport(Darwin)
 import Foundation
 #else
@@ -110,3 +112,5 @@ enum KeeperLauncher {
         return .failed(text.isEmpty ? "the new process (pid \(pid)) exited without showing a window" : text)
     }
 }
+
+#endif

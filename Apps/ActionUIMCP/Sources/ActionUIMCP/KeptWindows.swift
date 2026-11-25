@@ -25,6 +25,8 @@ import Foundation
 #endif
 #if canImport(Glibc)
 import Glibc
+#elseif os(Windows)
+import ucrt
 #endif
 import ActionUI
 import ActionUISwiftAdapter
@@ -122,6 +124,11 @@ enum KeptWindowSupport {
     /// the read end: the write then fails with EPIPE, not a fatal SIGPIPE.
     static func report(_ line: String, to fd: Int32?) {
         guard let fd else { return }
+        #if os(Windows)
+        let bytes = Array((line + "\n").utf8)
+        _ = bytes.withUnsafeBytes { _write(fd, $0.baseAddress, UInt32($0.count)) }
+        _ = _close(fd)
+        #else
         #if canImport(Darwin)
         _ = fcntl(fd, F_SETNOSIGPIPE, 1)
         #else
@@ -131,6 +138,7 @@ enum KeptWindowSupport {
         let data = Array((line + "\n").utf8)
         _ = data.withUnsafeBytes { write(fd, $0.baseAddress, $0.count) }
         close(fd)
+        #endif
     }
 
     #if DEBUG
@@ -164,7 +172,7 @@ enum KeptWindowSupport {
 
     /// Writes the test report to `path`.
     static func writeTestReport(_ windows: [[String: Any]], to path: String) {
-        let report: [String: Any] = ["pid": Int(getpid()), "windows": windows]
+        let report: [String: Any] = ["pid": Int(ProcessInfo.processInfo.processIdentifier), "windows": windows]
         try? Data(JSONValue(any: report).serialized().utf8).write(to: URL(fileURLWithPath: path), options: .atomic)
     }
     #endif
@@ -182,6 +190,10 @@ extension WindowHost {
     func handOffKeptWindows() {
         let kept = platform.keptWindowStates(Array(keptJSONFiles.keys))
         guard !kept.isEmpty else { return }
+        #if os(Windows)
+        // No keeper on Windows yet ('keep' is refused there): never a spool made without Windows' own rights.
+        return
+        #else
 
         let spool = FileManager.default.temporaryDirectory
             .appendingPathComponent("actionui-mcp-rehost-\(UUID().uuidString)", isDirectory: true)
@@ -236,6 +248,7 @@ extension WindowHost {
             logger.log("could not hand kept windows to a new process: \(problem)", .error)
             try? FileManager.default.removeItem(at: spool)
         }
+        #endif
     }
 
     /// Every element value (as ActionUI's string form) and every table's rows, so the keeper shows

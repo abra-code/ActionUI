@@ -27,6 +27,8 @@ import Foundation
 #endif
 #if canImport(Glibc)
 import Glibc
+#elseif os(Windows)
+import ucrt
 #endif
 import Dispatch
 import ActionUI
@@ -61,6 +63,9 @@ for option in ["--install-desktop-entry", "--uninstall-desktop-entry"] where arg
         HostSupport.logLine("actionui-mcp: " + outcome.message)
     }
     exit(outcome.ok ? 0 : 1)
+    #elseif os(Windows)
+    HostSupport.logLine("actionui-mcp: \(option) is for Linux; on Windows the windows show the server's name and icon without it")
+    exit(2)
     #else
     HostSupport.logLine("actionui-mcp: \(option) is for Linux; on macOS the Dock shows the server's icon without it")
     exit(2)
@@ -147,7 +152,9 @@ func shutDown(reason: String) {
 
 // A client normally closes stdin first; SIGTERM follows 2 s later. SIGHUP comes when the terminal
 // the client runs in closes, SIGINT from Ctrl-C in a terminal that is not in raw mode. Each would
-// otherwise end the process at once, with no handoff.
+// otherwise end the process at once, with no handoff. Windows has no such signals for a program a
+// client started with pipes: it ends the session by closing stdin, as here, or by ending the process.
+#if !os(Windows)
 let signalNames = [SIGTERM: "SIGTERM", SIGHUP: "SIGHUP", SIGINT: "SIGINT"]
 var signalSources: [DispatchSourceSignal] = []
 for (signalNumber, name) in signalNames {
@@ -159,6 +166,7 @@ for (signalNumber, name) in signalNames {
     source.resume()
     signalSources.append(source)
 }
+#endif
 
 server.startReading {
     // stdin closed: the client ended the session. Nobody is left to answer.

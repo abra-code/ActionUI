@@ -51,6 +51,7 @@ import Foundation
 import ActionUI
 import CWinUI
 import Dispatch
+import WinSDK
 
 @MainActor
 public final class WinUIApplication {
@@ -85,6 +86,54 @@ public final class WinUIApplication {
     public var name: String?
     /// The windows' icon (a path): kept, not shown yet.
     public var icon: String?
+    /// For a host with work to do when no window is open, such as a server: the application goes on when
+    /// the user closes the last window, until terminate. As on Linux.
+    public var keepsRunningWithoutWindows = false
+
+    /// Whether windows can show here: the process is in a window station the user sees (not a service's or
+    /// a remote shell's, where WinUI's windows have no desktop).
+    public var hasDisplay: Bool {
+        guard let station = GetProcessWindowStation() else { return false }
+        var flags = USEROBJECTFLAGS()
+        var needed: DWORD = 0
+        guard GetUserObjectInformationW(UnsafeMutableRawPointer(station), Int32(UOI_FLAGS), &flags,
+                                        DWORD(MemoryLayout<USEROBJECTFLAGS>.size), &needed) else { return false }
+        return flags.dwFlags & DWORD(WSF_VISIBLE) != 0
+    }
+
+    /// How a prepared window shows (presentWindow(prepared:)), as on Linux.
+    public struct WindowOptions: Sendable {
+        /// A line shown first in the title bar, before the window's title, whatever its JSON does; nil or
+        /// empty: none.
+        public var subtitle: String?
+        /// The size of the window's content; nil opens it at its content's own size. A width or height of
+        /// zero or less keeps the content's own size for that side.
+        public var contentSize: (width: Int, height: Int)?
+        /// Whether the user can resize the window.
+        public var isResizable = true
+
+        public init(subtitle: String? = nil, contentSize: (width: Int, height: Int)? = nil, isResizable: Bool = true) {
+            self.subtitle = subtitle
+            self.contentSize = contentSize
+            self.isResizable = isResizable
+        }
+    }
+
+    /// ActionUI JSON loaded into its window's model and not shown yet: what loaded it said is in `error`
+    /// (nil when it loaded), so a host can refuse it before any WinUI object is made. Shows once.
+    public final class PreparedWindow {
+        public let windowUUID: String
+        public let error: String?
+        /// The error `error` says, shown in the window as a load error is (not its text again).
+        fileprivate let failure: (any Error)?
+        fileprivate var isUsed = false
+
+        fileprivate init(windowUUID: String, error: String?, failure: (any Error)?) {
+            self.windowUUID = windowUUID
+            self.error = error
+            self.failure = failure
+        }
+    }
     /// The folder of the app's resources (ActionUIResourceFolder): set before the first window loads,
     /// as the configuration it is part of is fixed then.
     public var resourceFolder: String? {
@@ -321,6 +370,39 @@ public final class WinUIApplication {
         }
     }
 
+    /// Loads `json` into the model of `windowUUID` without showing it: no WinUI object is made, so nothing
+    /// in it starts (a WebView's page, an image's fetch). The JSON is the host's. A failed load is logged as
+    /// an error, as on Linux, so a host that collects the log sees it.
+    public func prepareWindow(json: Data, windowUUID: String) -> PreparedWindow {
+        // Its model is in use again: a removal queued by an earlier window's closing must not take it.
+        queuedModelRemovals.remove(windowUUID)
+        do {
+            try WinUIWindow.loadModel(json: json, windowUUID: windowUUID)
+            return PreparedWindow(windowUUID: windowUUID, error: nil, failure: nil)
+        } catch {
+            ActionUIModel.shared.logger.log("Window \(windowUUID): the JSON could not be loaded: \(error)", .error)
+            return PreparedWindow(windowUUID: windowUUID, error: WinUIWindow.loadErrorText(error, fileName: nil),
+                                  failure: error)
+        }
+    }
+
+    /// Shows a prepared window, titled `title` (else the application's name) with `options`.
+    public func presentWindow(prepared: PreparedWindow, title: String?, options: WindowOptions = WindowOptions()) {
+        guard !prepared.isUsed else {
+            ActionUIModel.shared.logger.log("Window \(prepared.windowUUID): a prepared window shows once; prepare it again", .error)
+            return
+        }
+        prepared.isUsed = true
+        let failure = prepared.failure
+        let windowUUID = prepared.windowUUID
+        present(windowUUID: windowUUID, title: title, options: options) {
+            if let failure {
+                throw failure
+            }
+            return try WinUIWindow.showing(windowUUID: windowUUID)
+        }
+    }
+
     /// Loads the ActionUI JSON in `json` (the host's own) into a new window showing `windowUUID`, titled
     /// `title`, else the application's name.
     public func presentWindow(json: String, windowUUID: String, title: String?) {
@@ -333,10 +415,11 @@ public final class WinUIApplication {
     /// application has started, else when it starts. A window already showing `windowUUID` is
     /// replaced, with no windowWillClose (as on Linux).
     private func present(windowUUID: String, title: String?, defaultTitle: String? = nil, fileName: String? = nil,
-                         _ load: @escaping @MainActor () throws -> WinUIWindow) {
+                         options: WindowOptions? = nil, _ load: @escaping @MainActor () throws -> WinUIWindow) {
         guard hasStarted else {
             pending.append((windowUUID, { [weak self] in
-                self?.present(windowUUID: windowUUID, title: title, defaultTitle: defaultTitle, fileName: fileName, load)
+                self?.present(windowUUID: windowUUID, title: title, defaultTitle: defaultTitle, fileName: fileName,
+                              options: options, load)
             }))
             return
         }
@@ -385,10 +468,19 @@ public final class WinUIApplication {
         // the content keeps its size.
         let bar = AppCommands.shared.makeMenuBar(windowUUID: windowUUID)
         // Measured once the content is in the window, where the controls have their styles.
-        guard actionUIWinUIWindowSetTitle(window.pointer, title ?? tree.groupTitle ?? defaultTitle ?? name ?? "ActionUI"),
+        // A subtitle (a prepared window's) shows before the title: Windows' title bar has one line and cuts
+        // a long one at its end, so a long title cannot push the subtitle out of view or come first.
+        let shownTitle = title ?? tree.groupTitle ?? defaultTitle ?? name ?? "ActionUI"
+        let fullTitle = options?.subtitle.flatMap { $0.isEmpty ? nil : "\($0) - \(shownTitle)" } ?? shownTitle
+        // The options' content size, side by side, else the content's own.
+        var size = tree.openingSize()
+        if let wanted = options?.contentSize {
+            if wanted.width > 0 { size.width = Double(wanted.width) }
+            if wanted.height > 0 { size.height = Double(wanted.height) }
+        }
+        guard actionUIWinUIWindowSetTitle(window.pointer, fullTitle),
               actionUIWinUIWindowSetContent(window.pointer, content.pointer),
               actionUIWinUIWindowSetMenuBar(window.pointer, bar?.pointer),
-              case let size = tree.openingSize(),
               case let barHeight = actionUIWinUIWindowMenuBarHeight(window.pointer), barHeight >= 0,
               actionUIWinUIWindowSetContentSize(window.pointer, size.width, size.height + barHeight) else {
             logger.log("WinUIApplication: \(WinUIError.last("setting up the window for \(windowUUID)"))", .error)
@@ -397,6 +489,9 @@ public final class WinUIApplication {
             // Its group's commands, loaded above, leave too: no window would ever release them.
             releaseCommands(commandsKey)
             return
+        }
+        if options?.isResizable == false, !actionUIWinUIWindowSetResizable(window.pointer, false) {
+            logger.log("WinUIApplication: \(WinUIError.last("fixing the size of \(windowUUID)"))", .warning)
         }
         presentCount += 1
         let shown = Shown(window: window, tree: tree, showsContent: loaded, order: presentCount)
@@ -442,6 +537,22 @@ public final class WinUIApplication {
     /// ActionUI JSON could not be loaded with, or there is no such window), as on Linux.
     public func showsContent(_ windowUUID: String) -> Bool {
         windows[windowUUID]?.showsContent ?? false
+    }
+
+    /// Saves the window showing `windowUUID` to a PNG at `path` as savePNG does, scaled down so that neither
+    /// side is larger than `maxPixels`. Asynchronous; `completion` says whether the file was written.
+    public func capturePNG(windowUUID: String, path: String, maxPixels: Int,
+                           completion: @escaping @MainActor (Bool) -> Void) {
+        guard let shown = windows[windowUUID] else {
+            completion(false)
+            return
+        }
+        let box = Unmanaged.passRetained(PNGCompletion(completion)).toOpaque()
+        if !actionUIWinUIWindowRenderToPNGWithin(shown.window.pointer, path, UInt32(clamping: max(0, maxPixels)), pngRendered, box) {
+            ActionUIModel.shared.logger.log("WinUIApplication: \(WinUIError.last("capturing \(path)"))", .error)
+            Unmanaged<PNGCompletion>.fromOpaque(box).release()
+            completion(false)
+        }
     }
 
     /// Saves what the window showing `windowUUID` shows below its title bar, popups open over it
@@ -502,7 +613,7 @@ public final class WinUIApplication {
             }
         }
         // A window still loading from a server keeps it running: that window appears once loaded.
-        if windows.isEmpty, loading.isEmpty, isRunning, !byHost {
+        if windows.isEmpty, loading.isEmpty, isRunning, !byHost, !keepsRunningWithoutWindows {
             actionUIWinUIQuit()
         }
     }

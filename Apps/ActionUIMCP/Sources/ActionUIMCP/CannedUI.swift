@@ -332,7 +332,7 @@ enum ContentKind: String, CaseIterable {
     /// The kinds this system can show. Quick Look (pdf) has no renderer on Linux; file shows there
     /// what ActionUI's own views can show (FileViewing).
     static var available: [ContentKind] {
-        #if os(Linux)
+        #if os(Linux) || os(Windows)
         allCases.filter { $0 != .pdf }
         #else
         allCases
@@ -544,7 +544,7 @@ struct ViewerSpec {
     /// The folder that relative paths in `text` resolve against: `base`, an existing folder, or the
     /// folder of an existing file in it. Absolute, as every path the server takes.
     private static func existingBase(_ path: String) throws -> URL {
-        guard path.hasPrefix("/") else { throw MCPToolError("'base' must be absolute: \(path)") }
+        guard HostSupport.isAbsolutePath(path) else { throw MCPToolError("'base' must be absolute: \(path)") }
         guard let isFolder = HostSupport.isFolder(atPath: path) else { throw MCPToolError("no such folder or file: \(path)") }
         let url = URL(fileURLWithPath: path, isDirectory: isFolder)
         return isFolder ? url : url.deletingLastPathComponent()
@@ -552,7 +552,7 @@ struct ViewerSpec {
 
     /// Paths must be absolute: the server does not share the client's working directory.
     private static func existingFile(_ path: String, key: String = "path") throws -> String {
-        guard path.hasPrefix("/") else { throw MCPToolError("'\(key)' must be absolute: \(path)") }
+        guard HostSupport.isAbsolutePath(path) else { throw MCPToolError("'\(key)' must be absolute: \(path)") }
         guard HostSupport.isFolder(atPath: path) == false else { throw MCPToolError("no such file: \(path)") }
         return path
     }

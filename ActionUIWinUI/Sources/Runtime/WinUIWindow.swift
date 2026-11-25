@@ -77,6 +77,20 @@ package final class WinUIWindow {
     /// object with its padding and frame).
     package var view: WinUIObject? { commandBar?.panel.object ?? root?.outerView }
 
+    /// Loads the host's ActionUI JSON into the model of `windowUUID` without making its tree (a prepared
+    /// window's); `showing(windowUUID:)` makes it later.
+    package static func loadModel(json: Data, windowUUID: String) throws {
+        _ = try ActionUIModel.shared.loadDescription(from: json, format: "json", windowUUID: windowUUID)
+    }
+
+    /// The tree of the window model `windowUUID` already holds (loaded before, as a prepared window is).
+    package static func showing(windowUUID: String) throws -> WinUIWindow {
+        guard let windowModel = ActionUIModel.shared.windowModels[windowUUID], windowModel.element != nil else {
+            throw ActionUIError("WinUIWindow: no ActionUI JSON is loaded for \(windowUUID)")
+        }
+        return WinUIWindow(windowModel: windowModel)
+    }
+
     /// Loads `json` (ActionUI JSON) into the window model `windowUUID` and builds its tree.
     package static func load(json: String, windowUUID: String, readsWindowGroup: Bool = false) throws -> WinUIWindow {
         let group = readsWindowGroup ? windowGroup(Data(json.utf8), format: "json") : GroupContent(data: Data(json.utf8))

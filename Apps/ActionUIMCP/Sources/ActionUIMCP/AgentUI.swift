@@ -65,7 +65,7 @@ struct AgentUI {
     /// Why `path`, the value of `name` on an element of `type`, is refused, or nil: a file must be
     /// named by an absolute path. Diff expands "~" itself, so it may start with "~" there.
     static func relativePathRefusal(type: String, name: String, path: String) -> String? {
-        if path.isEmpty || path.hasPrefix("/") || (type == "Diff" && path.hasPrefix("~")) { return nil }
+        if path.isEmpty || HostSupport.isAbsolutePath(path) || (type == "Diff" && path.hasPrefix("~")) { return nil }
         return "\(name) \"\(path)\" is a relative path; give the file's absolute path (a relative one is not resolved against the ActionUI JSON's folder)"
     }
 
@@ -238,7 +238,7 @@ struct AgentUI {
     }
 
     private static func load(path: String) throws -> JSONValue {
-        guard path.hasPrefix("/") else { throw MCPToolError("'path' must be absolute: \(path)") }
+        guard HostSupport.isAbsolutePath(path) else { throw MCPToolError("'path' must be absolute: \(path)") }
         guard path.lowercased().hasSuffix(".json") else { throw MCPToolError("'path' must name a .json file: \(path)") }
         let url = URL(fileURLWithPath: path)
         // The size of the file a symlink points to, not of the link.

@@ -53,7 +53,7 @@ struct PanelSpec {
         }
         allowedTypes = types
         if let path = arguments["directory"]?.string {
-            guard path.hasPrefix("/"), HostSupport.isFolder(atPath: path) == true else {
+            guard HostSupport.isAbsolutePath(path), HostSupport.isFolder(atPath: path) == true else {
                 throw MCPToolError("'directory' must be the absolute path of an existing folder: \(path)")
             }
             directory = URL(fileURLWithPath: path, isDirectory: true)

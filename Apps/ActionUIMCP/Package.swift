@@ -189,18 +189,43 @@ Package(
 )
 }
 
-// Windows: for now the protocol layer and its tests (the server itself needs a WinUI window layer, not yet
-// written). The tests parse with ActionUI, as on Linux (MCPStdio uses FoundationEssentials there too).
+// Windows: the server on WinUI (WinUIPlatform.swift), with the add-ons that have WinUI renderers, as Linux's
+// with GTK. No resource bundles (FoundationEssentials, as on Linux). The tests of the protocol layer parse with
+// ActionUI, as on Linux; the server's own tests are not built here yet.
 func windowsPackage() -> Package {
 Package(
     name: "ActionUIMCP",
+    products: [
+        .executable(name: "actionui-mcp", targets: ["ActionUIMCP"]),
+    ],
     dependencies: [
         .package(path: "../.."),
+        .package(path: "../../Add-ons/ActionUICachedImage"),
+        .package(path: "../../Add-ons/ActionUIDiff"),
+        .package(path: "../../Add-ons/ActionUIRichText"),
+        // The diff behind the Diff element, for saving a diff (ShowSaving.swift).
+        .package(url: "https://github.com/abra-code/DiffView", from: "0.2.0"),
     ],
     targets: [
         .target(
             name: "MCPStdio",
             path: "Sources/MCPStdio"
+        ),
+        .executableTarget(
+            name: "ActionUIMCP",
+            dependencies: [
+                "MCPStdio",
+                .product(name: "ActionUIStatic", package: "ActionUI"),
+                .product(name: "ActionUIWinUIApplication", package: "ActionUI"),
+                .product(name: "ActionUISwiftAdapter", package: "ActionUI"),
+                .product(name: "ActionUIVerifier", package: "ActionUI"),
+                .product(name: "ActionUICachedImage", package: "ActionUICachedImage"),
+                .product(name: "ActionUIDiff", package: "ActionUIDiff"),
+                .product(name: "ActionUIRichText", package: "ActionUIRichText"),
+                .product(name: "DiffView", package: "DiffView"),
+            ],
+            path: "Sources/ActionUIMCP",
+            exclude: ["Resources"]
         ),
         .testTarget(
             name: "MCPStdioTests",

@@ -18,8 +18,10 @@ import Foundation
 import Darwin
 #elseif canImport(Glibc)
 import Glibc
+#elseif os(Windows)
+import ucrt
 #endif
-#if os(Linux)
+#if os(Linux) || os(Windows)
 import ActionUI
 #endif
 import MCPStdio
@@ -27,6 +29,7 @@ import MCPStdio
 enum HostSupport {
     // MARK: Log
 
+    #if !os(Windows)
     /// Writes `text` and a newline to stderr, the server's log: stdout belongs to the protocol.
     static func logLine(_ text: String) {
         let bytes = Array((text + "\n").utf8)
@@ -38,12 +41,13 @@ enum HostSupport {
             offset += written
         }
     }
+    #endif
 
     // MARK: JSON
 
     /// Parses ActionUI JSON: ActionUI's own parser on Linux, which has no JSONSerialization.
     static func parseJSON(_ data: Data) throws -> JSONValue {
-        #if os(Linux)
+        #if os(Linux) || os(Windows)
         // String(decoding:) replaces broken bytes, where JSONSerialization refuses them.
         let text = String(decoding: data, as: UTF8.self)
         guard text.utf8.elementsEqual(data) else { throw ActionUIJSONError("the text is not UTF-8") }
@@ -55,7 +59,7 @@ enum HostSupport {
 
     /// Parses a protocol message, for MCPServer; nil for text that is not JSON.
     @Sendable static func parseMessage(_ text: String) -> JSONValue? {
-        #if os(Linux)
+        #if os(Linux) || os(Windows)
         (try? ActionUIJSON.value(from: text)).map { JSONValue(any: $0) }
         #else
         JSONValue.parsedByFoundation(text)
@@ -63,6 +67,12 @@ enum HostSupport {
     }
 
     // MARK: Paths
+
+    #if !os(Windows)
+    /// Whether `path` names a file from the root, as every path the server takes must: it begins with "/".
+    static func isAbsolutePath(_ path: String) -> Bool {
+        path.hasPrefix("/")
+    }
 
     /// The folder for this session's staged JSON files and screenshots, removed when the session
     /// ends (`removeSessionFolder`). Private (0700) and under a name nobody can guess and take
@@ -82,6 +92,7 @@ enum HostSupport {
         _ = mkdir(fallback, 0o700)
         return URL(fileURLWithPath: fallback, isDirectory: true)
     }()
+    #endif
 
     /// Removes the session folder and what is left in it (screenshots, kept windows' JSON files
     /// that were not handed to a keeper). Called once, at shutdown, after the hand-off has moved
@@ -91,6 +102,7 @@ enum HostSupport {
         try? FileManager.default.removeItem(at: sessionFolder)
     }
 
+    #if !os(Windows)
     /// The running program's path, symbolic links resolved: a client launching the bare name
     /// through PATH passes just that in argv[0].
     static var executablePath: String? {
@@ -132,6 +144,7 @@ enum HostSupport {
         return nil
         #endif
     }
+    #endif
 
     // MARK: Dates
 
@@ -152,6 +165,7 @@ enum HostSupport {
         Date(timeIntervalSince1970: (date.timeIntervalSince1970 * 1000).rounded() / 1000 + 0.00025)
     }
 
+    #if !os(Windows)
     /// The calendar day `date` falls on in the user's time zone, as 2026-11-01. localtime_r, not
     /// Calendar: FoundationEssentials has no named time zones, so TimeZone.current is GMT there.
     static func localDay(_ date: Date) -> String {
@@ -160,8 +174,9 @@ enum HostSupport {
         guard localtime_r(&seconds, &parts) != nil else { return timestamp(date).prefix(10).description }
         return padded(Int(parts.tm_year) + 1900, 4) + "-" + padded(Int(parts.tm_mon) + 1, 2) + "-" + padded(Int(parts.tm_mday), 2)
     }
+    #endif
 
-    private static func padded(_ number: Int, _ width: Int) -> String {
+    static func padded(_ number: Int, _ width: Int) -> String {
         let digits = String(abs(number))
         return (number < 0 ? "-" : "") + String(repeating: "0", count: max(0, width - digits.count)) + digits
     }
@@ -180,7 +195,10 @@ enum HostSupport {
     /// What a person typed, in the user's locale ("1,234.5" in the US, "1.234,5" in Germany) or
     /// with a plain point ("1234.5"); nil when it is not a number.
     static func number(from text: String) -> Double? {
-        #if os(Linux)
+        #if os(Windows)
+        let separators = userNumberSeparators()
+        return number(from: text, decimal: separators.decimal, grouping: separators.grouping)
+        #elseif os(Linux)
         // GTK sets the C library's locale from the environment.
         let conventions = localeconv()?.pointee
         let decimal = conventions.flatMap { String(cString: $0.decimal_point).first } ?? "."
@@ -224,7 +242,7 @@ extension String {
 extension Error {
     /// The error as a person reads it.
     var displayText: String {
-        #if os(Linux)
+        #if os(Linux) || os(Windows)
         String(describing: self)
         #else
         localizedDescription

@@ -115,6 +115,8 @@ ACTIONUI_WINUI_API bool actionUIWinUIWindowSetTitle(ActionUIWinUIObject *window,
 // The size of the window's content area (inside its frame and title bar).
 ACTIONUI_WINUI_API bool actionUIWinUIWindowSetContentSize(ActionUIWinUIObject *window, double width,
                                                           double height);
+// Whether the user can resize (and maximize) the window; a window is resizable when made.
+ACTIONUI_WINUI_API bool actionUIWinUIWindowSetResizable(ActionUIWinUIObject *window, bool resizable);
 // Makes `element` the window's content (NULL removes it). The window keeps its own reference. The
 // content sits on the theme's page background, filling the window's content area.
 ACTIONUI_WINUI_API bool actionUIWinUIWindowSetContent(ActionUIWinUIObject *window, ActionUIWinUIObject *element);
@@ -1757,6 +1759,10 @@ ACTIONUI_WINUI_API bool actionUIWinUIRenderToPNG(ActionUIWinUIObject *element, c
 // (the window's content) until it completes.
 ACTIONUI_WINUI_API bool actionUIWinUIWindowRenderToPNG(ActionUIWinUIObject *window, const char *path,
                                                        ActionUIWinUICompletion completion, void *context);
+// The same, scaled down so that neither side is larger than `maxPixels` (0: no cap), keeping its shape.
+ACTIONUI_WINUI_API bool actionUIWinUIWindowRenderToPNGWithin(ActionUIWinUIObject *window, const char *path,
+                                                             uint32_t maxPixels, ActionUIWinUICompletion completion,
+                                                             void *context);
 
 #ifdef __cplusplus
 }

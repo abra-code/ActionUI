@@ -159,10 +159,10 @@ private func askUserTool(host: WindowHost, label: String?) -> MCPTool {
 
 private func showTool(host: WindowHost, label: String?) -> MCPTool {
     let kinds = JSONValue.array(ContentKind.available.map { .string($0.rawValue) })
-    #if os(Linux)
+    #if os(Linux) || os(Windows)
     let kindText = "markdown (text; base for its relative image paths), text (plain monospaced text), file (path; shown by its type: Markdown formatted, CSV or TSV as a table, an image, audio or video, HTML or SVG as a web page, a .webloc or .url link file as the http(s) page it names, other UTF-8 text as monospaced text), image (path or url), video (path or url), web (url, or HTML in text), diff (old_text or old_path against new_text or new_path), table (columns and rows), chart (chart)."
     let shows = "a markdown report, plain text, a file shown by its type, an image, a video, a web page, a diff of two texts or files, a table, or a chart"
-    let focus = "It takes the keyboard focus, as every new window does on Linux."
+    let focus = "It takes the keyboard focus, as every new window does on \(HostPlatform.systemName)."
     #else
     let kindText = "markdown (text; base for its relative image paths), text (plain monospaced text), file (path; shown by its type: Markdown formatted, CSV or TSV as a table, an image, audio or video, HTML or SVG as a web page, a .webloc or .url link file as the http(s) page it names, other UTF-8 text as monospaced text, anything else, PDF among them, with Quick Look), pdf (path; Quick Look), image (path or url), video (path or url), web (url, or HTML in text), diff (old_text or old_path against new_text or new_path), table (columns and rows), chart (chart)."
     let shows = "a markdown report, plain text, a file shown by its type (Quick Look for what has no better view), an image, a PDF, a video, a web page, a diff of two texts or files, a table, or a chart"
@@ -188,7 +188,7 @@ private func showTool(host: WindowHost, label: String?) -> MCPTool {
         "height": ["type": "number", "description": "Content height in points. Default 600."],
         "keep": ["type": "boolean", "description": "Keep the window open after this session ends (default false). Use it for content the user will want to read after you are done. The kept window is a copy that no longer reports to you."],
     ]
-    #if os(Linux)
+    #if os(Linux) || os(Windows)
     // No pdf kind here (ContentKind.available): "path" does not offer it.
     properties["path"] = ["type": "string", "description": "Absolute path of a local file for file, image, video."]
     #endif

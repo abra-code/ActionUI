@@ -176,7 +176,7 @@ winrt::Windows::Foundation::IAsyncAction drawPopups(mux::UIElement element, std:
 }
 
 winrt::fire_and_forget renderToPNG(mux::UIElement element, std::wstring path, ActionUIWinUICompletion completion,
-                                   void *context, bool withPopups) {
+                                   void *context, bool withPopups, uint32_t maxPixels) {
     bool succeeded = false;
     try {
         mux::Media::Imaging::RenderTargetBitmap bitmap;
@@ -203,6 +203,14 @@ winrt::fire_and_forget renderToPNG(mux::UIElement element, std::wstring path, Ac
             co_await imaging::BitmapEncoder::CreateAsync(imaging::BitmapEncoder::PngEncoderId(), stream);
         encoder.SetPixelData(imaging::BitmapPixelFormat::Bgra8, imaging::BitmapAlphaMode::Premultiplied, width,
                              height, dpi, dpi, bgra);
+        // No larger than maxPixels on its longest side (0: no cap): scaled as it is encoded.
+        uint32_t longest = std::max(width, height);
+        if (maxPixels > 0 && longest > maxPixels) {
+            double factor = static_cast<double>(maxPixels) / longest;
+            encoder.BitmapTransform().ScaledWidth(std::max<uint32_t>(1, static_cast<uint32_t>(width * factor + 0.5)));
+            encoder.BitmapTransform().ScaledHeight(std::max<uint32_t>(1, static_cast<uint32_t>(height * factor + 0.5)));
+            encoder.BitmapTransform().InterpolationMode(imaging::BitmapInterpolationMode::Fant);
+        }
         co_await encoder.FlushAsync();
 
         uint32_t size = static_cast<uint32_t>(stream.Size());
@@ -227,7 +235,7 @@ winrt::fire_and_forget renderToPNG(mux::UIElement element, std::wstring path, Ac
 // Renders `element` into the PNG at `path` from the UI thread's queue, so completion never runs
 // before the caller returns.
 bool startRender(const char *where, mux::UIElement const &element, const char *path, ActionUIWinUICompletion completion,
-                 void *context, bool withPopups = false) {
+                 void *context, bool withPopups = false, uint32_t maxPixels = 0) {
     if (path == nullptr || path[0] == '\0') {
         return fail(where, "the path is empty");
     }
@@ -239,8 +247,8 @@ bool startRender(const char *where, mux::UIElement const &element, const char *p
     if (queue == nullptr) {
         return fail(where, "not on the UI thread (no DispatcherQueue)");
     }
-    bool queued = queue.TryEnqueue([element, widePath, completion, context, withPopups]() {
-        renderToPNG(element, widePath, completion, context, withPopups);
+    bool queued = queue.TryEnqueue([element, widePath, completion, context, withPopups, maxPixels]() {
+        renderToPNG(element, widePath, completion, context, withPopups, maxPixels);
     });
     if (!queued) {
         return fail(where, "the UI thread's queue refused the call (shutting down?)");
@@ -414,6 +422,19 @@ bool actionUIWinUIWindowSetTitle(ActionUIWinUIObject *window, const char *title)
     });
 }
 
+bool actionUIWinUIWindowSetResizable(ActionUIWinUIObject *window, bool resizable) {
+    return guarded("window set resizable", [&]() {
+        winrt::Microsoft::UI::Windowing::OverlappedPresenter presenter =
+            windowFrom(window).AppWindow().Presenter().try_as<winrt::Microsoft::UI::Windowing::OverlappedPresenter>();
+        if (presenter == nullptr) {
+            return fail("window set resizable", "the window has no overlapped presenter");
+        }
+        presenter.IsResizable(resizable);
+        presenter.IsMaximizable(resizable);
+        return true;
+    });
+}
+
 bool actionUIWinUIWindowSetContentSize(ActionUIWinUIObject *window, double width, double height) {
     return guarded("window set content size", [&]() {
         if (!(width > 0 && height > 0)) {
@@ -507,6 +528,17 @@ bool actionUIWinUIWindowRenderToPNG(ActionUIWinUIObject *window, const char *pat
         }
         // With what the window shows over its content: a dialog, a flyout, an open menu.
         return startRender("window render to PNG", windowHost(typed), path, completion, context, true);
+    });
+}
+
+bool actionUIWinUIWindowRenderToPNGWithin(ActionUIWinUIObject *window, const char *path, uint32_t maxPixels,
+                                          ActionUIWinUICompletion completion, void *context) {
+    return guarded("window render to PNG within", [&]() {
+        mux::Window typed = windowFrom(window);
+        if (typed.Content() == nullptr) {
+            return fail("window render to PNG within", "the window has no content");
+        }
+        return startRender("window render to PNG within", windowHost(typed), path, completion, context, true, maxPixels);
     });
 }
 

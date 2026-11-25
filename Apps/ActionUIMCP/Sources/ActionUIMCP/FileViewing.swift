@@ -20,6 +20,8 @@ import MCPStdio
 import Glibc
 #elseif canImport(Darwin)
 import Darwin
+#elseif os(Windows)
+import ucrt
 #endif
 
 /// The view a file is shown with, as `show` reports it in `shown_as`.
@@ -44,7 +46,7 @@ struct FileViewing {
 
     static let markdownExtensions: Set<String> = ["md", "markdown", "mdown", "mkd", "mkdn", "mdwn"]
     static let imageExtensions: Set<String> = ["png", "jpg", "jpeg", "gif", "tif", "tiff", "bmp", "webp", "ico", "heic", "heif"]
-    #if os(Linux)
+    #if os(Linux) || os(Windows)
     static let mediaExtensions: Set<String> = ["mp4", "m4v", "mov", "mp3", "m4a", "wav", "aac", "aiff", "aif", "flac",
                                                "webm", "mkv", "ogg", "oga", "ogv", "opus"]
     #else
@@ -88,7 +90,7 @@ struct FileViewing {
         if linkExtensions.contains(ext) {
             return web(try linkAddress(path, name: name, ext: ext), fill: fill)
         }
-        #if !os(Linux)
+        #if !os(Linux) && !os(Windows)
         if renderedByQuickLook.contains(ext) || ext == "pdf" {
             return quickLook(path, fill: fill)
         }
@@ -99,9 +101,9 @@ struct FileViewing {
         let isMarkdown = markdownExtensions.contains(ext) && size <= maxMarkdownBytes
         let limit = isMarkdown ? maxMarkdownBytes : maxTextBytes
         guard size <= limit, let text = readText(path, limit: limit) else {
-            #if os(Linux)
+            #if os(Linux) || os(Windows)
             let reason = size > limit ? "it is larger than \(limit / 1024 / 1024) MB" : "it is not UTF-8 text"
-            throw MCPToolError("cannot show \(name): \(reason), and Linux has no previewer for other files")
+            throw MCPToolError("cannot show \(name): \(reason), and \(HostPlatform.systemName) has no previewer for other files")
             #else
             return quickLook(path, fill: fill)
             #endif
@@ -181,12 +183,13 @@ struct FileViewing {
 
     private static func trimmed(_ text: String) -> String { trimmed(text[...]) }
 
-    #if !os(Linux)
+    #if !os(Linux) && !os(Windows)
     private static func quickLook(_ path: String, fill: [String: Any]) -> FileViewing {
         FileViewing(view: .quickLook, root: ["type": "QuickLook", "properties": ["filePath": path, "frame": fill]], rows: nil)
     }
     #endif
 
+    #if !os(Windows)
     /// The size of the regular file at `path`, following links; nil for anything else (a folder,
     /// a device or a pipe, which would block a read).
     static func regularFileSize(_ path: String) -> Int? {
@@ -195,6 +198,7 @@ struct FileViewing {
         guard stat(path, &information) == 0, information.st_mode & S_IFMT == S_IFREG else { return nil }
         return Int(information.st_size)
     }
+    #endif
 
     /// The file's text when it is UTF-8 with no NUL byte (a byte no text file holds) and at most
     /// `limit` bytes long, else nil.
@@ -206,6 +210,7 @@ struct FileViewing {
         return text.utf8.elementsEqual(bytes) ? text : nil
     }
 
+    #if !os(Windows)
     /// The bytes of the regular file at `path` when it is at most `limit` bytes long, else nil.
     /// The size checked before may be stale: the file can have grown or been replaced since. So
     /// this stops reading once it has more than `limit` bytes, and opens without blocking and checks again that it
@@ -229,6 +234,7 @@ struct FileViewing {
         }
         return bytes.count <= limit ? bytes : nil
     }
+    #endif
 
     /// `text` as CSV or TSV (RFC 4180 quoting: a quoted field may hold the delimiter, line breaks
     /// and doubled quotes): the first record is the header. nil when it is not a table to show:

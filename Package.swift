@@ -629,6 +629,9 @@ Package(
         .library(name: "ActionUIStatic", targets: ["ActionUI"]),
         // The C adapter, for ActionUI.dll (ActionUIWinUI/Library).
         .library(name: "ActionUICAdapter", targets: ["ActionUICAdapter"]),
+        // The Swift adapter (ActionUISwift) without its SwiftUI views, for Swift programs (the MCP server), as on
+        // Linux.
+        .library(name: "ActionUISwiftAdapter", targets: ["ActionUISwiftAdapter"]),
         // The remote server over a named pipe (ActionUIRemote/PROTOCOL.md), in ActionUI.dll through the
         // application layer, as in libActionUI.so on Linux.
         .library(name: "ActionUIRemote", targets: ["ActionUIRemote"]),
@@ -705,6 +708,12 @@ Package(
             name: "ActionUIWinUIApplication",
             dependencies: ["ActionUI", "ActionUIAppHeaders", "CWinUI", "ActionUIRemote"],
             path: "ActionUIWinUIApplication"
+        ),
+        .target(
+            name: "ActionUISwiftAdapter",
+            dependencies: ["ActionUI"],
+            path: "ActionUISwiftAdapter",
+            exclude: ["ActionUISwift+SwiftUI.swift", "ActionUISwiftAdapter.docc"]
         ),
         // The renderer's smoke test from Swift: WinUI through the shim, the main-queue bridge, a
         // PNG of a window.

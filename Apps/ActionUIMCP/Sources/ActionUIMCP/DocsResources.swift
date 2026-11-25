@@ -97,7 +97,7 @@ enum DocsResources {
             .replacing("](ActionUI-JSON-Guide.md)", with: "](\(prefix)guide)")
     }
 
-    #if os(Linux)
+    #if os(Linux) || os(Windows)
     /// The documentation folders on Linux, core first: the name in an installed package, and the
     /// folder in the checkout.
     private static let linuxFolders = [

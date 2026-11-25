@@ -18,6 +18,8 @@ import Foundation
 
 #if canImport(AppKit)
 typealias HostPlatform = AppKitPlatform
+#elseif os(Windows)
+typealias HostPlatform = WinUIPlatform
 #else
 typealias HostPlatform = AdwaitaPlatform
 #endif
