@@ -673,6 +673,7 @@ Package(
                 "include",
                 "HeaderCheck",
                 "ActionUIC+Apple.swift",
+                "ActionUIC+POSIX.swift",
                 "ActionUIC+Linux.swift",
             ],
             sources: ["ActionUIC.swift", "ActionUIC+Windows.swift"]
@@ -705,12 +706,13 @@ Package(
             dependencies: ["ActionUI", "CWinUI"],
             path: "ActionUIWinUI/Apps/PreviewSupport"
         ),
-        // The preview tool with the add-on probe. TestFiles holds what Scripts/ci-windows.py renders.
+        // The preview tool with the add-on probe. TestFiles holds what Scripts/ci-windows.py renders, Bundled what
+        // it copies beside the program (the app's own resources in some test files).
         .executableTarget(
             name: "ActionUIWinUIPreview",
             dependencies: ["ActionUI", "CWinUI", "ActionUIWinUIPreviewSupport"],
             path: "ActionUIWinUI/Apps/Preview",
-            exclude: ["TestFiles"]
+            exclude: ["TestFiles", "Bundled"]
         ),
         // The same sources as on Apple, without the schemas as a resource (SchemaSet.swift says why).
         .target(

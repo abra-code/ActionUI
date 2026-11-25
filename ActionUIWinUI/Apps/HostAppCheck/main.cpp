@@ -10,6 +10,9 @@
 
 #include <windows.h>
 #include <unknwn.h>
+// windows.h defines GetCurrentTime() as a macro, which breaks Storyboard::GetCurrentTime in the C++/WinRT
+// headers (warning C4002), as in the shim (ShimInternal.h).
+#undef GetCurrentTime
 
 #include <atomic>
 #include <chrono>

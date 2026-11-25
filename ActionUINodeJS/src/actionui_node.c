@@ -2064,6 +2064,16 @@ static void host_surface_retire(HostSurfaceClient* client) {
     host_surface_schedule_free();
 }
 
+/* A copy of `text` the caller frees, or NULL out of memory: strdup is POSIX, and the Windows C runtime names it
+ * _strdup (and deprecates strdup). */
+static char* host_surface_copy_string(const char* text) {
+#if defined(_WIN32)
+    return _strdup(text);
+#else
+    return strdup(text);
+#endif
+}
+
 /* Records `client` (or, NULL, no client) as the binding of `name`, and returns the client it replaces. False in
  * *stored when the record could not be made (out of memory). */
 static HostSurfaceClient* host_surface_replace_bound(const char* name, HostSurfaceClient* client, bool* stored) {
@@ -2085,7 +2095,7 @@ static HostSurfaceClient* host_surface_replace_bound(const char* name, HostSurfa
         }
     } else if (client != NULL) {
         HostSurfaceBound* entry = calloc(1, sizeof(HostSurfaceBound));
-        char* copy = strdup(name);
+        char* copy = host_surface_copy_string(name);
         if (entry == NULL || copy == NULL) {
             free(entry);
             free(copy);

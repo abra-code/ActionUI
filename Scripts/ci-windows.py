@@ -464,6 +464,8 @@ def check_verifier_tool(results, summary):
     package = ["--package-path", str(REPO_DIR / "Apps" / "ActionUIVerifier")]
     build = run_step("verifier-build", ["swift", "build"] + package + scratch, results, dict(os.environ))
     summary["steps"].append(build)
+    if build["status"] == 0 and fails_on_warnings(build, results, summary):
+        return False
     if build["status"] != 0:
         summary["errors"] = first_errors(results / build["log"])
         return False
@@ -480,6 +482,34 @@ def check_verifier_tool(results, summary):
         # Not a failure of the step itself: the exit code is the answer.
         step["status"] = 0 if answered else step["status"]
     return passed
+
+
+def build_warnings(log_path, limit=40):
+    """The distinct warnings of a Swift build log, first `limit` of them: the compiler's ('path:line:column:
+    warning:'), the linker's (lld-link) and SwiftPM's about files a target does not handle. Not the build
+    system's notes about stale objects, which a renamed file leaves once. The builds fail on them: a warning is
+    not ignored. SwiftPM repeats a warning only for a file it compiles again, so a run that reuses a scratch
+    folder (the VM's) may pass on warnings a fresh build reports; GitHub's builds are fresh."""
+    text = ANSI_ESCAPE.sub("", log_path.read_text(encoding="utf-8", errors="replace"))
+    found = re.findall(r"^\S.*:\d+:\d+: warning: .*$", text, flags=re.MULTILINE)
+    found += [line for line in text.splitlines()
+              if (line.startswith("warning:") and "which are unhandled" in line) or "lld-link: warning" in line]
+    seen = []
+    for line in found:
+        if line not in seen:
+            seen.append(line)
+    return seen[:limit]
+
+
+def fails_on_warnings(step, results, summary):
+    """True when the step's log has build warnings (build_warnings): they become the summary's errors and a
+    finding, and the step counts as failed."""
+    warnings = build_warnings(results / step["log"])
+    if not warnings:
+        return False
+    summary["errors"] = warnings
+    summary.setdefault("findings", []).append(f"{step['step']}: {len(warnings)} warning(s), which fail the build")
+    return True
 
 
 def first_errors(log_path, limit=40):
@@ -533,8 +563,9 @@ def check_core(results):
                "steps": [], "passed": False}
     build = run_step("core-build", ["swift", "build", "--build-tests"] + scratch, results, env)
     summary["steps"].append(build)
-    if build["status"] != 0:
-        summary["errors"] = first_errors(results / build["log"])
+    if build["status"] != 0 or fails_on_warnings(build, results, summary):
+        if build["status"] != 0:
+            summary["errors"] = first_errors(results / build["log"])
         write_summary(results, summary)
         return 1
     test = run_step("core-test", ["swift", "test", "--skip-build"] + scratch, results, env)
@@ -1014,7 +1045,7 @@ def check_shim(results, install, swift=False):
     if step["status"] != 0:
         return failed_step(step)
     command = [resolve_tool("cl", msvc), "/nologo", "/std:c++20", "/EHsc", "/permissive-", "/MD", "/O1",
-               "/bigobj", "/utf-8", "/W3", "/MP", "/DNOMINMAX"] + includes + sources + [resources,
+               "/bigobj", "/utf-8", "/W3", "/WX", "/MP", "/DNOMINMAX"] + includes + sources + [resources,
                "/LD", f"/Fe{out / 'ActionUIWinUIShim.dll'}", f"/Fo{out}\\",
                "/link", "windowsapp.lib", "user32.lib", "ole32.lib", "shell32.lib",
                foundation / "lib" / "native" / arch / "Microsoft.WindowsAppRuntime.Bootstrap.lib"]
@@ -1024,7 +1055,7 @@ def check_shim(results, install, swift=False):
         return failed_step(step)
 
     tests = SHIM_DIR / "Tests"
-    command = [resolve_tool("cl", msvc), "/nologo", "/std:c11", "/W4", "/utf-8", f"/I{SHIM_DIR / 'include'}",
+    command = [resolve_tool("cl", msvc), "/nologo", "/std:c11", "/W4", "/WX", "/utf-8", f"/I{SHIM_DIR / 'include'}",
                tests / "ShimSmokeTest.c", f"/Fe{out / 'ShimSmokeTest.exe'}", f"/Fo{out}\\",
                "/link", out / "ActionUIWinUIShim.lib", "/MANIFEST:EMBED",
                f"/MANIFESTINPUT:{tests / 'ShimSmokeTest.exe.manifest'}"]
@@ -1088,6 +1119,8 @@ def check_viewer(shim_out, bin_path, results, summary, env):
     summary["steps"].append(step)
     if step["status"] != 0:
         summary["errors"] = first_errors(results / step["log"])
+        return False
+    if fails_on_warnings(step, results, summary):
         return False
     shown = capture(["swift", "build"] + package + scratch + ["--show-bin-path"]).splitlines()
     viewer_bin = Path(shown[-1].strip()) if shown else Path()
@@ -1296,8 +1329,9 @@ def check_python(package, results, summary, msvc):
     if step["status"] != 0:
         return False
     # The Visual Studio environment's compiler, not one setuptools looks for itself.
+    # CL: options cl adds to every compile, here warnings as errors.
     env = dict(msvc, DISTUTILS_USE_SDK="1", MSSdk="1", ACTIONUI_LIBRARY_DIR=str(package),
-               PYTHONUTF8="1", PYTHONIOENCODING="utf-8")
+               PYTHONUTF8="1", PYTHONIOENCODING="utf-8", CL="/WX")
     step = run_step("python-build", [python, "setup.py", "build_ext", "--inplace"], results, env, cwd=source)
     summary["steps"].append(step)
     if step["status"] != 0:
@@ -1434,8 +1468,8 @@ def check_node(package, results, summary, msvc):
     release.mkdir(parents=True)
     objects = work / "obj"
     objects.mkdir()
-    command = [resolve_tool("clang-cl", msvc), "/nologo", "/LD", "/MD", "/O2", "/std:c11", "/utf-8", "/W3",
-               "/D_CRT_SECURE_NO_WARNINGS", f"/I{include}", f"/I{package / 'include'}", source / "src" / "actionui_node.c",
+    command = [resolve_tool("clang-cl", msvc), "/nologo", "/LD", "/MD", "/O2", "/std:c11", "/utf-8", "/W3", "/WX",
+               f"/I{include}", f"/I{package / 'include'}", source / "src" / "actionui_node.c",
                source / "src" / "actionui_uv_pump_windows.c", f"/Fe{release / 'actionui.node'}", f"/Fo{objects}\\", "/link", work / "node.lib",
                package / "lib" / "ActionUI.lib"]
     step = run_step("node-build", command, results, msvc, cwd=work)
@@ -1477,7 +1511,8 @@ def check_rust(package, results, summary, msvc):
         summary["findings"].append(f"rust: not run: the toolchain's host is {host or 'unknown'}, the build {expected}")
         return True
     workspace = REPO_DIR / "ActionUIRust"
-    env = dict(msvc, ACTIONUI_LIBRARY_DIR=str(package),
+    # RUSTFLAGS -D warnings: the crates' own warnings fail the build (cargo caps those of crates.io dependencies).
+    env = dict(msvc, ACTIONUI_LIBRARY_DIR=str(package), RUSTFLAGS="-D warnings",
                CARGO_TARGET_DIR=str(REPO_DIR / ".build" / "ci-windows-rust" / "target"))
     passed = True
     for name, command, extra in [
@@ -1584,7 +1619,7 @@ def check_host_app(bin_path, results, summary, msvc, env, host_build):
     folder = REPO_DIR / "ActionUIWinUI" / "Apps" / "HostAppCheck"
     checker = bin_path / "ActionUIHostAppCheck.exe"
     manifest = REPO_DIR / "ActionUIWinUI" / "Apps" / "Smoke" / "ActionUIWinUISmoke.exe.manifest"
-    command = [resolve_tool("cl", msvc), "/nologo", "/std:c++20", "/EHsc", "/permissive-", "/MD", "/utf-8", "/W3",
+    command = [resolve_tool("cl", msvc), "/nologo", "/std:c++20", "/EHsc", "/permissive-", "/MD", "/utf-8", "/W3", "/WX",
                "/bigobj", "/DNOMINMAX"] + host_build["includes"] + [
                f"/I{REPO_DIR / 'ActionUICAdapter' / 'include'}", f"/I{REPO_DIR / 'ActionUIAppKitApplication' / 'include'}",
                folder / "main.cpp", f"/Fe{checker}", f"/Fo{bin_path}\\",
@@ -1676,6 +1711,8 @@ def build_library(shim_out, bin_path, results, summary, msvc, env):
     if step["status"] != 0:
         summary["errors"] = first_errors(results / step["log"])
         return False
+    if fails_on_warnings(step, results, summary):
+        return False
     shown = capture(["swift", "build"] + scratch + ["--show-bin-path"]).splitlines()
     library_bin = Path(shown[-1].strip()) if shown else Path()
     for name in ["ActionUI.dll", "ActionUI.lib", "ActionUIWinUIAddOnPreview.exe"]:
@@ -1724,6 +1761,8 @@ def check_swift_smoke(shim_out, bootstrap, results, summary, msvc, host_build):
     summary["steps"].append(step)
     if step["status"] != 0:
         summary["errors"] = first_errors(results / step["log"])
+        return False
+    if fails_on_warnings(step, results, summary):
         return False
     shown = capture(["swift", "build"] + scratch + ["--show-bin-path"]).splitlines()
     bin_path = Path(shown[-1].strip()) if shown else Path()
