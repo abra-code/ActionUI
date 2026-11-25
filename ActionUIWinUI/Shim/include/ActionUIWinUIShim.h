@@ -131,6 +131,9 @@ ACTIONUI_WINUI_API bool actionUIWinUIWindowShowInactive(ActionUIWinUIObject *win
 // Whether the window's content, as laid out now, holds a WebView2, whose page its PNG (the render calls)
 // does not draw. Sets no error; false on failure.
 ACTIONUI_WINUI_API bool actionUIWinUIWindowHoldsWebView(ActionUIWinUIObject *window);
+// The size of the window's content area (below its menu bar, if any) in effective pixels, as laid out
+// now: 0 by 0 before the window is first laid out.
+ACTIONUI_WINUI_API bool actionUIWinUIWindowContentSize(ActionUIWinUIObject *window, double *width, double *height);
 // Whether the window is the active one of the UI thread (the one the user works in, when the application
 // is in front). Sets no error; false on failure.
 ACTIONUI_WINUI_API bool actionUIWinUIWindowIsActive(ActionUIWinUIObject *window);

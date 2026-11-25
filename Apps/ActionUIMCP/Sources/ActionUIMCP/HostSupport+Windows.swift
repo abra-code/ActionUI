@@ -65,6 +65,21 @@ extension HostSupport {
         return attempted
     }()
 
+    /// A new folder in the user's temporary folder, named `prefix` and a random part, made as the session
+    /// folder is: in one call that fails if anything has the name, with an access list that lets only this
+    /// user in. nil, logged, when none could be made.
+    static func makePrivateFolder(prefix: String) -> URL? {
+        let base = FileManager.default.temporaryDirectory
+        for _ in 0..<3 {
+            let folder = base.appendingPathComponent(prefix + String(UInt64.random(in: .min ... .max), radix: 16), isDirectory: true)
+            if makePrivateFolder(folder.path) {
+                return folder
+            }
+        }
+        logLine("actionui-mcp: a private folder could not be made in \(base.path) (Windows error \(GetLastError()))")
+        return nil
+    }
+
     /// Makes the folder `path`, failing if anything is there, with an access list that grants only this
     /// process's user (protected, inherited by files and folders inside).
     private static func makePrivateFolder(_ path: String) -> Bool {

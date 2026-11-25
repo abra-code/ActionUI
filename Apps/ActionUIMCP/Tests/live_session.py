@@ -786,12 +786,6 @@ if LINUX:
 else:
     check("desktop entry is Linux only", installed.returncode == 2 and not os.path.exists(entry_file), installed.stdout)
 
-# Kept windows are not on Windows yet: the server refuses keep there.
-if WINDOWS:
-    print("skip kept windows (not on Windows yet)")
-    print("%d failure(s)" % len(failures))
-    sys.exit(1 if failures else 0)
-
 # Kept windows: at the end of input the server hands them to a keeper process, which shows them
 # with the same frame and values, then (test hook) closes them a second later and exits.
 import glob
@@ -811,6 +805,21 @@ def wait_for_file(path, timeout):
 
 
 def process_gone(pid, timeout):
+    if WINDOWS:
+        # os.kill(pid, 0) would end the process there (TerminateProcess): wait on a handle instead.
+        # No pid (no report): not gone, as on macOS and Linux, where os.kill(-1, 0) succeeds.
+        if pid <= 0:
+            return False
+        import ctypes
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.OpenProcess.restype = ctypes.c_void_p
+        handle = kernel32.OpenProcess(0x00100000, False, pid)  # SYNCHRONIZE
+        if not handle:
+            return True
+        try:
+            return kernel32.WaitForSingleObject(ctypes.c_void_p(handle), int(timeout * 1000)) == 0
+        finally:
+            kernel32.CloseHandle(ctypes.c_void_p(handle))
     end = time.time() + timeout
     while time.time() < end:
         try:
@@ -871,19 +880,23 @@ s.close()
 check("no keeper without kept windows", wait_for_file(report, 3) is None)
 
 # SIGTERM with no end of input hands off as well. A kept window closed during the session is not handed off.
-report = os.path.join(report_dir, "rehost-sigterm.json")
-s = Session(binary, extra_env={"ACTIONUI_MCP_TEST_REHOST_REPORT": report})
-s.call(1, "show", {"title": "Kept A", "kind": "text", "text": "a", "keep": True})
-s.response(1)
-s.call(2, "show", {"title": "Kept then closed", "kind": "text", "text": "b", "keep": True})
-closed = (structured(s.response(2)) or {}).get("window", "")
-s.call(3, "close_window", {"window": closed})
-s.response(3)
-s.proc.send_signal(signal.SIGTERM)
-s.proc.wait(timeout=5)
-result = wait_for_file(report, 5) or {}
-check("SIGTERM hands off kept windows", [w.get("title") for w in result.get("windows", [])] == ["Kept A"], result)
-check("keeper after SIGTERM exits", process_gone(result.get("pid", -1), 5), result.get("pid"))
+# Windows has no SIGTERM for a program started with pipes (Python's send_signal ends it at once).
+if not WINDOWS:
+    report = os.path.join(report_dir, "rehost-sigterm.json")
+    s = Session(binary, extra_env={"ACTIONUI_MCP_TEST_REHOST_REPORT": report})
+    s.call(1, "show", {"title": "Kept A", "kind": "text", "text": "a", "keep": True})
+    s.response(1)
+    s.call(2, "show", {"title": "Kept then closed", "kind": "text", "text": "b", "keep": True})
+    closed = (structured(s.response(2)) or {}).get("window", "")
+    s.call(3, "close_window", {"window": closed})
+    s.response(3)
+    s.proc.send_signal(signal.SIGTERM)
+    s.proc.wait(timeout=5)
+    result = wait_for_file(report, 5) or {}
+    check("SIGTERM hands off kept windows", [w.get("title") for w in result.get("windows", [])] == ["Kept A"], result)
+    check("keeper after SIGTERM exits", process_gone(result.get("pid", -1), 5), result.get("pid"))
+else:
+    print("skip SIGTERM hands off kept windows (Windows has no SIGTERM for it)")
 
 print("%d failure(s)" % len(failures))
 sys.exit(1 if failures else 0)

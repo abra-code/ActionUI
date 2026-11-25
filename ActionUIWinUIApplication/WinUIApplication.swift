@@ -113,11 +113,15 @@ public final class WinUIApplication {
         public var contentSize: (width: Int, height: Int)?
         /// Whether the user can resize the window.
         public var isResizable = true
+        /// Whether the window takes the focus as it opens; false leaves it where it is.
+        public var activates = true
 
-        public init(subtitle: String? = nil, contentSize: (width: Int, height: Int)? = nil, isResizable: Bool = true) {
+        public init(subtitle: String? = nil, contentSize: (width: Int, height: Int)? = nil, isResizable: Bool = true,
+                    activates: Bool = true) {
             self.subtitle = subtitle
             self.contentSize = contentSize
             self.isResizable = isResizable
+            self.activates = activates
         }
     }
 
@@ -510,7 +514,9 @@ public final class WinUIApplication {
         if !actionUIWinUIWindowOnClosing(window.pointer, decideClose, decider, releaseClose) {
             logger.log("WinUIApplication: \(WinUIError.last("watching the user's closing of \(windowUUID)"))", .error)
         }
-        if !actionUIWinUIWindowActivate(window.pointer) {
+        let shows = options?.activates == false ? actionUIWinUIWindowShowInactive(window.pointer)
+                                                : actionUIWinUIWindowActivate(window.pointer)
+        if !shows {
             logger.log("WinUIApplication: \(WinUIError.last("showing the window for \(windowUUID)"))", .error)
         }
     }
@@ -539,6 +545,16 @@ public final class WinUIApplication {
     /// ActionUI JSON could not be loaded with, or there is no such window), as on Linux.
     public func showsContent(_ windowUUID: String) -> Bool {
         windows[windowUUID]?.showsContent ?? false
+    }
+
+    /// The size of the content of the window showing `windowUUID` as it is now laid out, in effective
+    /// pixels (below its menu bar, if any); nil when there is no such window or it is not laid out yet.
+    public func contentSize(windowUUID: String) -> (width: Double, height: Double)? {
+        guard let shown = windows[windowUUID] else { return nil }
+        var width = 0.0
+        var height = 0.0
+        guard actionUIWinUIWindowContentSize(shown.window.pointer, &width, &height), width > 0, height > 0 else { return nil }
+        return (width, height)
     }
 
     /// Saves the window showing `windowUUID` to a PNG at `path` as savePNG does, scaled down so that neither

@@ -191,12 +191,15 @@ extension WindowHost {
         let kept = platform.keptWindowStates(Array(keptJSONFiles.keys))
         guard !kept.isEmpty else { return }
         #if os(Windows)
-        // No keeper on Windows yet ('keep' is refused there): never a spool made without Windows' own rights.
-        return
+        // Only this user's: the keeper loads what is in it as the server's own ActionUI JSON.
+        guard let spool = HostSupport.makePrivateFolder(prefix: "actionui-mcp-rehost-") else {
+            logger.log("could not hand kept windows to a new process: could not create a private folder", .error)
+            return
+        }
         #else
-
         let spool = FileManager.default.temporaryDirectory
             .appendingPathComponent("actionui-mcp-rehost-\(UUID().uuidString)", isDirectory: true)
+        #endif
         #if os(Linux)
         // /tmp is open to every user there. FileManager makes the folder with the umask's mode and
         // only then sets 0700, and takes a folder that is already there; mkdir does neither.
@@ -207,7 +210,7 @@ extension WindowHost {
         }
         #endif
         do {
-            #if !os(Linux)
+            #if !os(Linux) && !os(Windows)
             try FileManager.default.createDirectory(at: spool, withIntermediateDirectories: true,
                                                     attributes: [.posixPermissions: 0o700])
             #endif
@@ -248,7 +251,6 @@ extension WindowHost {
             logger.log("could not hand kept windows to a new process: \(problem)", .error)
             try? FileManager.default.removeItem(at: spool)
         }
-        #endif
     }
 
     /// Every element value (as ActionUI's string form) and every table's rows, so the keeper shows

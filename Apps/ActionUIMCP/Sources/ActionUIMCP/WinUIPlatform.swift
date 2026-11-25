@@ -6,8 +6,9 @@
 
 // WinUIPlatform.swift - the windows on Windows, through ActionUI's WinUI application. A window's subtitle
 // (the provenance line) shows before its title in the title bar, which has one line and cuts a long one at
-// its end: the agent's title can neither push it out of view nor come first. Not yet on Windows:
-// windows kept after the session, and notices; each answers that it is not available here.
+// its end: the agent's title can neither push it out of view nor come first. A kept window opens again
+// in the keeper at its content's size, where Windows puts it (KeptWindowKeeper+Windows.swift). Not yet
+// on Windows: notices, which answer that they are not available here.
 
 #if os(Windows)
 import FoundationEssentials
@@ -30,15 +31,20 @@ final class WinUIPlatform: WindowPlatform {
         answers with an error. Nothing comes back from it.
         """
     nonisolated static let verifierPlatform = "windows"
-    nonisolated static let keepsWindows = false
+    nonisolated static let keepsWindows = true
+    /// KeptWindowState.styleMask of a resizable window (the only style the keeper reads back).
+    nonisolated static let resizableStyle: UInt = 1
     /// The application removes a closed window's model itself, after its disappear actions.
     nonisolated static let removesClosedWindowModels = true
 
     weak var host: WindowHost?
     private let application = WinUIApplication.shared
+    /// Each open window's title, provenance line and whether it is resizable, for keptWindowStates.
+    private var shown: [String: (title: String, subtitle: String, isResizable: Bool)] = [:]
 
     init() {
         application.handlers.windowWillClose = { [weak self] windowID in
+            self?.shown[windowID] = nil
             self?.host?.windowClosed(windowID)
         }
     }
@@ -84,6 +90,7 @@ final class WinUIPlatform: WindowPlatform {
             options.contentSize = (Int(size.width), Int(size.height))
         }
         application.presentWindow(prepared: content, title: title, options: options)
+        shown[windowID] = (title, subtitle, options.isResizable)
     }
 
     func close(_ windowID: String) {
@@ -205,9 +212,17 @@ final class WinUIPlatform: WindowPlatform {
         return { panel.cancel() }
     }
 
-    /// No windows are kept on Windows yet (keepsWindows is false).
+    /// The content's size as laid out now (the user may have resized the window), at x and y 0: the
+    /// keeper opens each window at that size, where Windows puts it. A window not laid out yet (the session
+    /// ended right after it opened) is kept too, at size 0: the keeper then sizes it to fit, as on Linux.
     func keptWindowStates(_ ids: [String]) -> [KeptWindowState] {
-        []
+        ids.compactMap { id in
+            guard let window = shown[id] else { return nil }
+            let size = application.contentSize(windowUUID: id) ?? (0, 0)
+            return KeptWindowState(id: id, title: window.title, subtitle: window.subtitle,
+                                   frame: [0, 0, size.width.rounded(), size.height.rounded()],
+                                   styleMask: window.isResizable ? Self.resizableStyle : 0)
+        }
     }
 }
 #endif

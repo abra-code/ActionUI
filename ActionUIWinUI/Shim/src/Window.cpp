@@ -592,6 +592,18 @@ bool actionUIWinUIWindowHoldsWebView(ActionUIWinUIObject *window) {
     return false;
 }
 
+bool actionUIWinUIWindowContentSize(ActionUIWinUIObject *window, double *width, double *height) {
+    return guarded("window content size", [&]() {
+        if (width == nullptr || height == nullptr) {
+            return fail("window content size", "the width or height pointer is NULL");
+        }
+        auto size = windowContentArea(windowFrom(window)).ActualSize();
+        *width = size.x;
+        *height = size.y;
+        return true;
+    });
+}
+
 bool actionUIWinUIWindowIsActive(ActionUIWinUIObject *window) {
     try {
         HWND hwnd = nullptr;
