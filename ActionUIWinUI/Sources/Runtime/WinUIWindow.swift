@@ -3,6 +3,16 @@
  The render tree of one ActionUI window on WinUI: the root node built from the window model's
  loaded element (Linux: AdwaitaWindow). `view` is what goes into a WinUI window's content;
  openingSize is the size the application layer (ActionUIWinUIApplication) opens its window at.
+
+ A WindowGroup at the root of the ActionUI JSON (on Apple, the window scene of a SwiftUI app) is read as a
+ window, as on Linux: its content is the window's JSON, its title the window's default title
+ (groupTitle), and its commands (groupCommands) join the menu bar once per group, by windowGroupID, else
+ title (AppCommands). Only the commands of JSON the app owns are kept: the host's (load(json:)), and a
+ file in the app's resource folders (LinkTrust.resourceFolders); a file elsewhere and anything from a
+ server bring none, logged, as on Apple, where a WindowGroup's commands come only from the app's own
+ scenes. One with no content cannot be loaded, as Apple shows "No content provided". Only ActionUI's own
+ windows read it (readsWindowGroup); a host's window (HostWindow) takes the JSON as its content, as on
+ Linux.
 */
 
 import CWinUI
@@ -25,17 +35,63 @@ package final class WinUIWindow {
     /// container (WindowCommandBar).
     private var commandBar: WindowCommandBar?
 
+    /// The title of the WindowGroup at the JSON's root, when it is one and names a title.
+    package private(set) var groupTitle: String?
+    /// The commands of the WindowGroup at the JSON's root and the key they join the menu bar under, when
+    /// the JSON is the app's own (see the top of this file).
+    package private(set) var groupCommands: (json: String, key: String)?
+
+    /// The ActionUI JSON of a window with a WindowGroup at its root unwrapped: its content, its title, its
+    /// commands and their key; `error` when it has no content. Any other JSON comes back as it is, and so
+    /// does one over the size cap, for the load to refuse.
+    struct GroupContent {
+        var data: Data
+        var title: String?
+        var commands: (json: String, key: String)?
+        var error: String?
+    }
+
+    static func windowGroup(_ data: Data, format: String) -> GroupContent {
+        guard format == "json", data.count <= ActionUIConfiguration.current.limits.maximumJSONSize,
+              let parsed = (try? ActionUIJSON.value(from: String(decoding: data, as: UTF8.self))) as? [String: Any],
+              parsed["type"] as? String == "WindowGroup" else { return GroupContent(data: data) }
+        // Its platform overrides ("title:windows" and the like) resolved first, as on Linux.
+        let filter = PlatformFilter(active: PlatformFilter.runtimeActiveSet, logger: ActionUIModel.shared.logger)
+        let root = filter.filter(parsed) as? [String: Any] ?? parsed
+        let properties = root["properties"] as? [String: Any] ?? [:]
+        let title = (properties["title"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+        var group = GroupContent(data: data, title: title)
+        if let commands = root["commands"] as? [Any], let json = try? ActionUIJSON.string(from: commands) {
+            let key = (properties["windowGroupID"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? title ?? json
+            group.commands = (json, key)
+        }
+        guard let content = root["content"], let json = try? ActionUIJSON.string(from: content) else {
+            group.error = "the WindowGroup has no content"
+            return group
+        }
+        group.data = Data(json.utf8)
+        return group
+    }
+
     /// The window's content: the command bar holding the root's box, or the root's box (its WinUI
     /// object with its padding and frame).
     package var view: WinUIObject? { commandBar?.panel.object ?? root?.outerView }
 
     /// Loads `json` (ActionUI JSON) into the window model `windowUUID` and builds its tree.
-    package static func load(json: String, windowUUID: String) throws -> WinUIWindow {
-        _ = try ActionUIModel.shared.loadDescription(from: Data(json.utf8), format: "json", windowUUID: windowUUID)
+    package static func load(json: String, windowUUID: String, readsWindowGroup: Bool = false) throws -> WinUIWindow {
+        let group = readsWindowGroup ? windowGroup(Data(json.utf8), format: "json") : GroupContent(data: Data(json.utf8))
+        if let error = group.error {
+            throw ActionUIError(error)
+        }
+        _ = try ActionUIModel.shared.loadDescription(from: group.data, format: "json", windowUUID: windowUUID)
         guard let windowModel = ActionUIModel.shared.windowModels[windowUUID] else {
             throw ActionUIError("WinUIWindow: no window model for \(windowUUID) after loading")
         }
-        return WinUIWindow(windowModel: windowModel)
+        let window = WinUIWindow(windowModel: windowModel)
+        // The host passed it: its commands are the host's.
+        window.groupTitle = group.title
+        window.groupCommands = group.commands
+        return window
     }
 
     /// The sentence a window shows when its ActionUI JSON could not be loaded. A file is named by its name
@@ -90,14 +146,28 @@ package final class WinUIWindow {
     /// Loads the ActionUI JSON (or plist, by its extension) in the regular file at `url` into the
     /// window model `windowUUID`, as from that file: it is the app's own when it is in the app's
     /// resources, else less trusted (JSONContentOrigin), and builds its tree.
-    package static func load(file url: URL, windowUUID: String) throws -> WinUIWindow {
+    package static func load(file url: URL, windowUUID: String, readsWindowGroup: Bool = false) throws -> WinUIWindow {
+        let format = ActionUIContentLoader.format(of: url)
         let data = try ActionUIContentLoader.readRegularFile(url)
-        _ = try ActionUIContentLoader.load(data: data, format: ActionUIContentLoader.format(of: url), windowUUID: windowUUID,
+        let group = readsWindowGroup ? windowGroup(data, format: format) : GroupContent(data: data)
+        if let error = group.error {
+            throw ActionUIError(error)
+        }
+        _ = try ActionUIContentLoader.load(data: group.data, format: format, windowUUID: windowUUID,
                                             isContentView: true, parentID: 0, source: .file(url))
         guard let windowModel = ActionUIModel.shared.windowModels[windowUUID] else {
             throw ActionUIError("WinUIWindow: no window model for \(windowUUID) after loading")
         }
-        return WinUIWindow(windowModel: windowModel)
+        let window = WinUIWindow(windowModel: windowModel)
+        window.groupTitle = group.title
+        if let commands = group.commands {
+            if LinkTrust.resourceFolders().contains(where: { ActionUIResourceFolder.isFile(url, inside: $0) }) {
+                window.groupCommands = commands
+            } else {
+                ActionUIModel.shared.logger.log("WindowGroup commands from \(url.path) are ignored: only JSON in the app's resource folder, or JSON the host passes, adds menu commands", .warning)
+            }
+        }
+        return window
     }
 
     /// Loads ActionUI JSON (or plist, by the address's extension) fetched from `url` into the window
@@ -105,7 +175,8 @@ package final class WinUIWindow {
     /// `url`), which decides its trust (a trusted origin of the host's configuration, else less trusted),
     /// and builds its tree. A final address Foundation cannot read, or one with a backslash or a user name
     /// (where Windows' and Foundation's readings of the host could differ), is refused.
-    package static func load(data: Data, from url: URL, finalURL finalText: String?, windowUUID: String) throws -> WinUIWindow {
+    package static func load(data: Data, from url: URL, finalURL finalText: String?, windowUUID: String,
+                             readsWindowGroup: Bool = false) throws -> WinUIWindow {
         var source = url
         if let finalText {
             guard let read = URL(string: finalText), !finalText.contains("\\"), read.user == nil else {
@@ -113,12 +184,23 @@ package final class WinUIWindow {
             }
             source = read
         }
-        _ = try ActionUIContentLoader.load(data: data, format: ActionUIContentLoader.format(of: url), windowUUID: windowUUID,
+        let format = ActionUIContentLoader.format(of: url)
+        let group = readsWindowGroup ? windowGroup(data, format: format) : GroupContent(data: data)
+        if let error = group.error {
+            throw ActionUIError(error)
+        }
+        _ = try ActionUIContentLoader.load(data: group.data, format: format, windowUUID: windowUUID,
                                             isContentView: true, parentID: 0, source: .remote(source))
         guard let windowModel = ActionUIModel.shared.windowModels[windowUUID] else {
             throw ActionUIError("WinUIWindow: no window model for \(windowUUID) after loading")
         }
-        return WinUIWindow(windowModel: windowModel)
+        let window = WinUIWindow(windowModel: windowModel)
+        window.groupTitle = group.title
+        if group.commands != nil {
+            // No commands from a server, trusted or not, as on Apple and Linux.
+            ActionUIModel.shared.logger.log("WindowGroup commands from \(url.absoluteString) are ignored: only JSON in the app's resource folder, or JSON the host passes, adds menu commands", .warning)
+        }
+        return window
     }
 
     /// Builds and syncs the tree for the element loaded into `windowModel`.

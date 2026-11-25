@@ -752,6 +752,145 @@ static void checkMenuBar(void) {
           "choosing the item fires its action for its window, with its id");
 }
 
+// MARK: - WindowGroup roots
+
+// A WindowGroup the host passes: its title names the window, its CommandMenu joins the menu bar, and its
+// CommandGroup replacing appTermination is ignored (Exit stays).
+static const char *groupJSON =
+    "{\"type\": \"WindowGroup\", \"properties\": {\"title\": \"Grouped\", \"windowGroupID\": \"group-1\"}, \"commands\": ["
+    "{\"type\": \"CommandMenu\", \"properties\": {\"name\": \"Group Menu\"}, \"children\": ["
+    "{\"type\": \"Button\", \"id\": 95, \"properties\": {\"title\": \"Group Item\", \"actionID\": \"menu.group\"}}]},"
+    "{\"type\": \"CommandGroup\", \"properties\": {\"placement\": \"replacing\", \"placementTarget\": \"appTermination\"}, \"children\": []}],"
+    "\"content\": {\"type\": \"Text\", \"id\": 1, \"properties\": {\"text\": \"In a group\", \"padding\": 16}}}";
+
+// The same shape in a file outside the app's resource folders: its title, none of its commands.
+static const char *groupFileJSON =
+    "{\"type\": \"WindowGroup\", \"properties\": {\"title\": \"Grouped File\"}, \"commands\": ["
+    "{\"type\": \"CommandMenu\", \"properties\": {\"name\": \"File Group Menu\"}, \"children\": ["
+    "{\"type\": \"Button\", \"id\": 96, \"properties\": {\"title\": \"File Group Item\", \"actionID\": \"menu.fileGroup\"}}]}],"
+    "\"content\": {\"type\": \"Text\", \"id\": 1, \"properties\": {\"text\": \"In a group from a file\", \"padding\": 16}}}";
+
+static bool groupMenuShown = false;
+static bool groupExitKept = false;
+static bool fileGroupMenuShown = true;
+static bool groupMenuGone = false;
+static bool barStillShown = false;
+
+// While the two group windows are open: the host's group menu shows (and File still has Exit), the
+// file's does not.
+static DWORD WINAPI readGroupMenus(void *parameter) {
+    (void)parameter;
+    if (FAILED(CoInitializeEx(NULL, COINIT_MULTITHREADED))) {
+        return 1;
+    }
+    IUIAutomation *automation = NULL;
+    HRESULT made = CoCreateInstance(&automationClass, NULL, CLSCTX_INPROC_SERVER, &automationInterface, (void **)&automation);
+    if (FAILED(made) || automation == NULL) {
+        CoUninitialize();
+        return 1;
+    }
+    groupMenuShown = elementShows(automation, L"Group Menu", UIA_MenuItemControlTypeId, 100);
+    fileGroupMenuShown = elementShows(automation, L"File Group Menu", UIA_MenuItemControlTypeId, 10);
+    IUIAutomationElement *file = findElement(automation, NULL, UIA_NamePropertyId, L"File", UIA_MenuItemControlTypeId, 50);
+    if (file != NULL) {
+        if (SUCCEEDED(expandElement(file))) {
+            groupExitKept = elementShows(automation, L"Exit", UIA_MenuItemControlTypeId, 50);
+            IUnknown *pattern = NULL;
+            IUIAutomationExpandCollapsePattern *collapse = NULL;
+            if (SUCCEEDED(IUIAutomationElement_GetCurrentPattern(file, UIA_ExpandCollapsePatternId, &pattern)) && pattern != NULL) {
+                if (SUCCEEDED(IUnknown_QueryInterface(pattern, &expandCollapseInterface, (void **)&collapse)) && collapse != NULL) {
+                    IUIAutomationExpandCollapsePattern_Collapse(collapse);
+                    IUIAutomationExpandCollapsePattern_Release(collapse);
+                }
+                IUnknown_Release(pattern);
+            }
+        }
+        IUIAutomationElement_Release(file);
+    }
+    IUIAutomation_Release(automation);
+    CoUninitialize();
+    return 0;
+}
+
+// After both group windows closed: the group's menu has left the remaining window's bar.
+static DWORD WINAPI readGroupMenuGone(void *parameter) {
+    (void)parameter;
+    if (FAILED(CoInitializeEx(NULL, COINIT_MULTITHREADED))) {
+        return 1;
+    }
+    IUIAutomation *automation = NULL;
+    HRESULT made = CoCreateInstance(&automationClass, NULL, CLSCTX_INPROC_SERVER, &automationInterface, (void **)&automation);
+    if (FAILED(made) || automation == NULL) {
+        CoUninitialize();
+        return 1;
+    }
+    // A bar is still there (the first window's), so the group's menu missing from it means something.
+    barStillShown = elementShows(automation, L"File", UIA_MenuItemControlTypeId, 50);
+    // The bar is made anew: a moment for it.
+    for (int attempt = 0; attempt < 30 && !groupMenuGone; attempt++) {
+        groupMenuGone = !elementShows(automation, L"Group Menu", UIA_MenuItemControlTypeId, 1);
+        if (!groupMenuGone) {
+            Sleep(100);
+        }
+    }
+    IUIAutomation_Release(automation);
+    CoUninitialize();
+    return 0;
+}
+
+static bool runPumping(LPTHREAD_START_ROUTINE routine, const char *what) {
+    HANDLE thread = CreateThread(NULL, 0, routine, NULL, 0, NULL);
+    if (thread == NULL) {
+        check(false, what);
+        return false;
+    }
+    bool ended = waitPumping(thread, 60000);
+    CloseHandle(thread);
+    if (!ended) {
+        check(false, what);
+    }
+    return ended;
+}
+
+// A WindowGroup at a window's root, from the host and from a file elsewhere.
+static void checkWindowGroups(void) {
+    actionUIAppLoadAndPresentWindowFromJSON(groupJSON, "group-window", NULL);
+    check(FindWindowW(NULL, L"Grouped") != NULL, "a WindowGroup's title names its window");
+
+    char path[MAX_PATH] = "";
+    DWORD length = GetTempPathA(MAX_PATH, path);
+    if (length == 0 || length + 32 >= MAX_PATH) {
+        check(false, "the temporary folder is known");
+        return;
+    }
+    strcat_s(path, sizeof path, "actionui-group-check.json");
+    FILE *file = NULL;
+    if (fopen_s(&file, path, "wb") != 0 || file == NULL) {
+        check(false, "the WindowGroup file is written");
+        return;
+    }
+    fputs(groupFileJSON, file);
+    fclose(file);
+    actionUIAppLoadAndPresentWindow(path, "group-file-window", NULL);
+    check(FindWindowW(NULL, L"Grouped File") != NULL, "a WindowGroup file's title names its window");
+
+    if (!runPumping(readGroupMenus, "the group menus thread finished")) {
+        return;
+    }
+    printf("c-app: WindowGroup menus: host's %d, Exit kept %d, file's %d\n", groupMenuShown, groupExitKept, fileGroupMenuShown);
+    fflush(stdout);
+    check(groupMenuShown, "the host's WindowGroup commands join the menu bar");
+    check(groupExitKept, "a WindowGroup cannot take Exit away");
+    check(!fileGroupMenuShown, "a WindowGroup file outside the app's resources brings no commands");
+
+    actionUIAppCloseWindow("group-window");
+    actionUIAppCloseWindow("group-file-window");
+    DeleteFileA(path);
+    if (runPumping(readGroupMenuGone, "the group menu thread finished")) {
+        check(barStillShown && groupMenuGone, "a WindowGroup's commands leave with its last window, the other window's bar staying");
+    }
+}
+
 static void onWillFinishLaunching(void) {
     willFinish += 1;
 }
@@ -864,6 +1003,7 @@ static void onDidFinishLaunching(void) {
     }
     checkSecureField();
     checkMenuBar();
+    checkWindowGroups();
     // Over the window just presented (shown once it has loaded); Cancel is the close button.
     checkAlert("{\"title\": \"Save changes?\", \"buttons\": [\"Save\", \"Don't Save\", \"Cancel\"]}",
                L"Cancel", "Cancel", "Save", "an alert over a window answers Cancel");
@@ -908,8 +1048,8 @@ int main(int argc, char **argv) {
     actionUIAppRun();
     printf("c-app: the run returned\n");
     check(willFinish == 1 && didFinish == 1, "the launch handlers fired once");
-    check(presented == 3, "the three windows were presented");
-    check(closedCount == 3, "the three windows closed");
+    check(presented == 5, "the five windows were presented");
+    check(closedCount == 5, "the five windows closed");
     check(strcmp(valueAtClose, "set from C") == 0, "the value was readable as its window closed");
     check(remoteChecked, "the window from a server was shown");
     check(shouldTerminateAsked == 2, "shouldTerminate was asked at each of the user's closings of the last window");

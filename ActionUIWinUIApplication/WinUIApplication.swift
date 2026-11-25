@@ -30,6 +30,9 @@
  - An alert or a file panel (AppPanels) opens over the active window, else the one presented last, and
    returns nil when that window closes under it or the application terminates.
 
+ - A WindowGroup at the root of a window's ActionUI JSON is read as on Linux (WinUIWindow): its title is
+   the window's when the host gives none, and its commands, when the JSON is the app's own, join the menu
+   bar with its first window and leave with its last.
  - Commands the host loads (loadMenuBar) show in a menu bar across the top of every window, made for
    each window (AppCommands on WinUI); a window presented after the load opens that much taller, so its
    content keeps its size. Exit terminates (asking shouldTerminate), About shows the application's name
@@ -97,6 +100,9 @@ public final class WinUIApplication {
         let showsContent: Bool
         /// When it was presented, among the windows: the latest is the largest.
         let order: Int
+        /// The WindowGroup whose commands this window brought to the menu bar, if any: they go when the
+        /// group's last window does.
+        var commandsKey: String?
 
         init(window: WinUIObject, tree: WinUIWindow, showsContent: Bool, order: Int) {
             self.window = window
@@ -151,6 +157,13 @@ public final class WinUIApplication {
     @discardableResult
     public func loadMenuBar(json: String?) -> Bool {
         AppCommands.shared.load(json: json)
+    }
+
+    /// A window that has left `windows` (or never got in): its WindowGroup's commands (under `key`) leave
+    /// the menu bar with the group's last window.
+    private func releaseCommands(_ key: String?) {
+        guard let key, !windows.values.contains(where: { $0.commandsKey == key }) else { return }
+        AppCommands.shared.removeWindowGroup(key)
     }
 
     /// Gives each window a menu bar made anew from the commands (AppCommands).
@@ -270,8 +283,8 @@ public final class WinUIApplication {
             return
         }
         let fileName = fileURL.deletingPathExtension().lastPathComponent
-        present(windowUUID: windowUUID, title: title ?? fileName, fileName: fileURL.lastPathComponent) {
-            try WinUIWindow.load(file: fileURL, windowUUID: windowUUID)
+        present(windowUUID: windowUUID, title: title, defaultTitle: fileName, fileName: fileURL.lastPathComponent) {
+            try WinUIWindow.load(file: fileURL, windowUUID: windowUUID, readsWindowGroup: true)
         }
     }
 
@@ -288,22 +301,23 @@ public final class WinUIApplication {
         loading[windowUUID] = number
         // "https://example.com/" has the last part "/": the whole address then, as for none.
         let lastPart = url.deletingPathExtension().lastPathComponent
-        let shownTitle = title ?? (lastPart.isEmpty || lastPart == "/" ? url.absoluteString : lastPart)
+        let addressTitle = lastPart.isEmpty || lastPart == "/" ? url.absoluteString : lastPart
         let started = RemoteFetch.start(url.absoluteString) { [weak self] data, finalURL, failure in
             // Only the newest load of a UUID still wanted (not closed, not presented again since).
             guard let self, self.loading[windowUUID] == number else { return }
             self.loading[windowUUID] = nil
-            self.present(windowUUID: windowUUID, title: shownTitle) {
+            self.present(windowUUID: windowUUID, title: title, defaultTitle: addressTitle) {
                 guard let data else {
                     throw ActionUIError("\(url.absoluteString) could not be loaded: \(failure ?? "the request failed")")
                 }
-                return try WinUIWindow.load(data: data, from: url, finalURL: finalURL, windowUUID: windowUUID)
+                return try WinUIWindow.load(data: data, from: url, finalURL: finalURL, windowUUID: windowUUID,
+                                            readsWindowGroup: true)
             }
         }
         if !started {
             loading[windowUUID] = nil
             let why = WinUIError.last("fetching \(url.absoluteString)")
-            present(windowUUID: windowUUID, title: shownTitle) { throw ActionUIError("\(why)") }
+            present(windowUUID: windowUUID, title: title, defaultTitle: addressTitle) { throw ActionUIError("\(why)") }
         }
     }
 
@@ -311,17 +325,19 @@ public final class WinUIApplication {
     /// `title`, else the application's name.
     public func presentWindow(json: String, windowUUID: String, title: String?) {
         present(windowUUID: windowUUID, title: title) {
-            try WinUIWindow.load(json: json, windowUUID: windowUUID)
+            try WinUIWindow.load(json: json, windowUUID: windowUUID, readsWindowGroup: true)
         }
     }
 
     /// Presents the tree `load` makes in a new window (or the error it throws, as text), at once when the
     /// application has started, else when it starts. A window already showing `windowUUID` is
     /// replaced, with no windowWillClose (as on Linux).
-    private func present(windowUUID: String, title: String?, fileName: String? = nil,
+    private func present(windowUUID: String, title: String?, defaultTitle: String? = nil, fileName: String? = nil,
                          _ load: @escaping @MainActor () throws -> WinUIWindow) {
         guard hasStarted else {
-            pending.append((windowUUID, { [weak self] in self?.present(windowUUID: windowUUID, title: title, fileName: fileName, load) }))
+            pending.append((windowUUID, { [weak self] in
+                self?.present(windowUUID: windowUUID, title: title, defaultTitle: defaultTitle, fileName: fileName, load)
+            }))
             return
         }
         // A newer presentation replaces a load still under way.
@@ -332,6 +348,7 @@ public final class WinUIApplication {
         // never has no window in between, which would end it. Out of `windows`, its Closed does nothing.
         let replaced = windows.removeValue(forKey: windowUUID)
         replaced?.tree.detach()
+        releaseCommands(replaced?.commandsKey)
         defer {
             if let replaced {
                 AppPanels.windowClosing(replaced.window)
@@ -359,11 +376,16 @@ public final class WinUIApplication {
             ActionUIModel.shared.removeWindow(windowUUID)
             return
         }
-        // The menu bar, when the host loaded commands, above the content: the window opens that much
-        // taller, so the content keeps its size.
+        // A WindowGroup's commands join the menu bar before the window's bar is made (once per group).
+        let commandsKey = loaded ? tree.groupCommands.map { commands -> String in
+            AppCommands.shared.load(json: commands.json, once: commands.key)
+            return commands.key
+        } : nil
+        // The menu bar, when there are commands, above the content: the window opens that much taller, so
+        // the content keeps its size.
         let bar = AppCommands.shared.makeMenuBar(windowUUID: windowUUID)
         // Measured once the content is in the window, where the controls have their styles.
-        guard actionUIWinUIWindowSetTitle(window.pointer, title ?? name ?? "ActionUI"),
+        guard actionUIWinUIWindowSetTitle(window.pointer, title ?? tree.groupTitle ?? defaultTitle ?? name ?? "ActionUI"),
               actionUIWinUIWindowSetContent(window.pointer, content.pointer),
               actionUIWinUIWindowSetMenuBar(window.pointer, bar?.pointer),
               case let size = tree.openingSize(),
@@ -372,10 +394,13 @@ public final class WinUIApplication {
             logger.log("WinUIApplication: \(WinUIError.last("setting up the window for \(windowUUID)"))", .error)
             tree.detach()
             ActionUIModel.shared.removeWindow(windowUUID)
+            // Its group's commands, loaded above, leave too: no window would ever release them.
+            releaseCommands(commandsKey)
             return
         }
         presentCount += 1
         let shown = Shown(window: window, tree: tree, showsContent: loaded, order: presentCount)
+        shown.commandsKey = commandsKey
         windows[windowUUID] = shown
         WinUIEvents.connect(window, actionUIWinUIWindowOnClosed, "a window's closing") { [weak self, weak shown] in
             guard let self, let shown else { return }
@@ -464,6 +489,7 @@ public final class WinUIApplication {
         loading[windowUUID] = nil
         handlers.windowWillClose?(windowUUID)
         shown.tree.detach()
+        releaseCommands(shown.commandsKey)
         // The model goes after the handler and after the disappear actions the detach queued on the
         // main queue (NodeAppearance), which read the values too, as on Linux; not when a window under
         // the UUID is on screen again by then.

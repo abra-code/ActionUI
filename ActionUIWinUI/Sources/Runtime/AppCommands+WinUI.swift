@@ -2,9 +2,10 @@
 /*
  The application's commands on Windows: the CommandMenu and CommandGroup elements a host loads
  (actionUIAppLoadMenuBar, WinUIApplication.loadMenuBar), which macOS puts in its menu bar and Linux in
- GNOME's primary menu, shown in a menu bar across the top of each window, as Windows desktop programs
- show theirs (Notepad, Paint). A window shows one once the host has loaded commands, even none; until
- then a window has no menu bar, as most WinUI programs have none.
+ GNOME's primary menu, and a WindowGroup's commands (load(json:once:)), shown in a menu bar across the
+ top of each window, as Windows desktop programs show theirs (Notepad, Paint). A window shows one once
+ the host has loaded commands, even none, or a WindowGroup's are in; until then a window has no menu
+ bar, as most WinUI programs have none.
 
  The menus, left to right, each shown only when it has an item:
  - File: the items at newItem, saveItem, importExport and printItem, then Exit (appTermination).
@@ -28,8 +29,12 @@
  or no actionID grays it out. Choosing one fires its actionID for the JSON of the window whose menu bar
  it is, with the element's id as viewID.
 
- Not yet on Windows: a WindowGroup's own commands (WindowGroup roots are not read yet), and the
- version and copyright line Linux's About shows.
+ A WindowGroup's commands join once for all its windows and leave with its last window
+ (removeWindowGroup); one of theirs that replaces appTermination is ignored, so ActionUI JSON cannot take
+ Exit away (the host's own commands may). Which JSON may add commands is the application's to judge
+ (WinUIWindow.groupCommands): the host's, and files in the app's resource folders.
+
+ Not yet on Windows: the version and copyright line Linux's About shows.
 */
 
 #if canImport(FoundationEssentials)
@@ -43,10 +48,13 @@ import CWinUI
 package final class AppCommands {
     package static let shared = AppCommands()
 
-    /// The CommandMenu and CommandGroup elements loaded, in order.
-    private var commands: [[String: Any]] = []
-    /// Whether the host has loaded commands (even none): then every window shows a menu bar.
-    package private(set) var isLoaded = false
+    /// The CommandMenu and CommandGroup elements loaded, in order, each with the WindowGroup key it was
+    /// loaded under (load(json:once:)), nil for the host's.
+    private var commands: [(key: String?, element: [String: Any])] = []
+    /// Whether the host has loaded commands (even none).
+    private var hostLoaded = false
+    /// Whether windows show a menu bar: the host has loaded commands, or a WindowGroup's are in.
+    package var isLoaded: Bool { hostLoaded || commands.contains { $0.key != nil } }
     /// The name About shows.
     package var appName: @MainActor () -> String = { ProcessInfo.processInfo.processName }
     /// What Exit does (the application's terminate, which asks shouldTerminate).
@@ -70,11 +78,46 @@ package final class AppCommands {
                 ActionUIModel.shared.logger.log("Menu commands: the JSON is not an array", .error)
                 return false
             }
-            commands += array.compactMap { $0 as? [String: Any] }
+            commands += array.compactMap { $0 as? [String: Any] }.map { (key: nil, element: $0) }
         }
-        isLoaded = true
+        hostLoaded = true
         changed?()
         return true
+    }
+
+    /// The keys of the WindowGroups whose commands are in.
+    private var loadedKeys: Set<String> = []
+
+    /// A WindowGroup's commands (its JSON's `commands` array) under `key`, unless that group's are in
+    /// already (each window of the group brings them). A CommandGroup that replaces appTermination is
+    /// left out, with a warning: ActionUI JSON must not take Exit away. They stay until
+    /// `removeWindowGroup`. Returns false, logging why and changing nothing, for JSON that is not an array.
+    @discardableResult
+    package func load(json: String, once key: String) -> Bool {
+        guard !loadedKeys.contains(key) else { return true }
+        guard let parsed = try? ActionUIJSON.value(from: json), let array = parsed as? [Any] else {
+            ActionUIModel.shared.logger.log("Menu commands: the JSON is not an array", .error)
+            return false
+        }
+        let kept = array.compactMap { $0 as? [String: Any] }.filter { element in
+            let properties = element["properties"] as? [String: Any] ?? [:]
+            guard element["type"] as? String == "CommandGroup", properties["placement"] as? String == "replacing",
+                  Self.target(properties["placementTarget"] as? String) == "appTermination" else { return true }
+            ActionUIModel.shared.logger.log("WindowGroup \(key): a CommandGroup replacing appTermination (Exit) is ignored", .warning)
+            return false
+        }
+        loadedKeys.insert(key)
+        commands += kept.map { (key: Optional(key), element: $0) }
+        changed?()
+        return true
+    }
+
+    /// Takes the commands of the WindowGroup `key` out, when its last window has closed. Nothing happens
+    /// for a group whose commands are not in.
+    package func removeWindowGroup(_ key: String) {
+        guard loadedKeys.remove(key) != nil else { return }
+        commands = commands.filter { $0.key != key }
+        changed?()
     }
 
     // MARK: Targets
@@ -126,7 +169,7 @@ package final class AppCommands {
     func menus() -> [(title: String, entries: [Entry])] {
         var groups: [String: [(placement: String, entries: [Entry])]] = [:]
         var commandMenus: [(title: String, entries: [Entry])] = []
-        for command in commands {
+        for command in commands.map(\.element) {
             let properties = command["properties"] as? [String: Any] ?? [:]
             let entries = (command["children"] as? [[String: Any]] ?? []).compactMap(Self.entry)
             switch command["type"] as? String {
