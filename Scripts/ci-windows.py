@@ -1497,8 +1497,8 @@ def check_node(package, results, summary, msvc):
 
 def check_rust(package, results, summary, msvc):
     """Builds the Rust crates (ActionUIRust: actionui-sys, actionui and its examples) against the library package
-    with the MSVC linker, runs their tests that need no window, and the trust policy and HostSurface window tests,
-    which run the application (ACTIONUI_GUI_TESTS; window_lifecycle needs the menu bar and the remote server, not
+    with the MSVC linker, runs their tests that need no window, the HostSurface unit tests with wgpu, and the
+    trust policy and HostSurface window tests, which run the application (ACTIONUI_GUI_TESTS; window_lifecycle needs the menu bar and the remote server, not
     on Windows yet). True when all passed; no cargo, or a toolchain of another architecture, is reported and not run."""
     cargo = shutil.which("cargo")
     if cargo is None:
@@ -1519,8 +1519,11 @@ def check_rust(package, results, summary, msvc):
             ("rust-build", [cargo, "build", "--workspace", "--examples"], {}),
             ("rust-test", [cargo, "test", "--workspace", "--all-targets"], {}),
             ("rust-trust-policy", [cargo, "test", "-p", "actionui", "--test", "trust_policy"], {"ACTIONUI_GUI_TESTS": "1"}),
-            ("rust-host-surface", [cargo, "test", "-p", "actionui", "--features", "host-surface", "--lib", "--test",
-                                   "host_surface_window"], {"ACTIONUI_GUI_TESTS": "1"})]:
+            # With wgpu (and so host-surface): the unit tests, the frame sink's GPU tests among them (Direct3D 12,
+            # on WARP without a GPU), the HostSurface window test, and the wgpu sketch example.
+            ("rust-host-surface", [cargo, "test", "-p", "actionui", "--features", "wgpu", "--lib", "--test",
+                                   "host_surface_window"], {"ACTIONUI_GUI_TESTS": "1"}),
+            ("rust-wgpu-example", [cargo, "build", "-p", "actionui", "--features", "wgpu", "--example", "host_surface"], {})]:
         step = run_step(name, command, results, dict(env, **extra), cwd=workspace, timeout=STEP_TIMEOUT_SECONDS)
         summary["steps"].append(step)
         summary["findings"].append(f"{name}: {'passed' if step['status'] == 0 else 'FAILED, exit ' + str(step['status'])}")

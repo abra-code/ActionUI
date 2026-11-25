@@ -146,7 +146,8 @@ struct Gpu {
 impl Gpu {
     fn new() -> Gpu {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            // Metal on macOS; on Linux, where the canvas is a frame sink, whatever renders offscreen.
+            // Metal on macOS; on Linux and Windows, where the canvas is a frame sink, whatever renders offscreen
+            // (Direct3D 12 on Windows).
             backends: if cfg!(target_os = "macos") { wgpu::Backends::METAL } else { wgpu::Backends::PRIMARY | wgpu::Backends::GL },
             ..wgpu::InstanceDescriptor::new_without_display_handle()
         });

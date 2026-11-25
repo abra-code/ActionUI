@@ -132,6 +132,39 @@ Differences from macOS:
 - The menu bar's commands appear in a menu at the end of each window's header bar, as GNOME applications do.
 - `actionui-sys` leaves out `actionUILoadHostingControllerFromURL`, which Linux does not have.
 
+## Building on Windows
+
+The same crates build on Windows 11 (x64 or Arm64), against the Windows library package. ActionUI draws with WinUI 3 there.
+
+Requirements: Rust 1.85 or later with the MSVC toolchain (`x86_64-pc-windows-msvc` or `aarch64-pc-windows-msvc`), the Visual Studio C++ build tools (its linker), and, on the machine that runs the program, the Windows App SDK runtime 2.7 (see `ActionUIWinUI/README.md`).
+
+1. Make the library package on a Windows machine with Swift (see `ActionUIWinUI/README.md`): `python Scripts\ci-windows.py winui` builds `ActionUI.dll` and puts the package in `.build\ci-windows-package\actionui-windows-<arch>` (`bin\` with `ActionUI.dll` and the DLLs it loads, `lib\ActionUI.lib`, `include\`).
+
+2. Build, pointing `ACTIONUI_LIBRARY_DIR` at the package:
+
+   ```bat
+   cd ActionUIRust
+   set ACTIONUI_LIBRARY_DIR=C:\path\to\actionui-windows-arm64
+   cargo build
+   cargo run --example temperature_converter
+   ```
+
+The program links `ActionUI.dll` through its import library. `cargo run` and `cargo test` find the build's copies of the package's DLLs by themselves (the build copies `bin\` next to the import library). To run the program anywhere else, put the package's `bin\` folder's DLLs in the same folder as the executable, where Windows looks for a program's DLLs (and, when you give the program to others, the package's license files).
+
+The dependency names the system with the others:
+
+```toml
+[target.'cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))'.dependencies]
+actionui = { path = "/path/to/ActionUI/ActionUIRust/actionui" }
+```
+
+HostSurface on Windows: the `host-surface` feature needs nothing more (the element is in `ActionUI.dll`); the surface is a frame sink, so a client presents its frames with `SurfaceId::present_pixels`. With `wgpu`, `wgpu_surface::FrameSink` renders with Direct3D 12, on WARP, Windows' software renderer, where there is no GPU.
+
+Differences from macOS:
+
+- There is no menu bar and no remote server on Windows yet.
+- `actionui::running_from_bundle` returns false, and `make_app_bundle.sh` is for macOS.
+
 ## HostSurface on Android
 
 On Android, ActionUI is the Kotlin library (`ActionUIAndroid`), so a Rust program there is a client of HostSurface elements only: a shared library the app loads, which binds a delegate with `actionui::host_surface::set_delegate` from a JNI function called on the main thread, and draws on the element's native window (`SurfaceHandle::NativeWindow`; with `wgpu`, `wgpu_surface::create` makes a Vulkan or OpenGL ES surface on it). The crates build for Android only with the `host-surface` feature, and link `libactionui_hostsurface.so`, the add-on's C interface, which `:addon-hostsurface` builds and puts in the app.

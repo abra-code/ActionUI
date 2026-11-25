@@ -4,8 +4,8 @@ An optional ActionUI add-on that adds the `HostSurface` element: a rectangle in 
 whose pixels the client program draws with its own renderer - Metal, wgpu, MoltenVK, ANGLE or a CPU
 rasterizer - while ActionUI does everything around it (layout, controls, menus, dialogs). On macOS and
 iOS the client gets a `CAMetalLayer`, frame ticks, and pointer, touch, pen, scroll, gesture and key
-input. On Linux the element is a frame sink: the client renders where it likes and presents finished
-frames, which the element shows (see "On Linux" below).
+input. On Linux and Windows the element is a frame sink: the client renders where it likes and presents
+finished frames, which the element shows (see "On Linux" and "On Windows" below).
 
 ```json
 { "type": "HostSurface", "id": 5, "properties": { "surfaceName": "viewport", "continuous": true } }
@@ -93,6 +93,32 @@ product, as on Apple platforms.
 
 Input on Linux follows the same rules: pointer, touch, pen, scroll (wheel steps, or points with phases from a touchpad), touchpad pinch as magnify and rotate, keys with their W3C code from the hardware key code, and focus. Keys with Control, Alt or Super held reach the client and also go on to the window, so shortcuts still work. FocusIn waits for an active window. Input methods are not handled.
 
+## On Windows
+
+The element is a frame sink on Windows as on Linux (`kind` "native", the default, or "sink"; "gl" draws a
+placeholder, as an unknown kind does): the client gets `AUIHostSurfaceFrameSink`
+with no handle, renders at the pixel size (offscreen with Direct3D, wgpu or Vulkan, or on the CPU) and presents
+each frame with `actionUIHostSurfacePresentPixels` from any thread; the newest frame is shown in a WinUI Image,
+scaled to the element. Frame ticks come from WinUI's frame tick (CompositionTarget.Rendering) while the surface
+is on screen and continuous or asked for a frame. "changed" comes at once when the window moves to a display with
+another scale, and "suspended" while the window is minimized. There is no dmabuf and no GL area.
+
+The element is linked into `ActionUI.dll` (`ActionUIWinUI/Library`), which registers it, so programs in other
+languages need no register call (calling it again does nothing); the library package ships the header as
+`<ActionUIHostSurface/ActionUIHostSurface.h>`. Python, Node.js and Rust (its `host-surface` feature; with `wgpu`,
+the frame sink renders with Direct3D 12) use it as on the other platforms. A process that hosts ActionUI.dll is
+made per-monitor DPI aware when its program declared no DPI awareness, which the wheel and the pointer need.
+
+Input on Windows follows the same rules: pointer (every button, a second button during a drag as a press),
+touch, pen (pressure and tilt), the wheel as steps, keys with their W3C code from the scan code (`keyCode` is the
+scan code, 0xE000 added for an extended key), and focus. A press focuses the surface (unless `focusable` is false), Tab and
+Shift-Tab move focus in and out, and FocusOut comes when the window stops being active. Keys with Control, Alt or Windows held reach the
+client and also go on to the window, so shortcuts still work; a key that types with AltGr is the client's. The
+text is what the key types in the keyboard's layout; dead keys and input methods are not composed. The client's
+cursor shows over the surface: Windows has no hand for grabbing, so the open and closed hands show the move
+cursor, and hidden is a blank cursor. When the pointer leaves the window in one jump, WinUI reports the exit
+only when it next comes back in.
+
 ## The frame sink on Apple platforms
 
 `"kind": "sink"` gives a frame sink on macOS and iOS too, so a client that presents pixels (a Python or Node.js
@@ -112,7 +138,7 @@ briefly there for a free buffer; every frame is shown rather than merged.
 
 ## Consuming it
 
-`Package.swift` makes this a Swift package (macOS 14.6, iOS 17.6, and Linux). A host adds it as a dependency and
+`Package.swift` makes this a Swift package (macOS 14.6, iOS 17.6, Linux, and Windows). A host adds it as a dependency and
 links the `ActionUIHostSurface` product alongside ActionUI:
 
 ```swift
@@ -155,7 +181,7 @@ the checks of `actionUIHostSurfacePresentPixels`.
 
 ## Files
 
-- `Package.swift` - the package (Apple platforms and Linux).
+- `Package.swift` - the package (Apple platforms, Linux and Windows).
 - `Framework/project.yml` - the same sources as a static framework (macOS), for clients that link frameworks; `ActionUIRust/build_frameworks.sh` builds it for the Rust crates. A folder of its own, so that `xcodebuild` in this folder still finds the package.
 - `Sources/CActionUIHostSurface/include/ActionUIHostSurface.h` - the C interface. Its `module.modulemap` names the C module for SwiftPM and the framework build.
 - `Sources/ActionUIHostSurface/ActionUIHostSurface.swift` - registration, the Swift API, the C functions.
@@ -166,6 +192,12 @@ the checks of `actionUIHostSurfacePresentPixels`.
 - `Sources/ActionUIHostSurface/HostSurface+Adwaita.swift` - the element on Linux.
 - `Sources/ActionUIHostSurface/HostSurfaceView+Adwaita.swift` - the frame-sink widget and its lifecycle, Linux.
 - `Sources/ActionUIHostSurface/HostSurfaceSinks+Adwaita.swift` - presented frames on their way to the main thread, Linux.
+- `Sources/ActionUIHostSurface/HostSurface+WinUI.swift` - the element on Windows.
+- `Sources/ActionUIHostSurface/HostSurfaceView+WinUI.swift` - the frame-sink panel, its lifecycle and its cursor, Windows.
+- `Sources/ActionUIHostSurface/HostSurfaceView+WinUIInput.swift` - input and focus, Windows.
+- `Sources/ActionUIHostSurface/HostSurfaceInputMapping+WinUI.swift` - scan codes to W3C key names, Windows.
+- `Sources/ActionUIHostSurface/HostSurfaceSinks+WinUI.swift` - presented frames on their way to the main thread, Windows.
+- `Sources/ActionUIHostSurface/HostSurfaceClickCounter.swift` - click counts, Linux and Windows.
 - `Sources/ActionUIHostSurface/HostSurfaceRegistry.swift` - clients, surface views, live surfaces.
 - `Sources/ActionUIHostSurface/HostSurfaceProperties.swift` - the element's properties.
 - `Schemas/`, `Documentation/`, `Examples/` - verifier schema, element docs, an example document.

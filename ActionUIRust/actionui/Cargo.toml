@@ -12,7 +12,7 @@ repository.workspace = true
 # with its own renderer. macOS, Linux and Windows (and Android, as a client only).
 host-surface = ["actionui-sys/host-surface"]
 # actionui::host_surface::wgpu_surface: a wgpu surface on a HostSurface, and a device and frame
-# handling that work wherever the element does. Not on Windows yet (a compile error there).
+# handling that work wherever the element does.
 wgpu = ["host-surface", "dep:wgpu"]
 
 [dependencies]
@@ -25,6 +25,11 @@ wgpu = { version = "30", optional = true, default-features = false, features = [
 # On Android it is a native window: Vulkan, or OpenGL ES on devices without it.
 [target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
 wgpu = { version = "30", optional = true, default-features = false, features = ["vulkan", "gles", "wgsl"] }
+
+# On Windows the canvas renders offscreen too (a frame sink): Direct3D 12, on a GPU or on WARP, Windows' software
+# renderer (a VM, a CI runner).
+[target.'cfg(windows)'.dependencies]
+wgpu = { version = "30", optional = true, default-features = false, features = ["dx12", "wgsl"] }
 
 [dev-dependencies]
 pollster = "0.4"

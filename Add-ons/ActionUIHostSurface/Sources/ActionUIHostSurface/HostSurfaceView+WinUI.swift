@@ -25,9 +25,7 @@
 // "destroyed". Windows has no hand for grabbing, so the open and closed hands show the move cursor; hidden is a blank
 // cursor from the shim's resources.
 //
-// Pointer input (the mouse, touch, the pen, the wheel) is in HostSurfaceView+WinUIInput.swift.
-//
-// Not yet on Windows: keys and keyboard focus.
+// Input (the mouse, touch, the pen, the wheel, keys) and keyboard focus are in HostSurfaceView+WinUIInput.swift.
 
 #if os(Windows)
 
