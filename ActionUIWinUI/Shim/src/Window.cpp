@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdio>
 #include <functional>
+#include <limits>
 #include <map>
 #include <vector>
 
@@ -446,6 +447,55 @@ bool actionUIWinUIWindowSetContent(ActionUIWinUIObject *window, ActionUIWinUIObj
         }
         return true;
     });
+}
+
+bool actionUIWinUIWindowSetMenuBar(ActionUIWinUIObject *window, ActionUIWinUIObject *menuBar) {
+    return guarded("window set menu bar", [&]() {
+        // Checked before anything changes: a refused object leaves the window as it was.
+        muxc::MenuBar bar{nullptr};
+        if (menuBar != nullptr) {
+            bar = objectAs<muxc::MenuBar>(menuBar, L"MenuBar");
+        }
+        muxc::Grid host = windowHost(windowFrom(window));
+        if (bar == nullptr && host.RowDefinitions().Size() == 0) {
+            return true;  // never had a bar: the window's layout stays as it was
+        }
+        // The content area stays the host's first child (windowContentArea), in the second row; the bar,
+        // when there is one, is the second child, in the first row, which takes only the bar's height.
+        if (host.RowDefinitions().Size() == 0) {
+            muxc::RowDefinition barRow;
+            barRow.Height(mux::GridLength{0, mux::GridUnitType::Auto});
+            muxc::RowDefinition contentRow;
+            contentRow.Height(mux::GridLength{1, mux::GridUnitType::Star});
+            host.RowDefinitions().Append(barRow);
+            host.RowDefinitions().Append(contentRow);
+            muxc::Grid::SetRow(host.Children().GetAt(0).as<mux::FrameworkElement>(), 1);
+        }
+        while (host.Children().Size() > 1) {
+            host.Children().RemoveAt(host.Children().Size() - 1);
+        }
+        if (bar != nullptr) {
+            muxc::Grid::SetRow(bar, 0);
+            host.Children().Append(bar);
+        }
+        return true;
+    });
+}
+
+double actionUIWinUIWindowMenuBarHeight(ActionUIWinUIObject *window) {
+    double height = -1;
+    guarded("window menu bar height", [&]() {
+        muxc::Grid host = windowHost(windowFrom(window));
+        if (host.Children().Size() < 2) {
+            height = 0;
+            return true;
+        }
+        mux::UIElement bar = host.Children().GetAt(1);
+        bar.Measure(wf::Size{std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity()});
+        height = bar.DesiredSize().Height;
+        return true;
+    });
+    return height;
 }
 
 bool actionUIWinUIWindowRenderToPNG(ActionUIWinUIObject *window, const char *path, ActionUIWinUICompletion completion,

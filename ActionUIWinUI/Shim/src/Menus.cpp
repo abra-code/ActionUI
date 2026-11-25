@@ -1,5 +1,6 @@
 // Menus.cpp - a DropDownButton and its MenuFlyout for ActionUI's Menu: items, check items, radio items,
-// separators, submenus and headers, and the click that chooses an item.
+// separators, submenus and headers, and the click that chooses an item; and the MenuBar that shows the
+// application's menus across the top of a window.
 
 #include "ShimInternal.h"
 
@@ -9,7 +10,7 @@ using namespace actionui_winui;
 
 namespace {
 
-// The items of `menu`: a MenuFlyout's or a MenuFlyoutSubItem's.
+// The items of `menu`: a MenuFlyout's, a MenuFlyoutSubItem's or a MenuBarItem's.
 wf::Collections::IVector<muxc::MenuFlyoutItemBase> itemsOf(ActionUIWinUIObject *menu) {
     wf::IInspectable object = objectAs<wf::IInspectable>(menu, L"menu");
     if (muxc::MenuFlyout flyout = object.try_as<muxc::MenuFlyout>()) {
@@ -18,7 +19,10 @@ wf::Collections::IVector<muxc::MenuFlyoutItemBase> itemsOf(ActionUIWinUIObject *
     if (muxc::MenuFlyoutSubItem submenu = object.try_as<muxc::MenuFlyoutSubItem>()) {
         return submenu.Items();
     }
-    throw winrt::hresult_no_interface(L"the object is not a MenuFlyout or a MenuFlyoutSubItem");
+    if (muxc::MenuBarItem barMenu = object.try_as<muxc::MenuBarItem>()) {
+        return barMenu.Items();
+    }
+    throw winrt::hresult_no_interface(L"the object is not a MenuFlyout, a MenuFlyoutSubItem or a MenuBarItem");
 }
 
 } // namespace
@@ -142,6 +146,21 @@ ActionUIWinUIObject *actionUIWinUIMenuCopyItem(ActionUIWinUIObject *menu, int32_
             return nullptr;
         }
         return toObject(items.GetAt(static_cast<uint32_t>(index)));
+    });
+}
+
+ActionUIWinUIObject *actionUIWinUIMenuBarCreate(void) {
+    return guardedObject("menu bar create", []() {
+        return toObject(muxc::MenuBar());
+    });
+}
+
+ActionUIWinUIObject *actionUIWinUIMenuBarAppendMenu(ActionUIWinUIObject *menuBar, const char *title) {
+    return guardedObject("menu bar append menu", [&]() {
+        muxc::MenuBarItem menu;
+        menu.Title(title != nullptr ? toHString(title) : winrt::hstring{});
+        objectAs<muxc::MenuBar>(menuBar, L"MenuBar").Items().Append(menu);
+        return toObject(menu);
     });
 }
 

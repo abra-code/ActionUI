@@ -21,7 +21,8 @@
    gives a child it starts the endpoint (actionUIAppRemoteServerEndpoint) and a token of its own
    (actionUIAppRemoteMintToken). ActionUIRemote/PROTOCOL.md, "On Windows".
 
- Not yet on Windows (logged; NULL or false): the menu bar.
+ - actionUIAppLoadMenuBar's commands show in a menu bar across the top of every window (AppCommands on
+   WinUI): File, Edit, Format, View, each CommandMenu, Tools, Window and Help, each when it has items.
 */
 
 #if canImport(FoundationEssentials)
@@ -78,13 +79,6 @@ private func runOnMainActorSync(_ function: String = #function, _ operation: @Ma
         }
     } else {
         ConsoleLogger(maxLevel: .error).log("\(function): refused from a thread other than the main thread before actionUIAppRun", .error)
-    }
-}
-
-/// Logs that `function` is not available on Windows yet.
-private func notYet(_ function: String) {
-    runOnMainActorAsync {
-        ActionUIModel.shared.logger.log("\(function) is not available on Windows yet", .warning)
     }
 }
 
@@ -209,10 +203,13 @@ public func actionUIAppTerminate() {
     runOnMainActorAsync { WinUIApplication.shared.terminate() }
 }
 
-/// Not yet on Windows: the menu bar.
+/// Adds the CommandMenu and CommandGroup elements in `jsonString` (an array of them; NULL: none) to the
+/// menu bar every window shows (WinUIApplication.loadMenuBar). From any thread once the run has begun;
+/// before it, from the main thread.
 @c
 public func actionUIAppLoadMenuBar(_ jsonString: UnsafePointer<CChar>?) {
-    notYet("actionUIAppLoadMenuBar")
+    let json = jsonString.map { String(cString: $0) }
+    runOnMainActorSync { _ = WinUIApplication.shared.loadMenuBar(json: json) }
 }
 
 // MARK: - Windows

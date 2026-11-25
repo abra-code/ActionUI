@@ -401,6 +401,10 @@ bool actionUIWinUIElementSetKeyboardShortcut(ActionUIWinUIObject *element, int32
         accelerator.Key(static_cast<winrt::Windows::System::VirtualKey>(key));
         accelerator.Modifiers(static_cast<winrt::Windows::System::VirtualKeyModifiers>(modifiers));
         typed.KeyboardAccelerators().Append(accelerator);
+        // A menu item shows its shortcut beside its title already: no tooltip repeating it.
+        if (typed.try_as<muxc::MenuFlyoutItemBase>() != nullptr) {
+            typed.KeyboardAcceleratorPlacementMode(mux::Input::KeyboardAcceleratorPlacementMode::Hidden);
+        }
         return true;
     });
 }

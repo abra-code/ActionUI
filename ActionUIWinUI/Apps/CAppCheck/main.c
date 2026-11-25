@@ -56,6 +56,7 @@ static const IID automationInterface = {0x30cbe57d, 0xd9d0, 0x452a, {0xab, 0x13,
 static const IID invokeInterface = {0xfb377fbe, 0x8ea6, 0x46d5, {0x9c, 0x73, 0x64, 0x99, 0x64, 0x2d, 0x30, 0x59}};
 static const IID valueInterface = {0xa94cd8b1, 0x0844, 0x4cd6, {0x9d, 0x2d, 0x64, 0x05, 0x37, 0xab, 0x39, 0xe9}};
 static const IID textInterface = {0x32eba289, 0x3583, 0x42c9, {0x9c, 0x59, 0x3b, 0x6d, 0x9a, 0x1e, 0x9b, 0x6a}};
+static const IID expandCollapseInterface = {0x619be086, 0x1f4e, 0x4ee4, {0xba, 0xfa, 0x21, 0x01, 0x28, 0x73, 0x87, 0x30}};
 
 // What the answering thread did, and the name of the element that had the keyboard focus before it
 // answered (the default button, which Enter presses), read once the alert has returned.
@@ -597,6 +598,160 @@ static void checkFilePanels(void) {
                    "an open panel whose window closes answers NULL");
 }
 
+// MARK: - The menu bar
+
+// The commands the check loads: an item at newItem with a shortcut (File), and a CommandMenu with an item,
+// a divider and a submenu. Nothing at the Edit, Format, View, Tools or Window targets: those menus stay out.
+static const char *menuCommands =
+    "[{\"type\": \"CommandGroup\", \"properties\": {\"placement\": \"after\", \"placementTarget\": \"newItem\"}, \"children\": ["
+    "{\"type\": \"Button\", \"id\": 91, \"properties\": {\"title\": \"New Thing\", \"actionID\": \"menu.new\", "
+    "\"keyboardShortcut\": {\"key\": \"n\", \"modifiers\": [\"command\", \"shift\"]}}}]},"
+    "{\"type\": \"CommandMenu\", \"properties\": {\"name\": \"Shapes\"}, \"children\": ["
+    "{\"type\": \"Button\", \"id\": 92, \"properties\": {\"title\": \"Circle\", \"actionID\": \"menu.circle\"}},"
+    "{\"type\": \"Divider\"},"
+    "{\"type\": \"Menu\", \"properties\": {\"title\": \"More\"}, \"children\": ["
+    "{\"type\": \"Button\", \"id\": 93, \"properties\": {\"title\": \"Square\", \"actionID\": \"menu.square\"}}]}]}]";
+
+static int menuActions = 0;
+static char menuActionWindow[64] = "";
+static int64_t menuActionView = 0;
+static bool menuFileFound = false;
+static bool menuShapesFound = false;
+static bool menuHelpFound = false;
+static bool menuEditFound = false;
+static bool menuItemFound = false;
+static bool menuExitFound = false;
+static bool menuAboutFound = false;
+static wchar_t menuShortcut[64] = L"";
+static HRESULT menuInvoked = E_FAIL;
+
+static void onMenuAction(const char *actionID, const char *windowUUID, int64_t viewID, int64_t viewPartID,
+                         const char *contextJSON) {
+    (void)actionID; (void)viewPartID; (void)contextJSON;
+    menuActions += 1;
+    snprintf(menuActionWindow, sizeof menuActionWindow, "%s", windowUUID != NULL ? windowUUID : "");
+    menuActionView = viewID;
+}
+
+// Opens `menu` (a menu bar's menu: UI Automation's ExpandCollapse pattern), as an accessibility tool does.
+static HRESULT expandElement(IUIAutomationElement *menu) {
+    IUnknown *pattern = NULL;
+    IUIAutomationExpandCollapsePattern *expand = NULL;
+    HRESULT got = IUIAutomationElement_GetCurrentPattern(menu, UIA_ExpandCollapsePatternId, &pattern);
+    if (SUCCEEDED(got) && pattern != NULL) {
+        got = IUnknown_QueryInterface(pattern, &expandCollapseInterface, (void **)&expand);
+        IUnknown_Release(pattern);
+    }
+    if (FAILED(got) || expand == NULL) {
+        return FAILED(got) ? got : E_NOINTERFACE;
+    }
+    HRESULT expanded = IUIAutomationExpandCollapsePattern_Expand(expand);
+    IUIAutomationExpandCollapsePattern_Release(expand);
+    return expanded;
+}
+
+// Whether an element of this process named `name` with control type `type` is on screen within `tenths`
+// tenths of a second.
+static bool elementShows(IUIAutomation *automation, const wchar_t *name, CONTROLTYPEID type, int tenths) {
+    IUIAutomationElement *found = findElement(automation, NULL, UIA_NamePropertyId, name, type, tenths);
+    if (found != NULL) {
+        IUIAutomationElement_Release(found);
+    }
+    return found != NULL;
+}
+
+// Finds the menu bar's menus, opens File, reads its items and chooses "New Thing".
+static DWORD WINAPI useMenuBar(void *parameter) {
+    (void)parameter;
+    if (FAILED(CoInitializeEx(NULL, COINIT_MULTITHREADED))) {
+        return 1;
+    }
+    IUIAutomation *automation = NULL;
+    HRESULT made = CoCreateInstance(&automationClass, NULL, CLSCTX_INPROC_SERVER, &automationInterface, (void **)&automation);
+    if (FAILED(made) || automation == NULL) {
+        CoUninitialize();
+        return 1;
+    }
+    IUIAutomationElement *file = findElement(automation, NULL, UIA_NamePropertyId, L"File", UIA_MenuItemControlTypeId, 100);
+    menuFileFound = file != NULL;
+    menuShapesFound = elementShows(automation, L"Shapes", UIA_MenuItemControlTypeId, 20);
+    menuHelpFound = elementShows(automation, L"Help", UIA_MenuItemControlTypeId, 20);
+    menuEditFound = elementShows(automation, L"Edit", UIA_MenuItemControlTypeId, 5);
+    if (file != NULL && SUCCEEDED(expandElement(file))) {
+        IUIAutomationElement *item = findElement(automation, NULL, UIA_NamePropertyId, L"New Thing", UIA_MenuItemControlTypeId, 50);
+        menuItemFound = item != NULL;
+        menuExitFound = elementShows(automation, L"Exit", UIA_MenuItemControlTypeId, 20);
+        if (item != NULL) {
+            BSTR shortcut = NULL;
+            if (SUCCEEDED(IUIAutomationElement_get_CurrentAcceleratorKey(item, &shortcut)) && shortcut != NULL) {
+                swprintf(menuShortcut, sizeof menuShortcut / sizeof menuShortcut[0], L"%ls", shortcut);
+                SysFreeString(shortcut);
+            }
+            menuInvoked = invokeElement(item);
+            IUIAutomationElement_Release(item);
+        }
+    }
+    if (file != NULL) {
+        IUIAutomationElement_Release(file);
+    }
+    IUIAutomationElement *help = findElement(automation, NULL, UIA_NamePropertyId, L"Help", UIA_MenuItemControlTypeId, 20);
+    if (help != NULL) {
+        if (SUCCEEDED(expandElement(help))) {
+            menuAboutFound = elementShows(automation, L"About C app check", UIA_MenuItemControlTypeId, 50);
+            // Closes the open menu, as Escape does.
+            IUnknown *pattern = NULL;
+            IUIAutomationExpandCollapsePattern *collapse = NULL;
+            if (SUCCEEDED(IUIAutomationElement_GetCurrentPattern(help, UIA_ExpandCollapsePatternId, &pattern)) && pattern != NULL) {
+                if (SUCCEEDED(IUnknown_QueryInterface(pattern, &expandCollapseInterface, (void **)&collapse)) && collapse != NULL) {
+                    IUIAutomationExpandCollapsePattern_Collapse(collapse);
+                    IUIAutomationExpandCollapsePattern_Release(collapse);
+                }
+                IUnknown_Release(pattern);
+            }
+        }
+        IUIAutomationElement_Release(help);
+    }
+    IUIAutomation_Release(automation);
+    CoUninitialize();
+    return 0;
+}
+
+// The window's menu bar, from the commands loaded before it was presented: the menus with items show, the
+// others do not, an item shows its shortcut, and choosing it fires its action for this window.
+static void checkMenuBar(void) {
+    HANDLE thread = CreateThread(NULL, 0, useMenuBar, NULL, 0, NULL);
+    if (thread == NULL) {
+        check(false, "the menu bar thread started");
+        return;
+    }
+    bool ended = waitPumping(thread, 60000);
+    CloseHandle(thread);
+    if (!ended) {
+        check(false, "the menu bar thread finished");
+        return;
+    }
+    // The action runs on the UI thread: a moment for it.
+    for (int attempt = 0; attempt < 50 && menuActions == 0; attempt++) {
+        MSG message;
+        while (PeekMessageW(&message, NULL, 0, 0, PM_REMOVE) != FALSE) {
+            TranslateMessage(&message);
+            DispatchMessageW(&message);
+        }
+        Sleep(100);
+    }
+    printf("c-app: menu bar: File %d, Shapes %d, Help %d, Edit %d; New Thing %d (shortcut \"%ls\", invoked 0x%08lx), Exit %d, About %d\n",
+           menuFileFound, menuShapesFound, menuHelpFound, menuEditFound, menuItemFound, menuShortcut,
+           (unsigned long)menuInvoked, menuExitFound, menuAboutFound);
+    fflush(stdout);
+    check(menuFileFound && menuShapesFound && menuHelpFound, "the menu bar shows File, the CommandMenu and Help");
+    check(!menuEditFound, "a menu with no items (Edit) does not show");
+    check(menuItemFound && menuExitFound, "File holds the item placed at newItem, and Exit");
+    check(wcscmp(menuShortcut, L"Ctrl+Shift+N") == 0, "the item's shortcut is Ctrl+Shift+N");
+    check(menuAboutFound, "Help holds About with the application's name");
+    check(menuActions == 1 && strcmp(menuActionWindow, "json-window") == 0 && menuActionView == 91,
+          "choosing the item fires its action for its window, with its id");
+}
+
 static void onWillFinishLaunching(void) {
     willFinish += 1;
 }
@@ -691,6 +846,9 @@ static void onDidFinishLaunching(void) {
     checkAlert("{\"title\": \"No window\", \"message\": \"An alert before any window.\", "
                "\"buttons\": [\"OK\", \"Later\", \"Cancel\"]}",
                L"Later", "Later", "OK", "an alert with no window answers its second button");
+    // The commands before the window, so it opens with its menu bar.
+    check(actionUIRegisterActionHandler("menu.new", onMenuAction), "the menu item's action handler is registered");
+    actionUIAppLoadMenuBar(menuCommands);
     actionUIAppLoadAndPresentWindowFromJSON(
         "{\"type\": \"VStack\", \"id\": 1, \"properties\": {\"padding\": 16}, \"children\": ["
         "{\"type\": \"Text\", \"id\": 2, \"properties\": {\"text\": \"A window from JSON\"}},"
@@ -705,6 +863,7 @@ static void onDidFinishLaunching(void) {
         actionUIFreeString(value);
     }
     checkSecureField();
+    checkMenuBar();
     // Over the window just presented (shown once it has loaded); Cancel is the close button.
     checkAlert("{\"title\": \"Save changes?\", \"buttons\": [\"Save\", \"Don't Save\", \"Cancel\"]}",
                L"Cancel", "Cancel", "Save", "an alert over a window answers Cancel");

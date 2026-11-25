@@ -30,8 +30,14 @@
  - An alert or a file panel (AppPanels) opens over the active window, else the one presented last, and
    returns nil when that window closes under it or the application terminates.
 
+ - Commands the host loads (loadMenuBar) show in a menu bar across the top of every window, made for
+   each window (AppCommands on WinUI); a window presented after the load opens that much taller, so its
+   content keeps its size. Exit terminates (asking shouldTerminate), About shows the application's name
+   in an alert.
+
  Not yet: the become and resign active handlers are kept but not fired; the icon is kept but not
- shown; the menu bar; the remote server; window sizes are not limited to the screen.
+ shown; a window that is already open when commands are first loaded keeps its size, so its content
+ gives the bar its room; window sizes are not limited to the screen.
 */
 
 #if canImport(FoundationEssentials)
@@ -120,7 +126,42 @@ public final class WinUIApplication {
     /// Whether a run has begun in this process: WinUI's Application starts once.
     private var hasRun = false
 
-    private init() {}
+    private init() {
+        let commands = AppCommands.shared
+        commands.appName = { [weak self] in self?.name ?? ProcessInfo.processInfo.processName }
+        commands.exitHandler = { [weak self] in self?.terminate() }
+        commands.aboutHandler = { name in
+            // After the click has been handled: the alert waits for its answer. Posted to the UI thread's
+            // own queue, not DispatchQueue.main: inside a main-queue block libdispatch runs no other
+            // main-queue work (its drain does not re-enter), so main-actor work and other threads' calls
+            // would wait until the alert is answered.
+            let box = Unmanaged.passRetained(AboutRequest(name)).toOpaque()
+            if !actionUIWinUIPostDelayed(0, showAbout, box) {
+                Unmanaged<AboutRequest>.fromOpaque(box).release()
+                ActionUIModel.shared.logger.log("WinUIApplication: \(WinUIError.last("showing About"))", .error)
+            }
+        }
+        commands.changed = { [weak self] in self?.showMenuBars() }
+    }
+
+    // MARK: Commands
+
+    /// Adds the CommandMenu and CommandGroup elements in `json` (an array of them) to the menu bar every
+    /// window shows; nil only makes the bar show. False, logged, for JSON that is not such an array.
+    @discardableResult
+    public func loadMenuBar(json: String?) -> Bool {
+        AppCommands.shared.load(json: json)
+    }
+
+    /// Gives each window a menu bar made anew from the commands (AppCommands).
+    private func showMenuBars() {
+        for (windowUUID, shown) in windows {
+            let bar = AppCommands.shared.makeMenuBar(windowUUID: windowUUID)
+            if !actionUIWinUIWindowSetMenuBar(shown.window.pointer, bar?.pointer) {
+                ActionUIModel.shared.logger.log("WinUIApplication: \(WinUIError.last("showing the menu bar of \(windowUUID)"))", .error)
+            }
+        }
+    }
 
     // MARK: Running
 
@@ -318,11 +359,16 @@ public final class WinUIApplication {
             ActionUIModel.shared.removeWindow(windowUUID)
             return
         }
+        // The menu bar, when the host loaded commands, above the content: the window opens that much
+        // taller, so the content keeps its size.
+        let bar = AppCommands.shared.makeMenuBar(windowUUID: windowUUID)
         // Measured once the content is in the window, where the controls have their styles.
         guard actionUIWinUIWindowSetTitle(window.pointer, title ?? name ?? "ActionUI"),
               actionUIWinUIWindowSetContent(window.pointer, content.pointer),
+              actionUIWinUIWindowSetMenuBar(window.pointer, bar?.pointer),
               case let size = tree.openingSize(),
-              actionUIWinUIWindowSetContentSize(window.pointer, size.width, size.height) else {
+              case let barHeight = actionUIWinUIWindowMenuBarHeight(window.pointer), barHeight >= 0,
+              actionUIWinUIWindowSetContentSize(window.pointer, size.width, size.height + barHeight) else {
             logger.log("WinUIApplication: \(WinUIError.last("setting up the window for \(windowUUID)"))", .error)
             tree.detach()
             ActionUIModel.shared.removeWindow(windowUUID)
@@ -460,6 +506,27 @@ private let decideClose: ActionUIWinUIWindowCloseDecider = { context in
 private let releaseClose: ActionUIWinUICallback = { context in
     guard let context else { return }
     Unmanaged<CloseBox>.fromOpaque(context).release()
+}
+
+/// The name the About alert shows, held by the shim until the UI thread runs showAbout.
+@MainActor private final class AboutRequest {
+    let name: String
+
+    init(_ name: String) {
+        self.name = name
+    }
+}
+
+// The About item's alert: on the UI thread, once; gives back the box's reference.
+private let showAbout: ActionUIWinUICallback = { context in
+    guard let context else { return }
+    let address = UInt(bitPattern: context)
+    MainActor.assumeIsolated {
+        guard let pointer = UnsafeMutableRawPointer(bitPattern: address) else { return }
+        let name = Unmanaged<AboutRequest>.fromOpaque(pointer).takeRetainedValue().name
+        let request = (try? ActionUIJSON.string(from: ["title": "About \(name)", "message": name, "buttons": ["OK"]])) ?? "{}"
+        _ = AppPanels.runAlert(json: request)
+    }
 }
 
 /// savePNG's completion, held by the shim until the PNG is written.

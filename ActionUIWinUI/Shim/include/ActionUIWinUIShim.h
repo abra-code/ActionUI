@@ -263,9 +263,9 @@ typedef enum ActionUIWinUIMenuItemKind {
 ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIMenuButtonCreate(void);
 // The button's menu (a MenuFlyout), a new reference; NULL on failure.
 ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIMenuButtonCopyMenu(ActionUIWinUIObject *button);
-// Removes every item of `menu` (a menu or a submenu).
+// Removes every item of `menu` (a menu, a submenu or a menu bar's menu).
 ACTIONUI_WINUI_API bool actionUIWinUIMenuClear(ActionUIWinUIObject *menu);
-// Appends an item of `kind` to `menu` (a menu or a submenu) and returns it (a new reference): `title`
+// Appends an item of `kind` to `menu` (a menu, a submenu or a menu bar's menu) and returns it (a new reference): `title`
 // (UTF-8; unused for a separator), whether it can be chosen (`enabled`; a header never can), a check or
 // radio item's `checked`, and a radio item's `group` (the radio items of one group exclude each other).
 // NULL on failure.
@@ -280,6 +280,20 @@ ACTIONUI_WINUI_API bool actionUIWinUIMenuItemOnClick(ActionUIWinUIObject *item, 
                                                      ActionUIWinUICallback destroyContext);
 // The item at `index` (from 0) of `menu` (a menu or a submenu), a new reference; NULL when there is none.
 ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIMenuCopyItem(ActionUIWinUIObject *menu, int32_t index);
+
+// MARK: - MenuBar (the application's menus across the top of a window)
+
+// A new MenuBar with no menus. One bar shows in one window: each window gets its own. NULL on failure.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIMenuBarCreate(void);
+// Appends a top-level menu titled `title` (UTF-8; a MenuBarItem) and returns it, a new reference: a menu
+// actionUIWinUIMenuAppend fills. A menu item's keyboard shortcut (actionUIWinUIElementSetKeyboardShortcut)
+// works while its menu is closed, and the menu shows it beside the item's title. NULL on failure.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIMenuBarAppendMenu(ActionUIWinUIObject *menuBar, const char *title);
+// Shows `menuBar` across the top of `window`, above its content, replacing the one shown before; NULL
+// removes it. The content keeps the rest of the window.
+ACTIONUI_WINUI_API bool actionUIWinUIWindowSetMenuBar(ActionUIWinUIObject *window, ActionUIWinUIObject *menuBar);
+// The height `window`'s menu bar takes (effective pixels), 0 with none; -1 on failure.
+ACTIONUI_WINUI_API double actionUIWinUIWindowMenuBarHeight(ActionUIWinUIObject *window);
 
 // MARK: - HyperlinkButton (a Link)
 
