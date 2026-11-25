@@ -122,6 +122,15 @@ ACTIONUI_WINUI_API bool actionUIWinUIWindowSetResizable(ActionUIWinUIObject *win
 ACTIONUI_WINUI_API bool actionUIWinUIWindowSetContent(ActionUIWinUIObject *window, ActionUIWinUIObject *element);
 // Shows the window and brings it to the front.
 ACTIONUI_WINUI_API bool actionUIWinUIWindowActivate(ActionUIWinUIObject *window);
+// Moves a window not shown yet past every monitor's edge and keeps it out of the taskbar and Alt+Tab,
+// for a window drawn where the user never sees it. Before its content size is set: that is in the
+// pixels of the monitor nearest the window's place.
+ACTIONUI_WINUI_API bool actionUIWinUIWindowPlaceOffscreen(ActionUIWinUIObject *window);
+// Shows the window without activating it: the focus stays where it is.
+ACTIONUI_WINUI_API bool actionUIWinUIWindowShowInactive(ActionUIWinUIObject *window);
+// Whether the window's content, as laid out now, holds a WebView2, whose page its PNG (the render calls)
+// does not draw. Sets no error; false on failure.
+ACTIONUI_WINUI_API bool actionUIWinUIWindowHoldsWebView(ActionUIWinUIObject *window);
 // Whether the window is the active one of the UI thread (the one the user works in, when the application
 // is in front). Sets no error; false on failure.
 ACTIONUI_WINUI_API bool actionUIWinUIWindowIsActive(ActionUIWinUIObject *window);

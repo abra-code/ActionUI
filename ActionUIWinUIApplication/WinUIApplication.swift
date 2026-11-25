@@ -24,6 +24,8 @@
    keeps the window open), then ends the application; the host closing it (closeWindow) does not, so a host can close one window before
    opening the next, as on Apple and Linux. Presenting a window
    again under the same UUID replaces it, with no windowWillClose, as on Linux.
+ - renderOffscreen builds a prepared window as presentWindow(prepared:) does and draws it where the user
+   never sees it (OffscreenWindow).
  - terminate() asks shouldTerminate, then closes every window (each firing windowWillClose) and ends
    the run; willTerminate fires as the run ends.
 
@@ -126,7 +128,7 @@ public final class WinUIApplication {
         public let error: String?
         /// The error `error` says, shown in the window as a load error is (not its text again).
         fileprivate let failure: (any Error)?
-        fileprivate var isUsed = false
+        var isUsed = false
 
         fileprivate init(windowUUID: String, error: String?, failure: (any Error)?) {
             self.windowUUID = windowUUID
@@ -667,7 +669,7 @@ private let showAbout: ActionUIWinUICallback = { context in
 }
 
 /// savePNG's completion, held by the shim until the PNG is written.
-@MainActor private final class PNGCompletion {
+@MainActor final class PNGCompletion {
     let completion: @MainActor (Bool) -> Void
 
     init(_ completion: @escaping @MainActor (Bool) -> Void) {
@@ -676,7 +678,7 @@ private let showAbout: ActionUIWinUICallback = { context in
 }
 
 // The shim's completion: on the UI thread, once; gives back the box's reference.
-private let pngRendered: ActionUIWinUICompletion = { context, succeeded in
+let pngRendered: ActionUIWinUICompletion = { context, succeeded in
     guard let context else { return }
     let address = UInt(bitPattern: context)
     MainActor.assumeIsolated {

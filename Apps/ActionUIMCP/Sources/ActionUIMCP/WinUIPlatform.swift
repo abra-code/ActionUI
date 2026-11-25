@@ -7,8 +7,7 @@
 // WinUIPlatform.swift - the windows on Windows, through ActionUI's WinUI application. A window's subtitle
 // (the provenance line) shows before its title in the title bar, which has one line and cuts a long one at
 // its end: the agent's title can neither push it out of view nor come first. Not yet on Windows:
-// windows kept after the session, rendering without showing a window, and notices; each answers that it
-// is not available here.
+// windows kept after the session, and notices; each answers that it is not available here.
 
 #if os(Windows)
 import FoundationEssentials
@@ -128,8 +127,44 @@ final class WinUIPlatform: WindowPlatform {
         return (number(16), number(20))
     }
 
+    /// In a window shown without activation past every monitor's edge, out of the taskbar
+    /// (OffscreenWindow): the focus stays with the user. The tree is built here, so what the renderers log
+    /// is captured here, as `present` does for a shown window. Titled "Preview", as on macOS.
     func renderOffscreen(_ content: Content, size: ContentSize?, delay: Double) async throws -> (image: CapturedImage, warnings: [String]) {
-        throw MCPToolError("rendering ActionUI JSON without showing it is not available on Windows yet; open it with show_ui and screenshot that window")
+        var options = WinUIApplication.WindowOptions()
+        if let size {
+            options.contentSize = (Int(size.width), Int(size.height))
+        }
+        let built: (result: WinUIApplication.OffscreenWindow?, entries: [HostLogger.Entry])
+        if let logger = host?.logger {
+            built = logger.capture { application.renderOffscreen(prepared: content, title: "Preview", options: options) }
+        } else {
+            built = (application.renderOffscreen(prepared: content, title: "Preview", options: options), [])
+        }
+        var warnings = built.entries.filter { $0.level == .warning || $0.level == .error }.map(\.message)
+        guard let render = built.result else {
+            throw MCPToolError("the ActionUI JSON could not be rendered" + (warnings.isEmpty ? "" : ":\n" + warnings.prefix(20).joined(separator: "\n")))
+        }
+        defer { render.close() }
+        try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+        if render.showsWebView {
+            warnings.append("A WebView's page is not drawn in a screenshot on Windows, of rendered ActionUI JSON or of a window; a shown window shows it to the user")
+        }
+        let file = HostSupport.sessionFolder.appendingPathComponent("render-\(UUID().uuidString).png")
+        defer { try? FileManager.default.removeItem(at: file) }
+        // A window shown a moment ago may not be drawn yet: tried again for up to two seconds.
+        for _ in 0..<40 {
+            let written: Bool = await withCheckedContinuation { continuation in
+                render.capturePNG(path: file.path, maxPixels: WindowHost.maxScreenshotPixels) {
+                    continuation.resume(returning: $0)
+                }
+            }
+            if written, let png = try? Data(contentsOf: file), let size = Self.pngSize(png) {
+                return (CapturedImage(png: png, pixelWidth: size.width, pixelHeight: size.height), warnings)
+            }
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
+        throw MCPToolError("the ActionUI JSON was not drawn in time to be captured")
     }
 
     func showNotice(title: String?, message: String, subtitle: String, duration: Double) async throws {

@@ -549,6 +549,49 @@ bool actionUIWinUIWindowActivate(ActionUIWinUIObject *window) {
     });
 }
 
+bool actionUIWinUIWindowPlaceOffscreen(ActionUIWinUIObject *window) {
+    return guarded("window place offscreen", [&]() {
+        winrt::Microsoft::UI::Windowing::AppWindow appWindow = windowFrom(window).AppWindow();
+        appWindow.IsShownInSwitchers(false);
+        // Past the right and bottom edges of the rectangle around all monitors.
+        int32_t right = GetSystemMetrics(SM_XVIRTUALSCREEN) + GetSystemMetrics(SM_CXVIRTUALSCREEN);
+        int32_t bottom = GetSystemMetrics(SM_YVIRTUALSCREEN) + GetSystemMetrics(SM_CYVIRTUALSCREEN);
+        appWindow.Move(winrt::Windows::Graphics::PointInt32{right + 100, bottom + 100});
+        return true;
+    });
+}
+
+bool actionUIWinUIWindowShowInactive(ActionUIWinUIObject *window) {
+    return guarded("window show inactive", [&]() {
+        windowFrom(window).AppWindow().Show(false);
+        return true;
+    });
+}
+
+bool actionUIWinUIWindowHoldsWebView(ActionUIWinUIObject *window) {
+    try {
+        // From the content as it is: windowHost would install a host in a window that has none.
+        mux::UIElement content = windowFrom(window).Content();
+        if (content == nullptr) {
+            return false;
+        }
+        std::vector<mux::DependencyObject> pending{content};
+        while (!pending.empty()) {
+            mux::DependencyObject current = pending.back();
+            pending.pop_back();
+            if (winrt::get_class_name(current) == L"Microsoft.UI.Xaml.Controls.WebView2") {
+                return true;
+            }
+            int32_t count = mux::Media::VisualTreeHelper::GetChildrenCount(current);
+            for (int32_t index = 0; index < count; ++index) {
+                pending.push_back(mux::Media::VisualTreeHelper::GetChild(current, index));
+            }
+        }
+    } catch (...) {
+    }
+    return false;
+}
+
 bool actionUIWinUIWindowIsActive(ActionUIWinUIObject *window) {
     try {
         HWND hwnd = nullptr;
