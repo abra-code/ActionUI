@@ -26,9 +26,15 @@ JSON schema and usage documentation for `CachedImage` (ActionUICachedImage add-o
 // add-on (registered via ActionUICachedImage.register()):
 //   macOS / iOS / visionOS - AsyncImageCache.CachedImage (a SwiftUI View; AsyncImageCache's platforms).
 //   Linux - a widget of the add-on over AsyncImageCache's ImageStore, with the same box and placeholder; its rounded corners are circular, not continuous.
+//   Windows - a WinUI element of the add-on over the same ImageStore, with the same box and placeholder; WinUI
+//             decodes the image itself, at the width the store asks for.
 // Bytes are fetched / decoded / downscaled OFF the main thread and served from a two-tier (memory +
 // on-disk) cache; the natural pixel size is known up front (persisted as a file extended attribute) so
 // layout reserves the exact box with no reflow on hydration, even across relaunch.
+//
+// Memory: without "maxPixelWidth" the image is decoded at its full size on every platform, however small its
+// box: a 4000 x 3000 photo holds about 46 MB of pixels while it is shown. For thumbnails and lists, give
+// "maxPixelWidth" near the box's width times the display scale (a 120-point box on a 2x display: 240).
 //
 // Observable state (via getElementValue / setElementValue):
 //   value (String)   Current image URL string. Write a new URL to load a different image; "" or nil

@@ -75,7 +75,8 @@ let package = Package(
     dependencies: [
         .package(path: "../.."),   // the ActionUI package at the repo root
         // 0.2.7 is its first version with the Windows engine (WIC, WinHTTP, and a WinUI image source shared by every
-        // element that shows the image).
+        // element that shows the image). 0.2.8 changes Windows only (WinUI decodes an image without corners itself,
+        // keeping one copy of its pixels instead of two); the Windows build pins it in its Package.resolved.
         .package(url: "https://github.com/abra-code/AsyncImageCache", from: "0.2.7"),
     ],
     targets: [

@@ -11,8 +11,9 @@
  - The image draws in the box, "fill" covering it and "fit" inside it, clipped to the box's rounded corners
    ("cornerRadius", here on the box: the renderer's own clip of the element is the same shape, or rounds only the
    empty space around a box fitted in a taller slot).
- The image is the store's PlatformImage.imageSource, a WinUI SoftwareBitmapSource the store made once and every element
- showing that image shares: its pixels are in memory once.
+ The image is the store's PlatformImage.imageSource, a WinUI image source the store made once and every element showing
+ that image shares (a BitmapImage WinUI decodes at the width the store asks for, since AsyncImageCache 0.2.8): its
+ pixels are in memory once. The store is asked for no corners; this element rounds them with its box.
 
  Built only from ActionUI's interface for add-ons (ActionUIWinUIElement, RenderNode) and the shim's C functions
  (CWinUI): a panel with its own layout, a rounded box, an Image.
