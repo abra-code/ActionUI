@@ -5,7 +5,8 @@
 // https://polyformproject.org/licenses/small-business/1.0.0
 
 // AdwaitaPlatform.swift - the windows on Linux, through ActionUI's GTK application. The runtime sizes
-// each window and shows the provenance line in it. A window takes the keyboard focus when it opens,
+// each window and shows the provenance line in it; this layer adds the mark under the header bar and
+// the bottom bar of `show` windows. A window takes the keyboard focus when it opens,
 // whatever `activate` says: Wayland has no request to leave the focus where it was.
 
 #if os(Linux)
@@ -110,8 +111,19 @@ final class AdwaitaPlatform: WindowPlatform {
         case .fixed(let size):
             options.contentSize = (Int(size.width), Int(size.height))
         }
+        Self.addChrome(to: &options, mark: mark, footer: footer, windowID: windowID)
         titles[windowID] = title
         application.presentWindow(prepared: content, title: title, options: options)
+    }
+
+    /// The yellow and black mark under the header bar, and for a `show` window its bottom bar
+    /// (AdwaitaPlatform+HazardStrip.swift, AdwaitaPlatform+ShowFooter.swift), as on macOS. They add
+    /// their height to the window's, not to its content's.
+    static func addChrome(to options: inout AdwaitaApplication.WindowOptions, mark: WindowMark, footer: ShowFooter?, windowID: String) {
+        options.topBar = { LinuxWindowMark.widget(mark) }
+        if let footer {
+            options.bottomBar = { LinuxShowFooter.widget(footer, windowID: windowID) }
+        }
     }
 
     func close(_ windowID: String) {

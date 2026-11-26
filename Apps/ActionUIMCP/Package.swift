@@ -164,6 +164,8 @@ Package(
                 "MCPStdio",
                 .product(name: "ActionUIStatic", package: "ActionUI"),
                 .product(name: "ActionUIAdwaitaApplication", package: "ActionUI"),
+                // GTK, for the mark under the header bar and the bottom bar of show windows.
+                .product(name: "CAdwaita", package: "ActionUI"),
                 .product(name: "ActionUISwiftAdapter", package: "ActionUI"),
                 .product(name: "ActionUIVerifier", package: "ActionUI"),
                 .product(name: "ActionUICachedImage", package: "ActionUICachedImage"),

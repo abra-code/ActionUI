@@ -350,6 +350,20 @@ struct ShowFooter: Codable, Sendable {
     let url: String?
     /// What the Save button writes; nil when there is none (content from the network).
     let save: ShowSave?
+
+    /// The source as the bar shows it. A line break in a file name would make the label taller
+    /// than the bar and draw it over the content, and a direction override (U+202A-202E,
+    /// U+2066-2069) could make "x<RLO>txt.app" read as a text file: these show as "?", as ls
+    /// shows control characters.
+    static func shownSource(_ source: String) -> String {
+        String(String.UnicodeScalarView(source.unicodeScalars.map { scalar in
+            if (0x202A...0x202E).contains(scalar.value) || (0x2066...0x2069).contains(scalar.value) { return "?" }
+            switch scalar.properties.generalCategory {
+            case .control, .lineSeparator, .paragraphSeparator: return "?"
+            default: return scalar
+            }
+        }))
+    }
 }
 
 struct ViewerSpec {

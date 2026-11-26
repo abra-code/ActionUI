@@ -13,6 +13,7 @@ import FoundationEssentials
 #else
 import Foundation
 #endif
+import ActionUISwiftAdapter
 import DiffView
 import MCPStdio
 
@@ -77,6 +78,37 @@ struct ShowSave: Codable, Sendable, Equatable {
     }
 
     // MARK: Writers
+
+    /// What Save writes for `content` in the window `windowID`, but a file, which each platform
+    /// copies itself (nil then): the text as UTF-8, the table's rows as they are now as CSV, the
+    /// chart as `chartPNG` draws it, the diff as a unified diff of its two sides as they are now.
+    @MainActor static func bytes(of content: Content, windowID: String, chartPNG: () throws -> Data) throws -> Data? {
+        switch content {
+        case .file:
+            return nil
+        case .text(let text):
+            return Data(text.utf8)
+        case .table(let columns):
+            // Nil when the window is gone (on Linux the save panel can outlive it): saying so beats a CSV of headers alone.
+            guard let rows = ActionUISwift.getElementRows(windowUUID: windowID, viewID: ViewerSpec.tableViewID) else {
+                throw MCPToolError("the window was closed, so its table is gone")
+            }
+            return Data(csv(columns: columns, rows: rows).utf8)
+        case .chart:
+            return try chartPNG()
+        case .diff(let old, let new):
+            let oldText = try text(of: old), newText = try text(of: new)
+            let diff = try unifiedDiff(oldText: oldText, newText: newText, oldName: old.path ?? "old", newName: new.path ?? "new")
+            return Data(diff.utf8)
+        }
+    }
+
+    /// One side of a diff: its text, else its file read now.
+    private static func text(of side: DiffSideSource) throws -> String {
+        if let text = side.text { return text }
+        guard let path = side.path else { return "" }
+        return try String(contentsOfFile: path, encoding: .utf8)
+    }
 
     /// Rows as CSV (RFC 4180): fields with a comma, quote or line break are quoted, quotes doubled,
     /// lines end with CRLF.
