@@ -128,9 +128,6 @@ ACTIONUI_WINUI_API bool actionUIWinUIWindowActivate(ActionUIWinUIObject *window)
 ACTIONUI_WINUI_API bool actionUIWinUIWindowPlaceOffscreen(ActionUIWinUIObject *window);
 // Shows the window without activating it: the focus stays where it is.
 ACTIONUI_WINUI_API bool actionUIWinUIWindowShowInactive(ActionUIWinUIObject *window);
-// Whether the window's content, as laid out now, holds a WebView2, whose page its PNG (the render calls)
-// does not draw. Sets no error; false on failure.
-ACTIONUI_WINUI_API bool actionUIWinUIWindowHoldsWebView(ActionUIWinUIObject *window);
 // The size of the window's content area (below its menu bar, if any) in effective pixels, as laid out
 // now: 0 by 0 before the window is first laid out.
 ACTIONUI_WINUI_API bool actionUIWinUIWindowContentSize(ActionUIWinUIObject *window, double *width, double *height);

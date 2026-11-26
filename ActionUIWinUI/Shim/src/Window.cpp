@@ -25,6 +25,7 @@
 #include <winrt/Windows.Graphics.Imaging.h>
 #include <winrt/Windows.Storage.Streams.h>
 #include <winrt/Microsoft.UI.Xaml.Media.Imaging.h>
+#include <winrt/Microsoft.Web.WebView2.Core.h>
 
 namespace actionui_winui {
 
@@ -175,6 +176,150 @@ winrt::Windows::Foundation::IAsyncAction drawPopups(mux::UIElement element, std:
     }
 }
 
+// The part of `element` in which `view` is seen, in `element`'s effective pixels: the view's bounds cut by
+// each scroll viewport (a ScrollViewer's content presenter) and rectangular clip between it and `element`.
+// The page is drawn there only, as the WebView's own pixels would be.
+wf::Rect visibleBounds(muxc::WebView2 const &view, mux::UIElement const &element) {
+    auto size = view.ActualSize();
+    wf::Rect bounds = view.TransformToVisual(element).TransformBounds(wf::Rect{0, 0, size.x, size.y});
+    double left = bounds.X;
+    double top = bounds.Y;
+    double right = bounds.X + bounds.Width;
+    double bottom = bounds.Y + bounds.Height;
+    mux::DependencyObject stop = element;
+    mux::DependencyObject current = mux::Media::VisualTreeHelper::GetParent(view);
+    while (current != nullptr && current != stop) {
+        mux::UIElement ancestor = current.try_as<mux::UIElement>();
+        if (ancestor != nullptr) {
+            mux::Media::RectangleGeometry clip = ancestor.Clip();
+            bool cuts = false;
+            wf::Rect cut{};
+            if (current.try_as<muxc::ScrollContentPresenter>() != nullptr) {
+                auto viewport = ancestor.ActualSize();
+                cut = wf::Rect{0, 0, viewport.x, viewport.y};
+                cuts = true;
+            } else if (clip != nullptr) {
+                cut = clip.Rect();
+                cuts = true;
+            }
+            if (cuts) {
+                wf::Rect within = ancestor.TransformToVisual(element).TransformBounds(cut);
+                left = std::max<double>(left, within.X);
+                top = std::max<double>(top, within.Y);
+                right = std::min<double>(right, within.X + within.Width);
+                bottom = std::min<double>(bottom, within.Y + within.Height);
+            }
+        }
+        current = mux::Media::VisualTreeHelper::GetParent(current);
+    }
+    if (!(right > left && bottom > top)) {
+        return wf::Rect{0, 0, 0, 0};
+    }
+    return wf::Rect{static_cast<float>(left), static_cast<float>(top), static_cast<float>(right - left),
+                    static_cast<float>(bottom - top)};
+}
+
+// Draws the page of each WebView2 under `element` over `bgra`, the rendering of `element` at `scale` pixels
+// per effective pixel, at its place: RenderTargetBitmap leaves a WebView2 blank, as its page is drawn by the
+// browser's own process, outside the XAML tree. Each page comes from CoreWebView2.CapturePreviewAsync (what
+// the WebView shows now), scaled to the WebView's size. A WebView with no page yet, one that cannot be
+// captured, or one whose capture has not come within two seconds (the browser does not draw a page it does
+// not show, as in a minimized window, and its capture may never come), is left as it is.
+winrt::Windows::Foundation::IAsyncAction drawWebViews(mux::UIElement element, std::vector<uint8_t> &bgra, uint32_t width,
+                                                      uint32_t height, double scale) {
+    namespace webcore = winrt::Microsoft::Web::WebView2::Core;
+    std::vector<muxc::WebView2> views;
+    std::vector<mux::DependencyObject> pending{element};
+    while (!pending.empty()) {
+        mux::DependencyObject current = pending.back();
+        pending.pop_back();
+        // Nothing under a collapsed element shows (and a hidden WebView's capture may never come).
+        mux::UIElement shown = current.try_as<mux::UIElement>();
+        if (shown != nullptr && shown.Visibility() != mux::Visibility::Visible) {
+            continue;
+        }
+        if (muxc::WebView2 view = current.try_as<muxc::WebView2>()) {
+            views.push_back(view);
+            continue;
+        }
+        int32_t count = mux::Media::VisualTreeHelper::GetChildrenCount(current);
+        for (int32_t index = 0; index < count; ++index) {
+            pending.push_back(mux::Media::VisualTreeHelper::GetChild(current, index));
+        }
+    }
+    winrt::apartment_context uiThread;
+    for (muxc::WebView2 const &view : views) {
+        try {
+            webcore::CoreWebView2 core = view.CoreWebView2();
+            auto size = view.ActualSize();
+            if (core == nullptr || !(size.x > 0 && size.y > 0)) {
+                continue;
+            }
+            // Where the view is now, as in the rendering just taken; in pixels of `bgra`, the visible part
+            // cut to the image.
+            wf::Point origin = view.TransformToVisual(element).TransformPoint(wf::Point{0, 0});
+            int64_t left = std::llround(origin.X * scale);
+            int64_t top = std::llround(origin.Y * scale);
+            wf::Rect visible = visibleBounds(view, element);
+            int64_t fromColumn = std::max<int64_t>(0, std::llround(visible.X * scale));
+            int64_t fromRow = std::max<int64_t>(0, std::llround(visible.Y * scale));
+            int64_t toColumn = std::min<int64_t>(width, std::llround((visible.X + visible.Width) * scale));
+            int64_t toRow = std::min<int64_t>(height, std::llround((visible.Y + visible.Height) * scale));
+            if (toColumn <= fromColumn || toRow <= fromRow) {
+                continue;
+            }
+            streams::InMemoryRandomAccessStream captured;
+            wf::IAsyncAction capture =
+                core.CapturePreviewAsync(webcore::CoreWebView2CapturePreviewImageFormat::Png, captured);
+            auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+            while (capture.Status() == wf::AsyncStatus::Started && std::chrono::steady_clock::now() < deadline) {
+                co_await winrt::resume_after(std::chrono::milliseconds(20));
+                co_await uiThread;
+            }
+            if (capture.Status() == wf::AsyncStatus::Started) {
+                continue;
+            }
+            // Throws the capture's error, if it failed.
+            capture.GetResults();
+            captured.Seek(0);
+            imaging::BitmapDecoder decoder = co_await imaging::BitmapDecoder::CreateAsync(captured);
+            uint32_t pageWidth = static_cast<uint32_t>(std::max<int64_t>(1, std::llround(size.x * scale)));
+            uint32_t pageHeight = static_cast<uint32_t>(std::max<int64_t>(1, std::llround(size.y * scale)));
+            imaging::BitmapTransform transform;
+            transform.ScaledWidth(pageWidth);
+            transform.ScaledHeight(pageHeight);
+            transform.InterpolationMode(imaging::BitmapInterpolationMode::Fant);
+            imaging::PixelDataProvider data = co_await decoder.GetPixelDataAsync(
+                imaging::BitmapPixelFormat::Bgra8, imaging::BitmapAlphaMode::Premultiplied, transform,
+                imaging::ExifOrientationMode::IgnoreExifOrientation, imaging::ColorManagementMode::DoNotColorManage);
+            winrt::com_array<uint8_t> pixels = data.DetachPixelData();
+            if (pixels.size() < static_cast<size_t>(pageWidth) * pageHeight * 4) {
+                continue;
+            }
+            // Premultiplied BGRA: the page over what is under it, where the view is seen.
+            for (uint32_t y = 0; y < pageHeight; ++y) {
+                int64_t row = top + y;
+                if (row < fromRow || row >= toRow) {
+                    continue;
+                }
+                for (uint32_t x = 0; x < pageWidth; ++x) {
+                    int64_t column = left + x;
+                    if (column < fromColumn || column >= toColumn) {
+                        continue;
+                    }
+                    uint8_t const *from = pixels.data() + (static_cast<size_t>(y) * pageWidth + x) * 4;
+                    uint8_t *to = bgra.data() + (static_cast<size_t>(row) * width + static_cast<size_t>(column)) * 4;
+                    uint32_t keep = 255u - from[3];
+                    for (int channel = 0; channel < 4; ++channel) {
+                        to[channel] = static_cast<uint8_t>(from[channel] + (to[channel] * keep + 127u) / 255u);
+                    }
+                }
+            }
+        } catch (winrt::hresult_error const &) {
+        }
+    }
+}
+
 winrt::fire_and_forget renderToPNG(mux::UIElement element, std::wstring path, ActionUIWinUICompletion completion,
                                    void *context, bool withPopups, uint32_t maxPixels) {
     bool succeeded = false;
@@ -190,7 +335,10 @@ winrt::fire_and_forget renderToPNG(mux::UIElement element, std::wstring path, Ac
         std::vector<uint8_t> bgra(pixels.data(), pixels.data() + pixels.Length());
         if (withPopups && bgra.size() >= static_cast<size_t>(width) * height * 4) {
             float elementWidth = element.ActualSize().x;
-            co_await drawPopups(element, bgra, width, height, elementWidth > 0 ? width / elementWidth : 1.0);
+            double scale = elementWidth > 0 ? width / elementWidth : 1.0;
+            // The pages first: a popup shows over them.
+            co_await drawWebViews(element, bgra, width, height, scale);
+            co_await drawPopups(element, bgra, width, height, scale);
         }
         double dpi = 96.0;
         mux::XamlRoot root = element.XamlRoot();
@@ -566,30 +714,6 @@ bool actionUIWinUIWindowShowInactive(ActionUIWinUIObject *window) {
         windowFrom(window).AppWindow().Show(false);
         return true;
     });
-}
-
-bool actionUIWinUIWindowHoldsWebView(ActionUIWinUIObject *window) {
-    try {
-        // From the content as it is: windowHost would install a host in a window that has none.
-        mux::UIElement content = windowFrom(window).Content();
-        if (content == nullptr) {
-            return false;
-        }
-        std::vector<mux::DependencyObject> pending{content};
-        while (!pending.empty()) {
-            mux::DependencyObject current = pending.back();
-            pending.pop_back();
-            if (winrt::get_class_name(current) == L"Microsoft.UI.Xaml.Controls.WebView2") {
-                return true;
-            }
-            int32_t count = mux::Media::VisualTreeHelper::GetChildrenCount(current);
-            for (int32_t index = 0; index < count; ++index) {
-                pending.push_back(mux::Media::VisualTreeHelper::GetChild(current, index));
-            }
-        }
-    } catch (...) {
-    }
-    return false;
 }
 
 bool actionUIWinUIWindowContentSize(ActionUIWinUIObject *window, double *width, double *height) {

@@ -148,15 +148,12 @@ final class WinUIPlatform: WindowPlatform {
         } else {
             built = (application.renderOffscreen(prepared: content, title: "Preview", options: options), [])
         }
-        var warnings = built.entries.filter { $0.level == .warning || $0.level == .error }.map(\.message)
+        let warnings = built.entries.filter { $0.level == .warning || $0.level == .error }.map(\.message)
         guard let render = built.result else {
             throw MCPToolError("the ActionUI JSON could not be rendered" + (warnings.isEmpty ? "" : ":\n" + warnings.prefix(20).joined(separator: "\n")))
         }
         defer { render.close() }
         try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
-        if render.showsWebView {
-            warnings.append("A WebView's page is not drawn in a screenshot on Windows, of rendered ActionUI JSON or of a window; a shown window shows it to the user")
-        }
         let file = HostSupport.sessionFolder.appendingPathComponent("render-\(UUID().uuidString).png")
         defer { try? FileManager.default.removeItem(at: file) }
         // A window shown a moment ago may not be drawn yet: tried again for up to two seconds.

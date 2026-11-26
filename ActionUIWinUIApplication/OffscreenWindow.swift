@@ -8,8 +8,8 @@
  - It is built as presentWindow(prepared:) builds a window, at the same size, without the menu bar:
    the JSON's commands do not join the application's menus. Windows keeps a window no larger than about
    the screen, so a larger size asked for is cut to that, as on Linux.
- - A WebView's page is not drawn (WebView2 draws outside the window's XAML content, which a capture of a
-   shown window misses as well); showsWebView says when one is there.
+ - A WebView's page is drawn as a shown window's capture draws it (the shim adds each page from the
+   WebView's own capture).
  - It is not among the application's windows: no windowWillClose, and its closing never ends the
    application. Its model stays the host's to remove, as for a prepared window.
 */
@@ -48,12 +48,6 @@ extension WinUIApplication {
                 Unmanaged<PNGCompletion>.fromOpaque(box).release()
                 completion(false)
             }
-        }
-
-        /// Whether the window holds a WebView, whose page a capture does not draw. Among the elements laid
-        /// out now: not one in a list row not made yet.
-        public var showsWebView: Bool {
-            !isClosed && actionUIWinUIWindowHoldsWebView(window.pointer)
         }
 
         /// Takes the window down: its nodes leave the tree, as for a closed window. A capture after it

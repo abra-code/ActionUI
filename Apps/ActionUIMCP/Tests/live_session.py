@@ -557,8 +557,8 @@ check("screenshot of an unknown window is an error", is_error(s.response(58)))
 s.call(59, "screenshot", {"ui": {"type": "VStack", "properties": {"spacing": "16"}}})
 check("screenshot refuses ActionUI JSON with errors", is_error(s.response(59)))
 # Rendered ActionUI JSON is drawn at the size asked for, title bar included (on Windows without one: a
-# capture there is of the content). On Linux and Windows a WebView's page is not drawn there, and the
-# result says so; on macOS it is, and nothing is said.
+# capture there is of the content). On Linux a WebView's page is not drawn there, and the result says so;
+# on macOS and Windows it is, and nothing is said.
 s.call(1470, "screenshot", {"ui": {"type": "VStack", "children": [
     {"type": "Text", "properties": {"text": "Above"}},
     {"type": "WebView", "properties": {"html": "<p>Page</p>", "frame": {"width": 300, "height": 120}}}]},
@@ -569,7 +569,7 @@ check("screenshot renders a WebView's ActionUI JSON and says what it leaves out"
       info.get("width", 0) > 0
       and (abs(info.get("height", 0) - info.get("width", 0) * 260 / 400) <= 2 if WINDOWS
            else info.get("height", 0) > info.get("width", 0) * 260 / 400)
-      and web_warned == (not MACOS), info)
+      and web_warned == LINUX, info)
 
 # pick_path: a bad folder is an error; an unanswered panel times out.
 s.call(42, "pick_path", {"directory": ROOT + "no-such-folder" if WINDOWS else "/no/such/folder"})
