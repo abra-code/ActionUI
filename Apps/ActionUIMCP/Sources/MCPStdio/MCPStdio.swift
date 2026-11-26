@@ -580,7 +580,8 @@ public final class MCPServer: @unchecked Sendable {
         for task in tasks.values { task.cancel() }
     }
 
-    /// Waits until no tool call is running. For tests.
+    /// Waits until no tool call is running. For tests. By then every finished call's answer is
+    /// queued, so a flush() after it delivers them.
     public func waitUntilIdle() async {
         while true {
             let tasks = lock.withLock { Array(running.values) }
@@ -818,18 +819,20 @@ public final class MCPServer: @unchecked Sendable {
     }
 
     private func finish(id: JSONValue, key: String, result: MCPToolResult, era: Era) {
-        lock.lock()
-        running[key] = nil
-        let wasCancelled = cancelled.remove(key) != nil
-        lock.unlock()
-        // The specification asks receivers of notifications/cancelled not to answer the request.
-        guard !wasCancelled else { return }
         var body: [String: JSONValue] = ["content": .array(result.content)]
         if let structured = result.structuredContent, era.hasStructuredContent {
             body["structuredContent"] = structured
         }
         if result.isError { body["isError"] = true }
-        send(resultResponse(id: id, result: complete(.object(body), era: era)))
+        let answer = Self.outputLine(resultResponse(id: id, result: complete(.object(body), era: era)))
+        // The call leaves `running` and its answer is queued under one lock: waitUntilIdle cannot
+        // return between the two, so a flush after it always finds the answer.
+        lock.lock()
+        running[key] = nil
+        let wasCancelled = cancelled.remove(key) != nil
+        // The specification asks receivers of notifications/cancelled not to answer the request.
+        if !wasCancelled { enqueue(answer) }
+        lock.unlock()
     }
 
     private func cancel(requestID: JSONValue) {
@@ -883,7 +886,16 @@ public final class MCPServer: @unchecked Sendable {
     }
 
     private func send(_ message: JSONValue) {
-        let line = Data((message.serialized() + "\n").utf8)
+        enqueue(Self.outputLine(message))
+    }
+
+    /// One message as the client reads it: JSON text and a newline.
+    private static func outputLine(_ message: JSONValue) -> Data {
+        Data((message.serialized() + "\n").utf8)
+    }
+
+    /// Hands a line to `output` on the write queue. Does not wait, so it may be called under `lock`.
+    private func enqueue(_ line: Data) {
         writeQueue.async { [output] in output(line) }
     }
 }
