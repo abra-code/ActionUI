@@ -29,7 +29,9 @@
  items in a row below the page. The stack's persistentToolbar (and its toolbar, the deprecated alias)
  shows on every screen at the outer edge: its leading items first, its trailing ones last. A screen
  below the top keeps its items for when it is shown again. A header with items but no title or back
- button shows the items alone.
+ button shows the items alone. The back button and the items widen the stack to fit them all, where
+ SwiftUI's toolbar moves the items that do not fit into an overflow menu (this header has none); the
+ title does not, and is cut before the trailing items.
 
  Not yet: the window's title; the slide of a push and a pop (the screens switch at once); going back
  with Alt+Left or the mouse's back button; the title as a heading for accessibility tools; searchable;
@@ -204,14 +206,38 @@ final class NavigationStackLayout {
         let header = headerHeight
         measuredBottom = showsBottom ? bottom.panel.object.measureRequested(ActionUIWinUISize(width: available.width, height: .infinity))
                                      : ActionUIWinUISize(width: 0, height: 0)
-        // The title and the toolbar items do not widen the stack (the title is cut before the trailing
-        // items), as SwiftUI's navigation bar does not; the back button does.
-        let headerWidth = showsBack ? size(back).width + 2 * Self.headerInset : 0
+        // The back button and the toolbar items widen the stack, so they never overlap: SwiftUI's toolbar
+        // moves the items that do not fit into an overflow menu, and this header has none. The title does
+        // not: it is cut before the trailing items, as in SwiftUI. The spacing is arrange's. A split view's
+        // column takes the width the split view gives it: there its header is cut at the column's edge,
+        // rather than its page laid out wider than the column (WinUI arranges at least the width asked
+        // for) and cut. Measured with unbounded width (the split view's own size), it still fits the header.
+        let headerWidth = clipsToBounds && available.width.isFinite ? 0 : minimumHeaderWidth()
         let rows = header + measuredBottom.height
         let room = ActionUIWinUISize(width: available.width,
                                      height: available.height.isFinite ? max(available.height - rows, 0) : .infinity)
         measuredPage = page.panel.object.measureRequested(room)
         return ActionUIWinUISize(width: max(headerWidth, measuredPage.width), height: rows + measuredPage.height)
+    }
+
+    /// The narrowest header that shows the back button and every toolbar item without overlapping, as
+    /// arrange places them, with the title cut to nothing; 0 for a header with neither.
+    private func minimumHeaderWidth() -> Double {
+        let leading = leadingParts.filter { $0 !== title }
+        guard !leading.isEmpty || !trailingParts.isEmpty else { return 0 }
+        let principalFirst = leadingParts.first === title || (!leadingParts.isEmpty && leadingParts.first !== back && principalFirstFlag)
+        var width = leadingParts.first === back ? Self.headerInset : principalFirst ? Self.titleInset : Self.itemSpacing
+        for part in leading {
+            width += size(part).width + (part === back ? Self.titleGap : Self.itemSpacing)
+        }
+        if trailingParts.isEmpty {
+            // No gap for a title cut to nothing after the last part: the row's edge is as far from it as
+            // the leading edge is from the first part (4 from the back button, 8 from an item).
+            width += leading.last === back ? Self.headerInset - Self.titleGap : 0
+        } else {
+            width += trailingParts.reduce(0) { $0 + size($1).width } + Self.itemSpacing * Double(trailingParts.count)
+        }
+        return width.rounded(.up)
     }
 
     private func arrange(_ finalSize: ActionUIWinUISize) {
