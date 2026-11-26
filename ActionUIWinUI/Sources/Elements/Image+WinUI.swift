@@ -13,12 +13,17 @@
    System Icons outline of the SF -> Fluent map, as Fluent draws it (Windows' own thinner look), its
    em box the same square (where a Fluent glyph has its Material counterpart's size). A name neither map has shows nothing, as
    SwiftUI's does (logged once per name).
- - A resizable symbol (resizable with a contentMode) scales to its frame: the largest square it is
-   offered, its own size when offered unbounded room.
+ - resizable and contentMode size it as SwiftUI's .resizable() and .aspectRatio(contentMode:) do (as on
+   Apple and Linux): not resizable, it keeps its own size whatever the contentMode; resizable with no
+   contentMode, it is stretched to its frame on both axes (its own size on an axis offered unbounded
+   room); resizable with "fit" or "fill", it keeps its aspect ratio.
+ - A resizable symbol with no contentMode is its outline stretched to the frame on each axis (the
+   outline is a path, not a font glyph, so it stretches as SwiftUI's does); with a contentMode, the
+   largest square it is offered.
  - A file is WinUI's Image: an .svg file as a vector image, others through the system's bitmap
-   decoders, at its own size, never scaled up; resizable with a contentMode it scales to its frame
-   keeping its aspect ratio (fit: contained; fill: covered, clipped to the frame, where SwiftUI draws
-   past it, as on Linux). A file that does not exist, or that is no regular file (a folder, a device
+   decoders, at its own size, never scaled up. Resizable, it is stretched to its frame; with a
+   contentMode too, it is scaled keeping its aspect ratio (fit: contained; fill: covered, clipped to
+   the frame, where SwiftUI draws past it, as on Linux). A file that does not exist, or that is no regular file (a folder, a device
    such as NUL or COM1, a pipe: never opened), shows the photo symbol, as on Apple; one that cannot be
    decoded shows nothing. A bitmap file is read again when the value or a property is set
    again, so a host that rewrites an image under the same name and sets it again sees the new image.
@@ -74,8 +79,8 @@ final class ImageLayout {
     var stretch = ActionUIWinUIImageStretchNone
     /// A symbol's side when it does not scale to its frame.
     var symbolSide = 14.0 * ImageLayout.symbolFontFactor
-    /// The side the symbol's outline was last scaled to.
-    private var appliedSide = -1.0
+    /// The box the symbol's outline was last scaled to.
+    private var appliedBox = ActionUIWinUISize(width: -1, height: -1)
     /// The child's size from the last measure pass, for arrange (which must not measure it with
     /// another size).
     private var measured = ActionUIWinUISize(width: 0, height: 0)
@@ -140,7 +145,7 @@ final class ImageLayout {
         }
         child = newChild
         content = newContent
-        appliedSide = -1
+        appliedBox = ActionUIWinUISize(width: -1, height: -1)
         panel.invalidateLayout()
     }
 
@@ -162,15 +167,24 @@ final class ImageLayout {
         panel.invalidateLayout()
     }
 
-    /// A symbol's side for the room offered: the largest square of it when it scales to its frame.
-    private func side(for available: ActionUIWinUISize) -> Double {
-        guard resizable else { return symbolSide }
-        switch (available.width.isFinite, available.height.isFinite) {
-        case (true, true): return min(available.width, available.height)
-        case (true, false): return available.width
-        case (false, true): return available.height
-        case (false, false): return symbolSide
+    /// A symbol's box for the room offered: its own square when it does not scale to its frame;
+    /// stretched to the room (resizable with no contentMode, as SwiftUI's .resizable()), each side its
+    /// own on an unbounded axis; else the largest square of the room.
+    private func box(for available: ActionUIWinUISize) -> ActionUIWinUISize {
+        guard resizable else { return ActionUIWinUISize(width: symbolSide, height: symbolSide) }
+        let width = available.width.isFinite ? max(available.width, 0) : nil
+        let height = available.height.isFinite ? max(available.height, 0) : nil
+        if stretch == ActionUIWinUIImageStretchToSize {
+            return ActionUIWinUISize(width: width ?? symbolSide, height: height ?? symbolSide)
         }
+        let side: Double
+        switch (width, height) {
+        case let (width?, height?): side = min(width, height)
+        case let (width?, nil): side = width
+        case let (nil, height?): side = height
+        case (nil, nil): side = symbolSide
+        }
+        return ActionUIWinUISize(width: side, height: side)
     }
 
     private func measure(_ available: ActionUIWinUISize) -> ActionUIWinUISize {
@@ -183,17 +197,28 @@ final class ImageLayout {
         }
         switch content {
         case .symbol:
-            let side = max(side(for: available), 0)
-            if side != appliedSide {
-                appliedSide = side
-                if !actionUIWinUISymbolSetSize(child.pointer, side) {
+            let box = box(for: available)
+            if box.width != appliedBox.width || box.height != appliedBox.height {
+                appliedBox = box
+                if !actionUIWinUISymbolSetFrameSize(child.pointer, box.width, box.height) {
                     ActionUIModel.shared.logger.log("Image: \(WinUIError.last("sizing a symbol"))", .error)
                 }
             }
-            _ = child.measure(ActionUIWinUISize(width: side, height: side))
-            measured = ActionUIWinUISize(width: side, height: side)
+            _ = child.measure(box)
+            measured = box
         case .file:
-            measured = child.measure(available)
+            // WinUI's Fill keeps the aspect ratio when one axis is unbounded (it scales both by the bounded
+            // one); a stretched image takes its own size there, as SwiftUI's .resizable() does.
+            var room = available
+            if stretch == ActionUIWinUIImageStretchToSize, room.width.isFinite != room.height.isFinite {
+                let natural = child.measure(ActionUIWinUISize(width: .infinity, height: .infinity))
+                if room.width.isFinite {
+                    room.height = natural.height
+                } else {
+                    room.width = natural.width
+                }
+            }
+            measured = child.measure(room)
         }
         return measured
     }
@@ -201,15 +226,19 @@ final class ImageLayout {
     private func arrange(_ finalSize: ActionUIWinUISize) {
         if let loading {
             // Where it will show once loaded: as a file's child (below).
-            let fills = stretch == ActionUIWinUIImageStretchFill
+            let fills = stretch == ActionUIWinUIImageStretchFill || stretch == ActionUIWinUIImageStretchToSize
             let width = fills ? finalSize.width : loadingMeasured.width
             let height = fills ? finalSize.height : loadingMeasured.height
             loading.arrange(ActionUIWinUIRect(x: (finalSize.width - width) / 2, y: (finalSize.height - height) / 2,
                                               width: width, height: height))
         }
         guard let child else { return }
-        // Centered at its measured size; a covering image fills the whole room (clipped to it).
-        let fills = content.map { if case .file = $0 { return stretch == ActionUIWinUIImageStretchFill } else { return false } } ?? false
+        // Centered at its measured size; a covering or stretched image fills the whole room (a covering
+        // one clipped to it).
+        let fills = content.map { content -> Bool in
+            guard case .file = content else { return false }
+            return stretch == ActionUIWinUIImageStretchFill || stretch == ActionUIWinUIImageStretchToSize
+        } ?? false
         let width = fills ? finalSize.width : measured.width
         let height = fills ? finalSize.height : measured.height
         child.arrange(ActionUIWinUIRect(x: (finalSize.width - width) / 2, y: (finalSize.height - height) / 2,
@@ -246,9 +275,16 @@ extension Image: ActionUIWinUIRenderer {
             }
             changed = true
         }
+        // As SwiftUI: not resizable, its own size whatever the contentMode; resizable, stretched to its frame
+        // on both axes, or with a contentMode keeping its aspect ratio (fit: inside it; fill: covering it).
         let resizable = props.resizable
-        let stretch: ActionUIWinUIImageStretch = resizable ? (props.contentMode == .fill ? ActionUIWinUIImageStretchFill : ActionUIWinUIImageStretchFit)
-                                                           : ActionUIWinUIImageStretchNone
+        let stretch: ActionUIWinUIImageStretch
+        switch (resizable, props.contentMode) {
+        case (false, _): stretch = ActionUIWinUIImageStretchNone
+        case (true, nil): stretch = ActionUIWinUIImageStretchToSize
+        case (true, .fit?): stretch = ActionUIWinUIImageStretchFit
+        case (true, .fill?): stretch = ActionUIWinUIImageStretchFill
+        }
         if resizable != layout.resizable || stretch != layout.stretch {
             layout.resizable = resizable
             layout.stretch = stretch

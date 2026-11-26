@@ -8,6 +8,7 @@
 #include "ShimInternal.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 #include <iterator>
 #include <string>
@@ -139,10 +140,14 @@ ActionUIWinUIObject *actionUIWinUISymbolCreate(const char *name) {
 }
 
 bool actionUIWinUISymbolSetSize(ActionUIWinUIObject *symbol, double size) {
-    return guarded("symbol set size", [&]() {
+    return actionUIWinUISymbolSetFrameSize(symbol, size, size);
+}
+
+bool actionUIWinUISymbolSetFrameSize(ActionUIWinUIObject *symbol, double width, double height) {
+    return guarded("symbol set frame size", [&]() {
         muxc::PathIcon icon = objectAs<muxc::PathIcon>(symbol, L"PathIcon");
-        if (!(size >= 0)) {
-            return fail("symbol set size", "the size is not a number of pixels");
+        if (!(width >= 0 && height >= 0 && std::isfinite(width) && std::isfinite(height))) {
+            return fail("symbol set frame size", "the width or height is not a number of pixels");
         }
         // One transform per symbol, made at the first size: stacks size a symbol several times a pass.
         media::ScaleTransform scale = icon.Data().Transform().try_as<media::ScaleTransform>();
@@ -150,10 +155,10 @@ bool actionUIWinUISymbolSetSize(ActionUIWinUIObject *symbol, double size) {
             scale = media::ScaleTransform();
             icon.Data().Transform(scale);
         }
-        scale.ScaleX(size / ACTIONUI_SYMBOL_UNITS);
-        scale.ScaleY(size / ACTIONUI_SYMBOL_UNITS);
-        icon.Width(size);
-        icon.Height(size);
+        scale.ScaleX(width / ACTIONUI_SYMBOL_UNITS);
+        scale.ScaleY(height / ACTIONUI_SYMBOL_UNITS);
+        icon.Width(width);
+        icon.Height(height);
         return true;
     });
 }

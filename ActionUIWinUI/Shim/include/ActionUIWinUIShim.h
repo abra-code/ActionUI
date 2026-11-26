@@ -1787,6 +1787,9 @@ ACTIONUI_WINUI_API bool actionUIWinUISymbolExists(const char *name);
 ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUISymbolCreate(const char *name);
 // The side of the symbol's square, in effective pixels; the outline scales with it.
 ACTIONUI_WINUI_API bool actionUIWinUISymbolSetSize(ActionUIWinUIObject *symbol, double size);
+// The symbol's box, in effective pixels, which need not be square: the outline is stretched to it on
+// each axis on its own (a resizable Image with no contentMode, as SwiftUI's .resizable()).
+ACTIONUI_WINUI_API bool actionUIWinUISymbolSetFrameSize(ActionUIWinUIObject *symbol, double width, double height);
 
 // MARK: - Rendering
 
