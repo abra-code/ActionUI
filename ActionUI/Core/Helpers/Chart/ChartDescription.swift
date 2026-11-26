@@ -646,9 +646,15 @@ enum ChartDescription {
                     logger?.log("Chart: chartScrollPosition.\(key) needs chartScrollableAxes with \"\(axis == .horizontal ? "horizontal" : "vertical")\"; ignoring it", .warning)
                     continue
                 }
-                guard let type, let scalar = ChartSelection.scalar(value, type: type) else {
+                guard let type, var scalar = ChartSelection.scalar(value, type: type) else {
                     logger?.log("Chart: chartScrollPosition.\(key) must be a value of the axis's type\(type.map { " (\($0.rawValue))" } ?? ""); ignoring it", .warning)
                     continue
+                }
+                // A calendar day ("2026-09-20") scrolls to the start of that day, as a Date made
+                // from the day's components does in SwiftUI. DateHelper reads it as noon, which
+                // would start the window halfway through that day's bar.
+                if case .date(let date) = scalar, let text = value as? String, text.contains("-"), !text.contains("T") {
+                    scalar = .date(Calendar.current.startOfDay(for: date))
                 }
                 if axis == .horizontal { spec.initialX = scalar } else { spec.initialY = scalar }
                 cleanedPosition[key] = value
