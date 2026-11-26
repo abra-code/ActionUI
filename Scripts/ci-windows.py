@@ -15,7 +15,7 @@ Usage:
       renders a window's content into DIR/shim-smoke.png. Everything goes to .build/winui-shim.
       --install-runtime first installs the Windows App SDK runtime from the package's MSIX files
       for the current user (the smoke test needs it; CI machines do not have it).
-  python Scripts/ci-windows.py winui [--results DIR] [--install-runtime] [--quick]
+  python Scripts/ci-windows.py winui [--results DIR] [--install-runtime] [--quick] [--mcp-package]
       What shim does, then builds the Swift package for Windows (windowsPackage in Package.swift)
       with the shim's import library on the linker path, in .build/ci-windows-winui, runs its
       smoke test ActionUIWinUISmoke, which renders DIR/swift-smoke.png, and renders each test file
@@ -26,6 +26,8 @@ Usage:
       with ActionUIWinUIAddOnPreview (the add-ons the DLL links) into DIR/add-on-preview-<name>.png.
       --quick builds the same, runs the smoke tests and the MCP server's tests, and makes the library
       package, without the previews and the language and app checks: for trying a change, not a check.
+      --mcp-package also builds the MCP server for release and makes its package once its tests
+      passed: .build/ci-windows-package/actionui-mcp-<version>-windows-<arch>/ and its .zip.
 
 The shim's objects and precompiled header (ShimPrecompiled.h) are kept in the work folder between runs:
 a run compiles the sources whose text, local includes or shared headers changed (by content).
@@ -40,11 +42,14 @@ import http.client
 import json
 import os
 import platform
+import queue
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tarfile
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -1081,10 +1086,10 @@ def build_shim_objects(objects, flags, msvc, results, summary):
     return step
 
 
-def check_shim(results, install, swift=False, quick=False):
+def check_shim(results, install, swift=False, quick=False, mcp_package=False):
     """The shim and its C smoke test; with `swift`, then the Swift package (windowsPackage) and its
     smoke test, ActionUIWinUISmoke, linked against the shim just built (with `quick`, only the builds and
-    the smoke and MCP tests: check_swift_smoke)."""
+    the smoke and MCP tests; with `mcp_package`, also the MCP server's package: check_swift_smoke)."""
     arch = windows_arch()
     name = ("WinUI shim and renderer build and drive a window from C and Swift" if swift
             else "WinUI shim builds and drives a window from C")
@@ -1217,7 +1222,7 @@ def check_shim(results, install, swift=False, quick=False):
                                 foundation / "lib" / "native" / arch / "Microsoft.WindowsAppRuntime.Bootstrap.lib"],
                   # For the library package's notices.
                   "webview2_license": folders["microsoft.web.webview2"] / "LICENSE.txt"}
-    return finish(check_swift_smoke(out, bootstrap, results, summary, msvc, host_build, quick))
+    return finish(check_swift_smoke(out, bootstrap, results, summary, msvc, host_build, quick, mcp_package))
 
 
 def check_viewer(shim_out, bin_path, results, summary, env):
@@ -1327,6 +1332,38 @@ def symbol_license(title, commit_file, url, lead):
     return f"{title}\n\n{lead.format(commit=commit)}\n\n{text}"
 
 
+def write_symbol_licenses(package, what, summary):
+    """The notices of the symbol outlines in the shim, LICENSE-MaterialSymbols.txt and LICENSE-FluentSystemIcons.txt,
+    into `package`. True when both were written; else a finding names `what`."""
+    try:
+        (package / "LICENSE-MaterialSymbols.txt").write_text(symbol_license(
+            "Material Symbols", MATERIAL_COMMIT_FILE, MATERIAL_LICENSE_URL,
+            "The symbol icons in ActionUIWinUIShim.dll are glyphs of the Material Symbols Rounded font by Google\n"
+            "(https://github.com/google/material-design-icons, commit {commit}), converted to outlines when the\n"
+            "software was built. They are used under the Apache License 2.0:"), encoding="utf-8")
+        (package / "LICENSE-FluentSystemIcons.txt").write_text(symbol_license(
+            "Fluent System Icons", FLUENT_COMMIT_FILE, FLUENT_LICENSE_URL,
+            "Some symbol icons in ActionUIWinUIShim.dll are glyphs of the Fluent System Icons by Microsoft\n"
+            "(https://github.com/microsoft/fluentui-system-icons, commit {commit}), converted to outlines when the\n"
+            "software was built. They are used under the MIT License:"), encoding="utf-8")
+    except (OSError, urllib.error.URLError) as error:
+        summary["findings"].append(f"{what}: a symbol license could not be fetched: {error}")
+        return False
+    return True
+
+
+def write_checksums(package, what, summary):
+    """SHA256SUMS.txt in `package`: every other file's SHA-256, in sha256sum's format, so a copy of the package can
+    be compared with this build. Returns the file's own SHA-256."""
+    files = sorted(path for path in package.rglob("*") if path.is_file() and path.name != "SHA256SUMS.txt")
+    lines = [f"{sha256_of(path)}  {path.relative_to(package).as_posix()}" for path in files]
+    sums = package / "SHA256SUMS.txt"
+    # Bytes, not text: text mode on Windows writes CRLF, and sha256sum -c then looks for "name\r".
+    sums.write_bytes(("\n".join(lines) + "\n").encode("utf-8"))
+    summary["findings"].append(f"{what}: SHA256SUMS.txt lists {len(lines)} files; its own SHA-256 {sha256_of(sums)}")
+    return sha256_of(sums)
+
+
 def make_library_package(bin_path, results, summary, msvc, webview2_license):
     """The Windows library package, the counterpart of Scripts/make-linux-library-package.sh's: what
     the language bindings (Python, Node.js, Rust) and C programs build against and ship.
@@ -1378,31 +1415,13 @@ def make_library_package(bin_path, results, summary, msvc, webview2_license):
             (REPO_DIR / "LICENSE.txt", "LICENSE.txt"),
             (webview2_license, "LICENSE-WebView2.txt")]:
         shutil.copy2(source, package / destination)
-    try:
-        (package / "LICENSE-MaterialSymbols.txt").write_text(symbol_license(
-            "Material Symbols", MATERIAL_COMMIT_FILE, MATERIAL_LICENSE_URL,
-            "The symbol icons in ActionUIWinUIShim.dll are glyphs of the Material Symbols Rounded font by Google\n"
-            "(https://github.com/google/material-design-icons, commit {commit}), converted to outlines when the\n"
-            "software was built. They are used under the Apache License 2.0:"), encoding="utf-8")
-        (package / "LICENSE-FluentSystemIcons.txt").write_text(symbol_license(
-            "Fluent System Icons", FLUENT_COMMIT_FILE, FLUENT_LICENSE_URL,
-            "Some symbol icons in ActionUIWinUIShim.dll are glyphs of the Fluent System Icons by Microsoft\n"
-            "(https://github.com/microsoft/fluentui-system-icons, commit {commit}), converted to outlines when the\n"
-            "software was built. They are used under the MIT License:"), encoding="utf-8")
-    except (OSError, urllib.error.URLError) as error:
-        summary["findings"].append(f"library package: a symbol license could not be fetched: {error}")
+    if not write_symbol_licenses(package, "library package", summary):
         return None
     names = sorted(dll.name for dll in (package / "bin").iterdir())
     summary["findings"].append(f"library package: {len(names)} DLLs in bin: {', '.join(names)}")
     if missing:
         summary["findings"].append(f"library package: from Windows or the Windows App Runtime (not copied): {', '.join(missing)}")
-    # Every file's SHA-256, in sha256sum's format, so a copy of the package can be compared with this build.
-    files = sorted(path for path in package.rglob("*") if path.is_file() and path.name != "SHA256SUMS.txt")
-    lines = [f"{sha256_of(path)}  {path.relative_to(package).as_posix()}" for path in files]
-    sums = package / "SHA256SUMS.txt"
-    # Bytes, not text: text mode on Windows writes CRLF, and sha256sum -c then looks for "name\r".
-    sums.write_bytes(("\n".join(lines) + "\n").encode("utf-8"))
-    summary["findings"].append(f"library package: SHA256SUMS.txt lists {len(lines)} files; its own SHA-256 {sha256_of(sums)}")
+    write_checksums(package, "library package", summary)
     return package
 
 
@@ -1863,12 +1882,13 @@ def render_previews(program, folder, options_by_name, real_input_by_name, prefix
     return passed
 
 
-def check_swift_smoke(shim_out, bootstrap, results, summary, msvc, host_build, quick=False):
+def check_swift_smoke(shim_out, bootstrap, results, summary, msvc, host_build, quick=False, mcp_package=False):
     """Builds the Swift package for Windows (ActionUIWinUISmoke, ActionUIWinUIPreview) and ActionUI.dll's
     package (build_library) with the shim's import library on the linker path, places the shim DLL, the
     bootstrapper DLL and the programs' manifests beside them, runs the smoke test and the C adapter's check, then
     renders each test file in ActionUIWinUI/Apps/Preview/TestFiles with the preview and each in
-    ActionUIWinUI/Apps/Preview/TestFiles/AddOns with the add-on preview. True when all of them passed."""
+    ActionUIWinUI/Apps/Preview/TestFiles/AddOns with the add-on preview; with `mcp_package`, makes the MCP server's
+    package once its tests passed (make_mcp_package). True when all of them passed."""
     # --manifest-cache none: the package's exclude lists come from the folder listing (Package.swift).
     scratch = ["--scratch-path", str(REPO_DIR / ".build" / "ci-windows-winui"), "--manifest-cache", "none"]
     env = dict(os.environ)
@@ -1908,7 +1928,7 @@ def check_swift_smoke(shim_out, bootstrap, results, summary, msvc, host_build, q
     passed = step["status"] == 0 and png.is_file() and png.stat().st_size > 0 and library_built
     if quick:
         # What trying a change needs: the MCP server and the library package (its DLLs and the scripts' PATH).
-        passed = check_mcp(shim_out, results, summary, env) and passed
+        passed = check_mcp_and_package(shim_out, results, summary, msvc, env, host_build, mcp_package) and passed
         if library_built:
             passed = make_library_package(bin_path, results, summary, msvc, host_build["webview2_license"]) is not None and passed
         summary["findings"].append("quick: the previews and the language and app checks were not run")
@@ -1919,7 +1939,7 @@ def check_swift_smoke(shim_out, bootstrap, results, summary, msvc, host_build, q
         passed = check_c_app(bin_path, results, summary, msvc, env) and passed
         passed = check_host_app(bin_path, results, summary, msvc, env, host_build) and passed
     passed = check_viewer(shim_out, bin_path, results, summary, env) and passed
-    passed = check_mcp(shim_out, results, summary, env) and passed
+    passed = check_mcp_and_package(shim_out, results, summary, msvc, env, host_build, mcp_package) and passed
     if library_built:
         package = make_library_package(bin_path, results, summary, msvc, host_build["webview2_license"])
         passed = package is not None and passed
@@ -1961,6 +1981,262 @@ def check_mcp(shim_out, results, summary, env):
     counts = testing_counts(results / test["log"])
     summary["findings"].append(f"MCP server tests: {counts}" if counts else "MCP server tests: no Swift Testing total")
     return test["status"] == 0
+
+
+# The add-ons the Windows server links (Apps/ActionUIMCP/Package.swift, windowsPackage): their schemas and pages go
+# in, and the licenses of the packages they link.
+MCP_ADD_ONS = ["ActionUICachedImage", "ActionUIDiff", "ActionUIRichText"]
+MCP_LINKED_PACKAGES = ["RichText", "AsyncImageCache", "DiffView"]
+
+
+def copy_mcp_docs(source, target):
+    """A documentation folder as the server serves it, into `target`: the element pages and templates, and for the
+    core the guide and the element index."""
+    for folder in ["Schemas", "Elements"]:
+        shutil.copytree(source / folder, target / folder)
+    for page in ["ActionUI-JSON-Guide.md", "ActionUI-Elements.md"]:
+        if (source / page).is_file():
+            shutil.copy2(source / page, target / page)
+
+
+def check_mcp_and_package(shim_out, results, summary, msvc, env, host_build, mcp_package):
+    """check_mcp, then with `mcp_package` make_mcp_package when the tests passed. True when each passed."""
+    if not check_mcp(shim_out, results, summary, env):
+        return False
+    return not mcp_package or make_mcp_package(shim_out, results, summary, msvc, env,
+                                               host_build["webview2_license"]) is not None
+
+
+def check_packaged_mcp(server, results, summary):
+    """Starts the packaged server from an empty folder, with only its bin folder and Windows' own on PATH, and asks
+    it what needs the package's layout: validate_ui with the core schemas (a property typo is found) and an add-on's
+    (Diff is known), an add-on's element page, and a screenshot of ActionUI JSON it renders without showing it (the
+    shim, the Windows App Runtime and the Swift runtime from the package). The server falls back to the schemas and
+    pages of the checkout it was built from, which is on this machine, so validate_ui of QuickLook (an add-on this
+    server does not have) must find no schema: then the schemas are the package's. The pages cannot be told apart
+    from the checkout's: the check shows that they are served, and make_mcp_package put them where the server looks
+    (share/actionui/docs/<Name>). True when each answered as expected."""
+    system_root = os.environ.get("SystemRoot", r"C:\Windows")
+    env = dict(os.environ, PATH=f"{server.parent};{system_root}\\System32;{system_root}")
+    env.pop("ACTIONUI_MCP_SCHEMA_DIR", None)
+    folder = results / "mcp-package-run"
+    shutil.rmtree(folder, ignore_errors=True)
+    folder.mkdir(parents=True, exist_ok=True)
+    requests = [
+        {"jsonrpc": "2.0", "id": 0, "method": "initialize", "params": {
+            "protocolVersion": "2025-11-25", "clientInfo": {"name": "ci-windows"}, "capabilities": {}}},
+        {"jsonrpc": "2.0", "method": "notifications/initialized"},
+        {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {
+            "name": "validate_ui", "arguments": {"ui": {"type": "Text", "properties": {"txt": "hi"}}}}},
+        {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {
+            "name": "validate_ui", "arguments": {"ui": {"type": "Diff", "properties": {"oldText": "a", "newText": "b"}}}}},
+        {"jsonrpc": "2.0", "id": 3, "method": "resources/read", "params": {"uri": "actionui://docs/elements/Diff"}},
+        {"jsonrpc": "2.0", "id": 4, "method": "tools/call", "params": {
+            "name": "screenshot", "arguments": {"ui": {"type": "Text", "properties": {"text": "Packaged"}},
+                                                "width": 200, "height": 60}}},
+        {"jsonrpc": "2.0", "id": 5, "method": "tools/call", "params": {
+            "name": "validate_ui", "arguments": {"ui": {"type": "QuickLook", "properties": {}}}}}]
+    expected = {1, 2, 3, 4, 5}
+    started = time.monotonic()
+    answers = {}
+    log_lines = []
+    note = ""
+    status = None
+    try:
+        process = subprocess.Popen([str(server)], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                   stderr=subprocess.STDOUT, cwd=folder, env=env)
+    except OSError as error:
+        process, note = None, f"could not start: {error}"
+    if process is not None:
+        lines = queue.Queue()
+
+        def read():
+            for line in process.stdout:
+                lines.put(line)
+            lines.put(None)
+
+        threading.Thread(target=read, daemon=True).start()
+        # LF only, as an MCP client writes it. A server that ended at once (a DLL it needs is missing) closed the
+        # pipe, and the write fails (on Windows as "Invalid argument").
+        try:
+            process.stdin.write("".join(json.dumps(r) + "\n" for r in requests).encode("utf-8"))
+            process.stdin.flush()
+        except OSError as error:
+            note = f"its input could not be written: {error}"
+        deadline = time.monotonic() + 60
+        while not expected <= answers.keys() and time.monotonic() < deadline:
+            try:
+                line = lines.get(timeout=0.5)
+            except queue.Empty:
+                continue
+            if line is None:
+                break
+            text = line.decode("utf-8", errors="replace")
+            log_lines.append(text.rstrip("\r\n"))
+            try:
+                message = json.loads(text)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(message, dict) and "id" in message:
+                answers[message["id"]] = message
+        # The end of input ends the server. Closing flushes again what a failed write left in the buffer, which
+        # fails the same way; that failure is already in the note.
+        try:
+            process.stdin.close()
+        except OSError:
+            pass
+        try:
+            status = process.wait(timeout=15)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
+            note = (note + "; " if note else "") + "did not end within 15 s of the end of its input"
+        if not expected <= answers.keys():
+            note = (note + "; " if note else "") + f"answered {sorted(k for k in answers if k)} of {sorted(expected)}"
+    (results / "mcp-package-run.log").write_text("\n".join(log_lines) + "\n", encoding="utf-8")
+    summary["steps"].append({"step": "mcp-package-run", "status": status, "seconds": round(time.monotonic() - started, 1),
+                             "note": note, "log": "mcp-package-run.log"})
+    typo = (answers.get(1) or {}).get("result", {}).get("structuredContent") or {}
+    add_on = (answers.get(2) or {}).get("result", {}).get("structuredContent") or {}
+    page = (answers.get(3) or {}).get("result", {}).get("contents") or []
+    shot = (answers.get(4) or {}).get("result", {}).get("content") or []
+    quick_look = (answers.get(5) or {}).get("result", {}).get("structuredContent") or {}
+    checks = [("the core schemas find a property typo", any("possible typo" in w for w in typo.get("warnings", []))),
+              ("the add-on schemas know Diff", add_on.get("ok") is True and add_on.get("warnings") == []),
+              ("the add-on's element page is served", any(item.get("text") for item in page if isinstance(item, dict))),
+              ("a screenshot of unshown ActionUI JSON is a PNG",
+               any(isinstance(item, dict) and item.get("type") == "image" and item.get("mimeType") == "image/png"
+                   and item.get("data") for item in shot)),
+              ("only the package's schemas are read (QuickLook has none)",
+               any("'QuickLook'" in e and "no schema found" in e for e in quick_look.get("errors", [])))]
+    for label, passed in checks:
+        summary["findings"].append(f"MCP package, its server from its own folder: {label}: {'yes' if passed else 'NO'}")
+    return status == 0 and all(passed for _, passed in checks)
+
+
+def make_mcp_package(shim_out, results, summary, msvc, env, webview2_license):
+    """The MCP server for Windows as a folder and a zip, the counterpart of Scripts/make-linux-mcp-package.sh's:
+
+        actionui-mcp-<version>-windows-<arch>/
+          bin/                          actionui-mcp.exe (a release build) and its manifest, and every DLL it loads
+                                        that Windows does not have: the WinUI shim, the Windows App SDK bootstrapper,
+                                        the Swift runtime; and WebView2's WinRT component (web pages)
+          share/actionui/schemas/       the element schemas the server checks ActionUI JSON with
+          share/actionui/schemas/add-ons/<AddOn>/   the schemas of the add-ons the Windows server has
+          share/actionui/docs/<Name>/   the element reference it serves as MCP resources
+          LICENSE.txt, LICENSE-MaterialSymbols.txt, LICENSE-FluentSystemIcons.txt (the symbol outlines in the shim),
+          LICENSE-WebView2.txt, LICENSE-RichText.txt, LICENSE-AsyncImageCache.txt, LICENSE-DiffView.txt
+          SHA256SUMS.txt                every other file's SHA-256
+        actionui-mcp-<version>-windows-<arch>.zip and .zip.sha256
+
+    The server finds its schemas and documentation from its own place (share\\actionui beside bin), so the folder
+    stays together; unpack it anywhere. It needs the Windows App Runtime on the machine, and WebView2's runtime for
+    web pages. The package's server is then started from its own folder (check_packaged_mcp). Returns the zip, or
+    None (with findings)."""
+    findings = summary["findings"]
+    # Not --only-use-versions-from-resolved-file, as on Linux: Apps/ActionUIMCP/Package.resolved pins the versions the
+    # add-ons ask for on macOS and Linux, and they ask for later ones on Windows.
+    scratch = ["--package-path", str(REPO_DIR / "Apps" / "ActionUIMCP"),
+               "--scratch-path", str(REPO_DIR / ".build" / "ci-windows-mcp"), "--manifest-cache", "none",
+               "-c", "release"]
+    build = run_step("mcp-release-build", ["swift", "build", "--product", "actionui-mcp"] + scratch
+                     + ["-Xswiftc", f"-L{shim_out}"], results, env)
+    summary["steps"].append(build)
+    if build["status"] != 0:
+        summary["errors"] = first_errors(results / build["log"])
+        return None
+    if fails_on_warnings(build, results, summary):
+        return None
+    shown = capture(["swift", "build"] + scratch + ["--show-bin-path"]).splitlines()
+    server = Path(shown[-1].strip()) / "actionui-mcp.exe" if shown else Path()
+    if not server.is_file():
+        findings.append(f"MCP package: no actionui-mcp.exe in {server.parent}")
+        return None
+    swift_runtime = swift_runtime_folder(msvc)
+    if swift_runtime is None:
+        findings.append("MCP package: no folder on PATH holds swiftCore.dll")
+        return None
+    # The version the server states ("actionui-mcp 0.6.1"); it names the folder, which is removed and replaced:
+    # only letters, digits, dots, plus signs and hyphens, so no "\\" or ".." in it can move what is removed.
+    try:
+        stated = subprocess.run([str(server), "--version"], capture_output=True, text=True, errors="replace",
+                                timeout=60, env=dict(env, PATH=f"{shim_out};{swift_runtime};{env.get('PATH', '')}"))
+    except (OSError, subprocess.TimeoutExpired) as error:
+        findings.append(f"MCP package: {server} --version failed: {error}")
+        return None
+    version = (stated.stdout.strip() or stated.stderr.strip()).removeprefix("actionui-mcp ")
+    if stated.returncode != 0 or not re.fullmatch(r"[A-Za-z0-9+-][A-Za-z0-9.+-]*", version):
+        findings.append(f"MCP package: could not read the version from {stated.stdout.strip()!r} "
+                        f"(exit {stated.returncode}) {stated.stderr.strip()[-300:]}")
+        return None
+    # DLLs from two places only, as the library package's: the shim's folder (the shim, the bootstrapper and
+    # WebView2's component, checked there) and the Swift runtime's.
+    dlls, missing = dll_closure(server, [shim_out, swift_runtime], msvc)
+    system32 = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32"
+    unknown = [name for name in missing if name not in WINDOWS_APP_RUNTIME_DLLS and not (system32 / name).is_file()]
+    if unknown:
+        findings.append("MCP package: not in the build, the Swift runtime, Windows or the Windows App Runtime: "
+                        f"{', '.join(unknown)}")
+        return None
+    checkouts = REPO_DIR / ".build" / "ci-windows-mcp" / "checkouts"
+    absent = [name for name in MCP_LINKED_PACKAGES if not (checkouts / name / "LICENSE").is_file()]
+    if absent:
+        findings.append(f"MCP package: no license of {', '.join(absent)} in {checkouts}")
+        return None
+    name = f"actionui-mcp-{version}-windows-{windows_arch()}"
+    output = REPO_DIR / ".build" / "ci-windows-package"
+    package = output / name
+    archive = output / f"{name}.zip"
+    # A file left from an earlier package would be shipped again: the old package goes first,
+    # read-only files included (os.remove refuses those on Windows).
+    try:
+        if package.exists():
+            for path in package.rglob("*"):
+                os.chmod(path, stat.S_IWRITE | stat.S_IREAD)
+            shutil.rmtree(package)
+        for old in [archive, output / f"{name}.zip.sha256"]:
+            old.unlink(missing_ok=True)
+    except OSError as error:
+        findings.append(f"MCP package: the earlier package could not be removed (a program from it may be running): {error}")
+        return None
+    (package / "bin").mkdir(parents=True)
+    for dll in dlls + [shim_out / WEBVIEW2_CORE]:
+        shutil.copy2(dll, package / "bin" / dll.name)
+    # The programs' manifest (supported Windows versions, per-monitor DPI), as the preview tools have.
+    shutil.copy2(REPO_DIR / "ActionUIWinUI" / "Apps" / "Smoke" / "ActionUIWinUISmoke.exe.manifest",
+                 package / "bin" / "actionui-mcp.exe.manifest")
+    share = package / "share" / "actionui"
+    (share / "schemas").mkdir(parents=True)
+    for schema in sorted((REPO_DIR / "ActionUIVerifier" / "Schemas").glob("*.json")):
+        shutil.copy2(schema, share / "schemas" / schema.name)
+    copy_mcp_docs(REPO_DIR / "Documentation", share / "docs" / "ActionUI")
+    for add_on in MCP_ADD_ONS:
+        target = share / "schemas" / "add-ons" / add_on
+        target.mkdir(parents=True)
+        for schema in sorted((REPO_DIR / "Add-ons" / add_on / "Schemas").glob("*.json")):
+            shutil.copy2(schema, target / schema.name)
+        copy_mcp_docs(REPO_DIR / "Add-ons" / add_on / "Documentation", share / "docs" / add_on)
+    shutil.copy2(REPO_DIR / "LICENSE.txt", package / "LICENSE.txt")
+    shutil.copy2(webview2_license, package / "LICENSE-WebView2.txt")
+    for linked in MCP_LINKED_PACKAGES:
+        # The text only: SwiftPM's checkouts are read-only, and a read-only copy could not be replaced.
+        shutil.copyfile(checkouts / linked / "LICENSE", package / f"LICENSE-{linked}.txt")
+    if not write_symbol_licenses(package, "MCP package", summary):
+        return None
+    names = sorted(path.name for path in (package / "bin").iterdir())
+    findings.append(f"MCP package: {len(names)} files in bin: {', '.join(names)}")
+    write_checksums(package, "MCP package", summary)
+    if not check_packaged_mcp(package / "bin" / "actionui-mcp.exe", results, summary):
+        return None
+    # The folder inside the zip, as the Linux tarball has it.
+    with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as packed:
+        for path in sorted(package.rglob("*")):
+            if path.is_file():
+                packed.write(path, f"{name}/{path.relative_to(package).as_posix()}")
+    digest = sha256_of(archive)
+    (output / f"{name}.zip.sha256").write_bytes(f"{digest}  {archive.name}\n".encode("utf-8"))
+    findings.append(f"MCP package: {archive} ({archive.stat().st_size} bytes), SHA-256 {digest}")
+    return archive
 
 
 def check_diff_files(add_on_preview, results, summary, env):
@@ -2296,6 +2572,9 @@ def main():
                         help="winui: build everything and run the smoke tests and the MCP server's tests only, "
                              "without the previews and the language and app checks (for trying a change; not a "
                              "full check)")
+    parser.add_argument("--mcp-package", action="store_true",
+                        help="winui: also build the MCP server for release and make its package (a folder and a "
+                             "zip in .build/ci-windows-package) once its tests passed")
     arguments = parser.parse_args()
     # Piped stdout on Windows uses the ANSI code page; a log line it cannot encode (a test
     # fixture's text in an assertion message) must not end the run with a traceback.
@@ -2315,7 +2594,8 @@ def main():
             print("ci-windows: swift is not on PATH; install the Swift toolchain for Windows",
                   file=sys.stderr)
             return 1
-        return check_shim(results, arguments.install_runtime, swift=True, quick=arguments.quick)
+        return check_shim(results, arguments.install_runtime, swift=True, quick=arguments.quick,
+                          mcp_package=arguments.mcp_package)
     return 2
 
 
