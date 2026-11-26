@@ -680,6 +680,22 @@ time.sleep(1)
 elapsed = s.close()
 check("exit on end of input (%.2f s)" % elapsed, elapsed < 2 and s.proc.returncode == 0, s.proc.returncode)
 
+# At most 20 windows at once: the 21st is refused; closing one frees its place.
+s = Session(binary)
+opened = []
+for i in range(20):
+    s.call(100 + i, "show", {"title": "W%d" % i, "kind": "text", "text": "w", "width": 200, "height": 100})
+    opened.append((structured(s.response(100 + i)) or {}).get("window"))
+check("20 windows open at once", all(opened), opened)
+s.call(120, "show", {"title": "W20", "kind": "text", "text": "w", "width": 200, "height": 100})
+message = s.response(120)
+check("the 21st window is refused", is_error(message) and "too many open windows (20)" in json.dumps(message), message)
+s.call(121, "close_window", {"window": opened[0]})
+s.response(121)
+s.call(122, "show", {"title": "W21", "kind": "text", "text": "w", "width": 200, "height": 100})
+check("a closed window frees its place", (structured(s.response(122)) or {}).get("window") is not None)
+s.close()
+
 # multichoice: checked options come back as an array in option order; required blocks an empty answer.
 MULTI = {"key": "platforms", "kind": "multichoice", "options": ["macOS", "iOS", {"value": "vision", "label": "visionOS"}],
          "default": ["vision", "macOS"]}
