@@ -3,7 +3,7 @@
  "id": 1,
  "properties": {
   "alignment": "leading",
-  "padding": 20,
+  "padding": 16,
   "spacing": 16
  },
  "children": [

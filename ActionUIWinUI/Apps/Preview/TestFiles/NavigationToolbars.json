@@ -7,7 +7,7 @@
   "content": {
     "type": "VStack",
     "id": 2,
-    "properties": { "navigationTitle": "Inbox", "spacing": 8 },
+    "properties": { "navigationTitle": "Inbox", "spacing": 8, "padding": 16 },
     "toolbar": [
       { "type": "ToolbarItem", "id": 3, "properties": { "placement": "topBarLeading" },
         "content": { "type": "Button", "id": 4, "properties": { "title": "Edit" } } },

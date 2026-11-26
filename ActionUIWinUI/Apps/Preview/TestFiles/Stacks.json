@@ -1,7 +1,7 @@
 {
   "type": "VStack",
   "id": 1,
-  "properties": { "spacing": 12, "alignment": "leading" },
+  "properties": { "spacing": 12, "alignment": "leading", "padding": 16 },
   "children": [
     { "type": "Text", "id": 2, "properties": { "text": "ActionUI on WinUI 3: a document" } },
     {

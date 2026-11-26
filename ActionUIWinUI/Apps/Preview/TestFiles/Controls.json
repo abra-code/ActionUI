@@ -1,7 +1,7 @@
 {
   "type": "VStack",
   "id": 1,
-  "properties": { "spacing": 10, "alignment": "leading" },
+  "properties": { "spacing": 10, "alignment": "leading", "padding": 16 },
   "children": [
     { "type": "Text", "id": 2, "properties": { "text": "Not pressed yet" } },
     { "type": "Button", "id": 3, "properties": { "title": "Press me", "actionID": "button.pressed" } },

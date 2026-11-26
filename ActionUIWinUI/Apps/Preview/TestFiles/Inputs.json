@@ -1,7 +1,7 @@
 {
   "type": "VStack",
   "id": 1,
-  "properties": { "spacing": 10, "alignment": "leading" },
+  "properties": { "spacing": 10, "alignment": "leading", "padding": 16 },
   "children": [
     { "type": "Text", "id": 2, "properties": { "text": "The check box has not changed" } },
     { "type": "Toggle", "id": 3, "properties": { "title": "A check box", "actionID": "checkbox.changed" } },

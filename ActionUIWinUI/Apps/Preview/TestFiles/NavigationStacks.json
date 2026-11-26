@@ -1,7 +1,7 @@
 {
   "type": "VStack",
   "id": 100,
-  "properties": { "spacing": 0 },
+  "properties": { "spacing": 0, "padding": 16 },
   "children": [
     {
       "type": "NavigationStack",
