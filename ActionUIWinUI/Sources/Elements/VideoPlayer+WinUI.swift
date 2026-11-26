@@ -8,6 +8,9 @@
    a Label "Missing or invalid URL" with a warning icon instead, logged as an error.
  - Greedy in both axes with no size of its own, as AVKit's VideoPlayer is (a FillLayout with an
    ideal of 0); the video is fitted inside, keeping its aspect ratio.
+ - A player narrower than Windows' full transport controls need (320 effective pixels) shows them
+   compact, on one row and without the zoom button, as AVKit shows small inline controls; the full
+   card would be cut on its right side. Below 240 the volume button goes too, so the timeline has room.
  - autoplay: each time the player is shown (SwiftUI's onAppear; WinUI's Loaded), a tenth of a second
    later, true plays and false pauses; without it, nothing (the player starts paused).
  - A new URL pauses the player and shows the new video, keeping the volume and mute chosen, as the

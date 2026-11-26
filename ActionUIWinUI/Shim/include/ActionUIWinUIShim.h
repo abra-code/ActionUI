@@ -1666,8 +1666,10 @@ ACTIONUI_WINUI_API bool actionUIWinUIWebViewSetNavigationDecider(ActionUIWinUIOb
 // MARK: - Video player (WinUI's MediaPlayerElement)
 
 // A new video player: the video fitted inside it, keeping its aspect ratio, with Windows' transport
-// controls over it, as large as it is given. It plays through one MediaPlayer for its whole life, so
-// a new source keeps the volume and mute chosen. NULL on failure.
+// controls over it, as large as it is given. The controls are compact (one row, no zoom button) when
+// the player is narrower than the 320 effective pixels the full controls need, and have no volume
+// button below 240, where the timeline would have no room. It plays through one MediaPlayer for its
+// whole life, so a new source keeps the volume and mute chosen. NULL on failure.
 ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIVideoPlayerCreate(void);
 // Pauses, and shows the video at `url` (NULL or empty: none), not playing. A text that is no absolute
 // URL shows none, its status "failed: not an absolute URL".

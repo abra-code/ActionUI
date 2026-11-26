@@ -1,5 +1,6 @@
 // Video.cpp - a video player: WinUI's MediaPlayerElement with Windows' transport controls over it,
 // playing through one MediaPlayer for its whole life, so a new video keeps the volume and mute chosen.
+// A player narrower than the full controls need shows them compact, on one row.
 
 #include "ShimInternal.h"
 
@@ -20,6 +21,15 @@ namespace {
 
 namespace playback = winrt::Windows::Media::Playback;
 namespace media = winrt::Windows::Media::Core;
+
+// The narrowest player, in effective pixels, whose full transport controls fit (measured on Windows 11
+// with the Windows App SDK 2.7: their style's minimum width is 296, which fits inside a 320 player's
+// margins; a 280 player cut the card on its right side). Measured at Windows' default text size: a
+// larger one (Accessibility, Text size) makes the full controls wider than that.
+constexpr double fullControlsWidth = 320;
+// The narrowest player whose compact controls keep a volume button: in a narrower one (measured: 180,
+// 200) the timeline between the play and cast buttons had no room left, only a sliver of its thumb.
+constexpr double volumeButtonWidth = 240;
 
 // A player's own state, held by the handlers on its MediaPlayer (which its element holds) and found
 // by the element's identity. Read and written on the UI thread only: the MediaPlayer raises its
@@ -166,6 +176,36 @@ ActionUIWinUIObject *actionUIWinUIVideoPlayerCreate(void) {
             }
         });
         element.SetMediaPlayer(player);
+        // In a player narrower than the full controls need: the compact controls (one row), without their
+        // zoom button, and without the style's minimum width (296), which keeps even the compact row wider
+        // than such a player (it was cut on its right side); below volumeButtonWidth, without the volume
+        // button too. Full again when the player is wide enough.
+        // Nothing may leave the handler (an exception in an event handler ends the process).
+        element.SizeChanged([](wf::IInspectable const &sender, mux::SizeChangedEventArgs const &args) {
+            try {
+                muxc::MediaTransportControls controls = sender.as<muxc::MediaPlayerElement>().TransportControls();
+                if (controls == nullptr) {
+                    return;
+                }
+                // Narrower still, the volume button gives its room to the timeline.
+                bool volume = args.NewSize().Width >= volumeButtonWidth;
+                if (controls.IsVolumeButtonVisible() != volume) {
+                    controls.IsVolumeButtonVisible(volume);
+                }
+                bool compact = args.NewSize().Width < fullControlsWidth;
+                if (controls.IsCompact() == compact) {
+                    return;
+                }
+                controls.IsCompact(compact);
+                controls.IsZoomButtonVisible(!compact);
+                if (compact) {
+                    controls.MinWidth(0);
+                } else {
+                    controls.ClearValue(mux::FrameworkElement::MinWidthProperty());
+                }
+            } catch (...) {
+            }
+        });
         videoPlayers()[identity(element)] = data;
         return toObject(element);
     });
