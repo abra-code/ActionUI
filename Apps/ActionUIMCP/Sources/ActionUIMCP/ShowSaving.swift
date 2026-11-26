@@ -70,11 +70,20 @@ struct ShowSave: Codable, Sendable, Equatable {
         }
     }
 
-    /// A window title as a file name: one line, no "/" or ":", not starting with ".".
+    /// A window title as a file name: one line, not starting with ".", and each character that a
+    /// file system or a save panel on macOS, Linux or Windows reads as more than part of a name
+    /// replaced by "-": / and : everywhere, and Windows' backslash, < > " | ? and * (its save
+    /// dialog takes a name with a backslash as a path into another folder than the one it shows).
     static func fileName(from title: String) -> String {
-        var name = oneLine(title, limit: 100).map { "/:".contains($0) ? "-" : $0 }.reduce(into: "") { $0.append($1) }
-        while name.hasPrefix(".") { name.removeFirst() }
-        return name.isEmpty ? "Untitled" : name
+        // By Unicode scalar, as csv(...) quotes: a "\" followed by a combining mark is one
+        // Character with it, and a path still reads the "\".
+        let special = Set(#"/:\<>"|?*"#.unicodeScalars)
+        var name = String.UnicodeScalarView()
+        for scalar in oneLine(title, limit: 100).unicodeScalars {
+            if name.isEmpty && scalar == "." { continue }
+            name.append(special.contains(scalar) ? "-" : scalar)
+        }
+        return name.isEmpty ? "Untitled" : String(name)
     }
 
     // MARK: Writers

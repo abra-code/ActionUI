@@ -45,6 +45,12 @@ private func save(_ arguments: [String: JSONValue]) throws -> ShowSave? {
     #expect(ShowSave.fileName(from: "..hidden") == "hidden")
     #expect(ShowSave.fileName(from: " \n ") == "Untitled")
     #expect(ShowSave.fileName(from: "two\nlines") == "two lines")
+    // What Windows' save dialog would read as a path, or refuse in a name.
+    #expect(ShowSave.fileName(from: #"..\..\AppData\Startup\x"#) == "-..-AppData-Startup-x")
+    #expect(ShowSave.fileName(from: #"a<b>c"d|e?f*g"#) == "a-b-c-d-e-f-g")
+    // A combining mark makes one Character with the "\" or "." before it, not another scalar.
+    #expect(ShowSave.fileName(from: "a\\\u{0301}b") == "a-\u{0301}b")
+    #expect(ShowSave.fileName(from: ".\u{0301}hidden") == "\u{0301}hidden")
 }
 
 @Test func csvQuotesWhatNeedsQuoting() {
