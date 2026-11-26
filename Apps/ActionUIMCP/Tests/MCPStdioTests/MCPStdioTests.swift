@@ -362,6 +362,20 @@ private func modernMeta(client: String = "modern-client", version: String = "202
     #expect(sink.response(id: 3)?["result"]?["structuredContent"]?["client"] == .null)
 }
 
+// waitUntilIdle once returned between a call leaving the running set and its answer being queued, about once in a
+// thousand calls: many calls, each on a new server, so that a return of that gap fails here, not now and then elsewhere.
+@Test func answerIsQueuedWhenIdle() async {
+    var missing = 0
+    for _ in 0..<2000 {
+        let (server, sink) = makeServer(tools: [echoTool])
+        server.handle(line: line(["jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": ["name": "echo", "arguments": [:]]]))
+        await server.waitUntilIdle()
+        server.flush()
+        if sink.response(id: 1) == nil { missing += 1 }
+    }
+    #expect(missing == 0)
+}
+
 @Test func legacyResultsStayUnchanged() async {
     let (server, sink) = makeServer(tools: [echoTool])
     server.handle(line: line(["jsonrpc": "2.0", "id": 1, "method": "initialize", "params": ["protocolVersion": "2025-11-25"]]))

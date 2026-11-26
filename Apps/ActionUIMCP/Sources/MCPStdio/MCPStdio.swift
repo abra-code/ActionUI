@@ -833,18 +833,21 @@ public final class MCPServer: @unchecked Sendable {
     }
 
     private func finish(id: JSONValue, key: String, result: MCPToolResult, era: Era) {
-        lock.lock()
-        running[key] = nil
-        let wasCancelled = cancelled.remove(key) != nil
-        lock.unlock()
-        // The specification asks receivers of notifications/cancelled not to answer the request.
-        guard !wasCancelled else { return }
         var body: [String: JSONValue] = ["content": .array(result.content)]
         if let structured = result.structuredContent, era.hasStructuredContent {
             body["structuredContent"] = structured
         }
         if result.isError { body["isError"] = true }
-        send(resultResponse(id: id, result: complete(.object(body), era: era)))
+        // Serialized before the lock: a large result (a screenshot) would hold up every other request.
+        let line = Self.outputLine(resultResponse(id: id, result: complete(.object(body), era: era)))
+        // The call leaves `running` and its answer is queued under one lock, so waitUntilIdle, which reads
+        // `running`, cannot return between the two with the answer not queued yet.
+        lock.lock()
+        running[key] = nil
+        let wasCancelled = cancelled.remove(key) != nil
+        // The specification asks receivers of notifications/cancelled not to answer the request.
+        if !wasCancelled { enqueue(line) }
+        lock.unlock()
     }
 
     private func cancel(requestID: JSONValue) {
@@ -898,7 +901,15 @@ public final class MCPServer: @unchecked Sendable {
     }
 
     private func send(_ message: JSONValue) {
-        let line = Data((message.serialized() + "\n").utf8)
+        enqueue(Self.outputLine(message))
+    }
+
+    private static func outputLine(_ message: JSONValue) -> Data {
+        Data((message.serialized() + "\n").utf8)
+    }
+
+    /// Queues one line for output, in the order of the calls.
+    private func enqueue(_ line: Data) {
         writeQueue.async { [output] in output(line) }
     }
 }
