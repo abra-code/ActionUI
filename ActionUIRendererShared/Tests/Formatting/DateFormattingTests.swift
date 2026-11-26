@@ -56,4 +56,19 @@ final class DateFormattingTests: XCTestCase {
         let first = DateFormatting.string(noon, skeleton: "yMMMd", locale: "en_US", timeZone: "UTC")
         XCTAssertEqual(DateFormatting.string(noon, skeleton: "yMMMd", locale: "en_US", timeZone: "UTC"), first)
     }
+
+    /// With no zone given, a date is written in the zone Calendar.current computed it in: a chart's
+    /// tick at the start of a day names that day, and a time reads as its hour and minute fields.
+    /// A guard: XCTest links full Foundation, whose zone is the system's as ICU's is, so the case
+    /// this rule fixes (FoundationEssentials alone, its zone GMT) does not arise in a test process.
+    func testWithNoZoneADateIsWrittenInItsCalendarsZone() throws {
+        try XCTSkipIf(ICULibrary.shared == nil, "no ICU")
+        let calendar = Calendar.current
+        for (year, month, day) in [(2025, 9, 21), (2026, 1, 1)] {
+            let start = try XCTUnwrap(calendar.date(from: DateComponents(year: year, month: month, day: day)))
+            XCTAssertEqual(DateFormatting.string(start, skeleton: "d", locale: "en_US"), "\(day)")
+            let afternoon = try XCTUnwrap(calendar.date(from: DateComponents(year: year, month: month, day: day, hour: 14, minute: 30)))
+            XCTAssertEqual(DateFormatting.string(afternoon, skeleton: "Hm", locale: "en_US"), "14:30")
+        }
+    }
 }
