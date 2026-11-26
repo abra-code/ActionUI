@@ -202,21 +202,25 @@ extension ChartLayout {
             return shown.count <= ChartAxisStrideLimit.maxStrideMarks ? chosen(shown.sorted()) : axis.ticks
         case let (.dates(values), .dates(lo, hi)):
             let shown = values.filter { $0 >= lo && $0 <= hi }
-            return shown.count <= ChartAxisStrideLimit.maxStrideMarks ? dateLabels(shown.sorted(), unit: labelUnit(shown)) : axis.ticks
+            return shown.count <= ChartAxisStrideLimit.maxStrideMarks ? dateLabels(shown.sorted(), unit: labelUnit(values)) : axis.ticks
         default:
             return axis.ticks
         }
     }
 
-    // The unit listed dates are labeled in: the finest part of the day any of them sets, else days.
-    // A date written without a time is noon, so Swift Charts labels Dec 1 and Jan 1 "12 PM" (and Nov
-    // 15, Dec 1, Jan 1 "Nov 15 at 12 PM" ...; measured on macOS 27). Dates at midnight are not measured.
+    // The unit listed dates are labeled in: the finest part of the day any of them sets; at midnight,
+    // the coarsest unit all of them start (measured on macOS 27): noon Dec 1 and Jan 1 are "12 PM"
+    // (and noon Nov 15, Dec 1, Jan 1 "Nov 15 at 12 PM" ...); midnight Dec 1 and Jan 1 are "Dec" and
+    // "Jan", Jan 1 of 2026, 2027 and 2028 "2026" ..., and Nov 15, Dec 1, Jan 1 "Nov 15" ....
+    // A date written without a time is the start of its day here (ChartDescription.axisDate).
+    // Dates outside the domain count too: midnight Oct 15 (not drawn), Dec 1, Jan 1 are "Dec 1", "Jan 1".
     private func labelUnit(_ dates: [Date]) -> Calendar.Component {
-        let parts = dates.map { ChartDates.calendar.dateComponents([.hour, .minute, .second], from: $0) }
+        let parts = dates.map { ChartDates.calendar.dateComponents([.month, .day, .hour, .minute, .second], from: $0) }
         if parts.contains(where: { ($0.second ?? 0) != 0 }) { return .second }
         if parts.contains(where: { ($0.minute ?? 0) != 0 }) { return .minute }
         if parts.contains(where: { ($0.hour ?? 0) != 0 }) { return .hour }
-        return .day
+        guard parts.allSatisfy({ $0.day == 1 }) else { return .day }
+        return parts.allSatisfy({ $0.month == 1 }) ? .year : .month
     }
 
     // How many bands a label takes that needs `room` points, so labels never overlap, and their

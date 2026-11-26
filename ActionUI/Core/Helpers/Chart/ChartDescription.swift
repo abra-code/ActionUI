@@ -650,11 +650,8 @@ enum ChartDescription {
                     logger?.log("Chart: chartScrollPosition.\(key) must be a value of the axis's type\(type.map { " (\($0.rawValue))" } ?? ""); ignoring it", .warning)
                     continue
                 }
-                // A calendar day ("2026-09-20") scrolls to the start of that day, as a Date made
-                // from the day's components does in SwiftUI. DateHelper reads it as noon, which
-                // would start the window halfway through that day's bar.
-                if case .date(let date) = scalar, let text = value as? String, text.contains("-"), !text.contains("T") {
-                    scalar = .date(Calendar.current.startOfDay(for: date))
+                if case .date(let date) = scalar, let text = value as? String {
+                    scalar = .date(axisDate(date, writtenAs: text))
                 }
                 if axis == .horizontal { spec.initialX = scalar } else { spec.initialY = scalar }
                 cleanedPosition[key] = value
@@ -973,14 +970,23 @@ enum ChartDescription {
         }
         guard let strings = items as? [String] else { return nil }
         if family == .date {
-            guard strings.count == 2, let low = DateHelper.parseDate(from: strings[0]),
-                  let high = DateHelper.parseDate(from: strings[1]), low <= high else { return nil }
+            guard strings.count == 2, let low = DateHelper.parseDate(from: strings[0]).map({ axisDate($0, writtenAs: strings[0]) }),
+                  let high = DateHelper.parseDate(from: strings[1]).map({ axisDate($0, writtenAs: strings[1]) }),
+                  low <= high else { return nil }
             return .dates(low...high)
         }
         if family == nil || family == .string {
             return .strings(strings)
         }
         return nil
+    }
+
+    /// A date that places an axis (a scale's domain bound, a scroll position), read from `text`:
+    /// a calendar day ("2026-09-20") is the start of that day, as a Date made from the day's
+    /// components is in SwiftUI. DateHelper reads it as noon, which puts the axis's edge in the
+    /// middle of that day's bar. A time of day ("2026-09-20T15:30") is kept.
+    static func axisDate(_ date: Date, writtenAs text: String) -> Date {
+        text.contains("-") && !text.contains("T") ? Calendar.current.startOfDay(for: date) : date
     }
 
     // MARK: - Small parsers

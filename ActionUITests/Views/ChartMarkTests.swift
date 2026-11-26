@@ -794,6 +794,19 @@ final class ChartMarkTests: XCTestCase {
         try assertSameRendering(description, rows: weekRows, reference)
     }
 
+    func testCalendarDaysPlaceTheDomainAndTicksAtTheStartOfTheDay() throws {
+        // As Dates made from the days' components in SwiftUI: midnight, not DateHelper's noon.
+        let description = weekChart([
+            "chartXScale": ["domain": ["2026-08-01", "2026-09-10"]],
+            "chartXAxis": [["type": "AxisMarks", "values": ["2026-08-10", "2026-08-24"]]],
+        ])
+        let day = { (month: Int, day: Int) in Calendar.current.date(from: DateComponents(year: 2026, month: month, day: day))! }
+        let reference = Charts.Chart { weekReference }
+            .chartXScale(domain: day(8, 1)...day(9, 10))
+            .chartXAxis { AxisMarks(values: [day(8, 10), day(8, 24)]) }
+        try assertSameRendering(description, rows: weekRows, reference)
+    }
+
     func testNumberAxisFormatsAndSeveralAxisMarksRenderLikeTypedAxisMarks() throws {
         let description = weekChart(["chartYAxis": [
             ["type": "AxisMarks", "position": "leading", "values": [0, 4, 8], "format": "percent", "fractionLength": 0],
