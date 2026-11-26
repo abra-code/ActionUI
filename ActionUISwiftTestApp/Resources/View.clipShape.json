@@ -20,6 +20,7 @@
           "foregroundStyle": "white",
           "background": "gray",
           "frame": { "width": 120.0, "height": 120.0 },
+          "resizable": true,
           "contentMode": "fill",
           "clipShape": "circle"
         }

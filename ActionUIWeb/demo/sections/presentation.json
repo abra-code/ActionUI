@@ -105,6 +105,7 @@
       "id": 320,
       "properties": {
         "resourceName": "abracadabra.png",
+        "resizable": true,
         "contentMode": "fit",
         "frame": { "width": 72, "height": 72 },
         "cornerRadius": 8
@@ -119,6 +120,7 @@
         "type": "Image",
         "properties": {
           "resourceName": "abracadabra.png",
+          "resizable": true,
           "contentMode": "fit",
           "frame": { "width": 240, "height": 240 }
         }

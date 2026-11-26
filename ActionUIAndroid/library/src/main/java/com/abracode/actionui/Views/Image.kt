@@ -58,12 +58,15 @@ import kotlinx.serialization.json.put
  *     work like catalog scale/appearance variants. No registry or an unknown
  *     name warns-and-skips.
  *
- * **Scaling.** For raster sources, `contentMode` (`fit`/`fill`) maps to a Compose
- * `ContentScale` via [resolveContentScale]. For symbols, `imageScale`
+ * **Scaling.** As in SwiftUI, a raster source keeps its own size unless
+ * `resizable: true`; resizable alone stretches it to its frame, and `contentMode`
+ * (`fit`/`fill`) keeps its aspect ratio, with no effect unless resizable (a Compose
+ * `ContentScale` via [resolveContentScale]). For symbols, `imageScale`
  * (`small`/`medium`/`large`) scales the glyph relative to the ambient font; the
  * `materialSize:android` override sets an explicit size in sp. A **resizable**
- * glyph (`resizable: true`, or implied by a `contentMode` - the Apple contract)
- * instead scales to its fixed `frame`, mirroring SwiftUI's
+ * glyph (`resizable: true`; a `contentMode` does not imply it) instead scales to
+ * its fixed `frame` (fitted when no `contentMode` is given, where SwiftUI would
+ * stretch it: a font glyph is drawn at one size), mirroring SwiftUI's
  * `Image(systemName:).resizable().frame(...)`; `imageScale` then no longer
  * applies (see [resolveResizableGlyphFrameDp]), while `materialSize:android`
  * still wins as the explicit Android escape hatch.

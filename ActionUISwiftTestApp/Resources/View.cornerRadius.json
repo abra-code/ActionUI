@@ -53,6 +53,7 @@
           "foregroundStyle": "white",
           "background": "orange",
           "frame": { "width": 56.0, "height": 56.0 },
+          "resizable": true,
           "contentMode": "fill",
           "cornerRadius": 14.0
         }

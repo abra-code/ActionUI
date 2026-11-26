@@ -170,6 +170,37 @@ final class ImageRendererTests: XCTestCase {
         XCTAssertTrue(beyondFit, "filled: a 60 x 60 icon, wider than the fitted square")
     }
 
+    func testAResizableSymbolWithNoContentModeStretchesToItsFrame() throws {
+        // As SwiftUI's .resizable() alone: both sides of the frame, the aspect ratio not kept.
+        let node = try render(##"{"type": "Image", "id": 1, "properties": {"systemName": "square.fill", "resizable": true, "foregroundStyle": "#FF0000", "frame": {"width": 60, "height": 20}}}"##)
+        XCTAssertEqual(typeName(node.widget), "ActionUIScalableIcon")
+        let drawing = try XCTUnwrap(AdwaitaTestHost.drawing(of: node.widget, shownIn: node.outerWidget), "the image drew nothing")
+        defer { gsk_render_node_unref(drawing.node) }
+        let pixels = try XCTUnwrap(AdwaitaTestHost.pixels(of: drawing.node, width: 60, height: 20))
+        var minX = 60, maxX = -1
+        for y in 0..<20 {
+            for x in 0..<60 where pixels[(y * 60 + x) * 4 + 3] > 128 {
+                minX = min(minX, x)
+                maxX = max(maxX, x)
+            }
+        }
+        // A fitted square would be 20 px wide in the middle (x 20 to 39); stretched, it spans
+        // most of the 60 px (the Material square has a small margin of its own).
+        XCTAssertLessThan(minX, 12, "stretched to the frame's leading side")
+        XCTAssertGreaterThan(maxX, 47, "stretched to the frame's trailing side")
+    }
+
+    func testAContentModeAloneDoesNotResize() throws {
+        // As SwiftUI, where .aspectRatio(contentMode:) does not scale an image that is not resizable.
+        let symbol = try render(#"{"type": "Image", "id": 1, "properties": {"systemName": "star", "contentMode": "fit", "frame": {"width": 60, "height": 60}}}"#)
+        XCTAssertEqual(typeName(symbol.widget), "GtkImage", "the symbol at its icon size")
+        let path = try pngFile(width: 40, height: 20)
+        let file = try render(#"{"type": "Image", "id": 2, "properties": {"filePath": "\#(path)", "contentMode": "fill"}}"#)
+        XCTAssertEqual(gtk_picture_get_content_fit(opaque(file.widget)), GTK_CONTENT_FIT_SCALE_DOWN, "never scaled up")
+        XCTAssertEqual(measure(file.widget, GTK_ORIENTATION_HORIZONTAL).0, 40, "no smaller than the image")
+        XCTAssertEqual(gtk_widget_get_hexpand(file.widget), 0)
+    }
+
     func testAResizableSymbolsNaturalSizeFollowsTheFont() throws {
         let root = try render(#"""
             {"type": "VStack", "id": 1, "children": [
@@ -231,6 +262,16 @@ final class ImageRendererTests: XCTestCase {
         ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 1, propertyName: "contentMode", value: "fill")
         AdwaitaTestHost.drainMainLoop()
         XCTAssertEqual(gtk_picture_get_content_fit(opaque(node.widget)), GTK_CONTENT_FIT_COVER)
+    }
+
+    func testAResizableFileWithNoContentModeStretches() throws {
+        // As SwiftUI's .resizable() alone: it fills its frame, its aspect ratio not kept.
+        let path = try pngFile(width: 40, height: 20)
+        let node = try render(#"{"type": "Image", "id": 1, "properties": {"filePath": "\#(path)", "resizable": true}}"#)
+        XCTAssertEqual(gtk_picture_get_content_fit(opaque(node.widget)), GTK_CONTENT_FIT_FILL)
+        XCTAssertEqual(measure(node.widget, GTK_ORIENTATION_HORIZONTAL).0, 0, "it can shrink")
+        XCTAssertNotEqual(gtk_widget_get_hexpand(node.widget), 0)
+        XCTAssertNotEqual(gtk_widget_get_vexpand(node.widget), 0)
     }
 
     func testAMissingFileShowsThePhotoSymbol() throws {

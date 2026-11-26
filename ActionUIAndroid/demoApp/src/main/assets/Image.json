@@ -7,6 +7,7 @@
       "type": "Image",
       "properties": {
         "resourceName": "sample_image.png",
+        "resizable": true,
         "contentMode": "fit",
         "frame": { "height": 100 },
         "accessibilityLabel": "Sample gradient image"
@@ -17,6 +18,7 @@
       "type": "Image",
       "properties": {
         "resourceName": "sample_image.png",
+        "resizable": true,
         "contentMode": "fill",
         "frame": { "width": 200, "height": 60 },
         "cornerRadius": 8
@@ -28,6 +30,7 @@
       "properties": {
         "systemName": "star.fill",
         "resourceName": "sample_image.png",
+        "resizable": true,
         "contentMode": "fit",
         "frame": { "height": 60 }
       }

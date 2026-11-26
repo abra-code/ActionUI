@@ -9,8 +9,8 @@
      "assetName": "customImage",      // Optional: String for asset catalog image name
      "filePath": "/path/to/image.jpg", // Optional: String, absolute local file path (a relative one resolves against the process's working directory)
      "resourceName": "yourImage.png",  // Optional: String for a resource image name with extension (the host's resource folder, then the bundle; a name with "/" is not found)
-     "resizable": true,          // Optional: Boolean to make image resizable, defaults to true if contentMode is specified
-     "contentMode": "fit",       // Optional: String ("fit" or "fill") for aspect-ratio scaling mode, defaults to "fit"
+     "resizable": true,          // Optional: Boolean, defaults to false. true scales the image to the space it is given (its frame); with no contentMode it stretches to fill it on both axes, not keeping its aspect ratio, as SwiftUI's .resizable() does. false: the image keeps its own size and a smaller frame does not shrink it
+     "contentMode": "fit",       // Optional: String ("fit" or "fill"), no default. Keeps a resizable image's aspect ratio: "fit" shows the whole image inside the frame, "fill" covers the frame and may draw past it. No effect unless "resizable" is true, as SwiftUI's .aspectRatio(contentMode:) has none on an image that is not resizable
      "imageScale": "large"       // Optional: String ("small", "medium", "large") for image scale, applies to SF Symbols, no default
    }
    // Note: These properties are specific to Image. Baseline View properties (padding, hidden, foregroundStyle, font, background, frame, opacity, cornerRadius, actionID, disabled, accessibilityLabel, accessibilityHint, accessibilityHidden, accessibilityIdentifier, shadow) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties).
@@ -58,7 +58,8 @@ extension Image {
         var sources: [Source] = []
         /// "contentMode"; nil when it is not "fit" or "fill".
         var contentMode: ContentMode?
-        /// "resizable" when it is a Bool, else true exactly when a content mode is set.
+        /// "resizable" when it is a Bool, else false. A content mode does not imply it, as in
+        /// SwiftUI, where .aspectRatio(contentMode:) does not scale an image that is not resizable.
         var resizable = false
         var imageScale: ImageScale?
 
@@ -68,7 +69,7 @@ extension Image {
             if let assetName = properties["assetName"] as? String { sources.append(.assetName(assetName)) }
             if let systemName = properties["systemName"] as? String { sources.append(.systemName(systemName)) }
             contentMode = (properties["contentMode"] as? String).flatMap(ContentMode.init(rawValue:))
-            resizable = properties["resizable"] as? Bool ?? (contentMode != nil)
+            resizable = properties["resizable"] as? Bool ?? false
             imageScale = (properties["imageScale"] as? String).flatMap(ImageScale.init(rawValue:))
         }
     }

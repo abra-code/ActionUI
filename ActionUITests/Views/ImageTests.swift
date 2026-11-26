@@ -327,3 +327,68 @@ extension ImageTests {
         XCTAssertEqual(try rowImage(remoteStack, window: remote), placeholder, "a less-trusted row does not")
     }
 }
+
+#if os(macOS)
+import AppKit
+
+// How "resizable" and "contentMode" size an image, as SwiftUI sizes Image with .resizable() and
+// .aspectRatio(contentMode:): resizable alone stretches it to its frame, a content mode keeps its
+// aspect ratio, and a content mode alone changes nothing. Measured from the pixels of a solid red
+// 100x50 image in a 40x40 frame (centered in a 200x200 root, so an image past its frame shows).
+extension ImageTests {
+    /// A PNG of `width` x `height` pixels, all opaque red (sRGB).
+    static func redPNG(width: Int, height: Int) -> Data {
+        let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+                                space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        context.setFillColor(red: 1, green: 0, blue: 0, alpha: 1)
+        context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+        let data = NSMutableData()
+        let destination = CGImageDestinationCreateWithData(data, "public.png" as CFString, 1, nil)!
+        CGImageDestinationAddImage(destination, context.makeImage()!, nil)
+        CGImageDestinationFinalize(destination)
+        return data as Data
+    }
+
+    /// The drawn image's [x, y, width, height] in points, with `sizing` added to its properties.
+    private func drawnFrame(_ path: String, _ sizing: String) throws -> [Double]? {
+        let json = """
+        {"type": "ZStack", "id": 1, "properties": {"frame": {"width": 200, "height": 200}}, "children": [
+          {"type": "Image", "id": 2, "properties": {"filePath": "\(path)", "frame": {"width": 40, "height": 40}\(sizing)}}]}
+        """
+        let window = UUID().uuidString
+        let element = try ActionUIModel.shared.loadDescription(from: Data(json.utf8), format: "json", windowUUID: window)
+        let viewModel = try XCTUnwrap(ActionUIModel.shared.windowModels[window]?.viewModels[element.id])
+        let host = NSHostingView(rootView: ActionUIView(element: element, model: viewModel, windowUUID: window))
+        host.frame = NSRect(x: 0, y: 0, width: 200, height: 200)
+        host.layoutSubtreeIfNeeded()
+        let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        host.cacheDisplay(in: host.bounds, to: bitmap)
+        let red = LayoutParityPixels.Leaf(id: 2, red: 1, green: 0, blue: 0)
+        return LayoutParityPixels.frames(in: bitmap, width: 200, leaves: [red], fixture: sizing)["2"]
+    }
+
+    func testResizableAndContentModeSizeTheImageAsSwiftUIDoes() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("actionui-image-sizing-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let file = folder.appendingPathComponent("red.png")
+        try Self.redPNG(width: 100, height: 50).write(to: file)
+
+        let cases: [(sizing: String, frame: [Double])] = [
+            ("", [50, 75, 100, 50]),                                              // its own size, past the frame
+            (#", "contentMode": "fit""#, [50, 75, 100, 50]),                      // a content mode alone: no change
+            (#", "contentMode": "fill""#, [50, 75, 100, 50]),
+            (#", "resizable": true"#, [80, 80, 40, 40]),                          // stretched to the frame
+            (#", "resizable": true, "contentMode": "fit""#, [80, 90, 40, 20]),    // fitted inside it
+            (#", "resizable": true, "contentMode": "fill""#, [60, 80, 80, 40]),   // filling it, past its sides
+            (#", "resizable": false, "contentMode": "fit""#, [50, 75, 100, 50]),
+        ]
+        for (sizing, expected) in cases {
+            let frame = try XCTUnwrap(try drawnFrame(file.path, sizing), "no image drawn for [\(sizing)]")
+            for (value, want) in zip(frame, expected) {
+                XCTAssertEqual(value, want, accuracy: 1, "[\(sizing)]: \(frame), expected \(expected)")
+            }
+        }
+    }
+}
+#endif
