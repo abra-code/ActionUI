@@ -728,6 +728,42 @@ bool actionUIWinUIWindowContentSize(ActionUIWinUIObject *window, double *width, 
     });
 }
 
+bool actionUIWinUIWindowPosition(ActionUIWinUIObject *window, int32_t *x, int32_t *y) {
+    return guarded("window position", [&]() {
+        if (x == nullptr || y == nullptr) {
+            return fail("window position", "the x or y pointer is NULL");
+        }
+        auto position = windowFrom(window).AppWindow().Position();
+        *x = position.X;
+        *y = position.Y;
+        return true;
+    });
+}
+
+bool actionUIWinUIWindowMoveOnScreen(ActionUIWinUIObject *window, int32_t x, int32_t y, bool *moved) {
+    return guarded("window move on screen", [&]() {
+        if (moved == nullptr) {
+            return fail("window move on screen", "the moved pointer is NULL");
+        }
+        *moved = false;
+        // A point in the title bar near its left end, where the user can take hold of the window: past the
+        // frame's invisible resize border and the title bar's top edge. In 64 bits: x or y may be near the
+        // end of int32_t's range.
+        int64_t probeX = static_cast<int64_t>(x) + 64;
+        int64_t probeY = static_cast<int64_t>(y) + 16;
+        if (probeX > INT32_MAX || probeY > INT32_MAX) {
+            return true;
+        }
+        POINT probe{static_cast<LONG>(probeX), static_cast<LONG>(probeY)};
+        if (MonitorFromPoint(probe, MONITOR_DEFAULTTONULL) == nullptr) {
+            return true;
+        }
+        windowFrom(window).AppWindow().Move(winrt::Windows::Graphics::PointInt32{x, y});
+        *moved = true;
+        return true;
+    });
+}
+
 bool actionUIWinUIWindowIsActive(ActionUIWinUIObject *window) {
     try {
         HWND hwnd = nullptr;

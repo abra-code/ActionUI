@@ -115,13 +115,17 @@ public final class WinUIApplication {
         public var isResizable = true
         /// Whether the window takes the focus as it opens; false leaves it where it is.
         public var activates = true
+        /// Where the window's frame opens: its top-left corner in screen pixels, as position(windowUUID:)
+        /// gives it. nil, or a place that would leave the title bar on no monitor: where Windows puts it.
+        public var position: (x: Int32, y: Int32)?
 
         public init(subtitle: String? = nil, contentSize: (width: Int, height: Int)? = nil, isResizable: Bool = true,
-                    activates: Bool = true) {
+                    activates: Bool = true, position: (x: Int32, y: Int32)? = nil) {
             self.subtitle = subtitle
             self.contentSize = contentSize
             self.isResizable = isResizable
             self.activates = activates
+            self.position = position
         }
     }
 
@@ -478,6 +482,13 @@ public final class WinUIApplication {
         // a long one at its end, so a long title cannot push the subtitle out of view or come first.
         let shownTitle = title ?? tree.groupTitle ?? defaultTitle ?? name ?? "ActionUI"
         let fullTitle = options?.subtitle.flatMap { $0.isEmpty ? nil : "\($0) - \(shownTitle)" } ?? shownTitle
+        // Moved first: the content size is set in the pixels of the monitor the window is on.
+        if let place = options?.position {
+            var moved = false
+            if !actionUIWinUIWindowMoveOnScreen(window.pointer, place.x, place.y, &moved) {
+                logger.log("WinUIApplication: \(WinUIError.last("placing the window for \(windowUUID)"))", .warning)
+            }
+        }
         // The options' content size, side by side, else the content's own.
         var size = tree.openingSize()
         if let wanted = options?.contentSize {
@@ -555,6 +566,16 @@ public final class WinUIApplication {
         var height = 0.0
         guard actionUIWinUIWindowContentSize(shown.window.pointer, &width, &height), width > 0, height > 0 else { return nil }
         return (width, height)
+    }
+
+    /// Where the frame of the window showing `windowUUID` is: its top-left corner in screen pixels (the
+    /// primary monitor's top-left at 0, 0), for WindowOptions.position; nil when there is no such window.
+    public func position(windowUUID: String) -> (x: Int32, y: Int32)? {
+        guard let shown = windows[windowUUID] else { return nil }
+        var x: Int32 = 0
+        var y: Int32 = 0
+        guard actionUIWinUIWindowPosition(shown.window.pointer, &x, &y) else { return nil }
+        return (x, y)
     }
 
     /// Saves the window showing `windowUUID` to a PNG at `path` as savePNG does, scaled down so that neither

@@ -131,6 +131,14 @@ ACTIONUI_WINUI_API bool actionUIWinUIWindowShowInactive(ActionUIWinUIObject *win
 // The size of the window's content area (below its menu bar, if any) in effective pixels, as laid out
 // now: 0 by 0 before the window is first laid out.
 ACTIONUI_WINUI_API bool actionUIWinUIWindowContentSize(ActionUIWinUIObject *window, double *width, double *height);
+// Where the window's frame is: its top-left corner in screen pixels (those of the rectangle around all
+// monitors, the primary monitor's top-left at 0, 0). A minimized window's is far outside every monitor.
+ACTIONUI_WINUI_API bool actionUIWinUIWindowPosition(ActionUIWinUIObject *window, int32_t *x, int32_t *y);
+// Moves the window's frame so its top-left corner is at x, y (screen pixels, as actionUIWinUIWindowPosition
+// gives) when that leaves the left end of its title bar on a monitor, and sets *moved true; else leaves the
+// window where it is, with *moved false (the monitor it was on may be gone). Before its content size is set,
+// as actionUIWinUIWindowPlaceOffscreen.
+ACTIONUI_WINUI_API bool actionUIWinUIWindowMoveOnScreen(ActionUIWinUIObject *window, int32_t x, int32_t y, bool *moved);
 // Whether the window is the active one of the UI thread (the one the user works in, when the application
 // is in front). Sets no error; false on failure.
 ACTIONUI_WINUI_API bool actionUIWinUIWindowIsActive(ActionUIWinUIObject *window);

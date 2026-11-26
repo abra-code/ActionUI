@@ -228,6 +228,11 @@ final class KeptWindowKeeper {
             options.contentSize = (Int(record.frame[2].rounded()), Int(record.frame[3].rounded()))
         }
         options.isResizable = record.styleMask & WinUIPlatform.resizableStyle != 0
+        // Where it was, when that is still on a monitor (WinUIApplication.WindowOptions.position).
+        if record.styleMask & WinUIPlatform.positionedStyle != 0,
+           let x = Int32(exactly: record.frame[0].rounded()), let y = Int32(exactly: record.frame[1].rounded()) {
+            options.position = (x, y)
+        }
         // The user keeps the focus wherever it was, as on macOS.
         options.activates = false
         // Into the model, which the window's tree is built from when it shows.
@@ -254,14 +259,17 @@ final class KeptWindowKeeper {
     #if DEBUG
     /// ACTIONUI_MCP_TEST_REHOST_REPORT=<path>: for the live test, write what was shown to that file, then
     /// close every window a second later and end, as the user's close of the last window would. The frame
-    /// is the content's size; the title is the one asked for.
+    /// is the window's place and its content's size, as WinUIPlatform.keptWindowStates gives them; the title is
+    /// the one asked for.
     private func writeTestReport() {
         guard let path = ProcessInfo.processInfo.environment["ACTIONUI_MCP_TEST_REHOST_REPORT"] else { return }
         let entries: [[String: Any]] = shown.compactMap { record in
-            guard let size = application.contentSize(windowUUID: record.window) else { return nil }
+            guard let size = application.contentSize(windowUUID: record.window),
+                  let position = application.position(windowUUID: record.window) else { return nil }
             return KeptWindowSupport.testReportEntry(record, title: record.title,
                                                      subtitle: record.subtitle + KeptWindowSupport.subtitleSuffix,
-                                                     frame: [0, 0, size.width.rounded(), size.height.rounded()])
+                                                     frame: [Double(position.x), Double(position.y),
+                                                             size.width.rounded(), size.height.rounded()])
         }
         KeptWindowSupport.writeTestReport(entries, to: path)
         Task { @MainActor [weak self] in

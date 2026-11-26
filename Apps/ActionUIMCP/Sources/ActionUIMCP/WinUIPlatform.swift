@@ -32,8 +32,10 @@ final class WinUIPlatform: WindowPlatform {
         """
     nonisolated static let verifierPlatform = "windows"
     nonisolated static let keepsWindows = true
-    /// KeptWindowState.styleMask of a resizable window (the only style the keeper reads back).
+    /// KeptWindowState.styleMask bits the keeper reads back: the window is resizable; its frame's x and y
+    /// are where it was (else 0: its place could not be read).
     nonisolated static let resizableStyle: UInt = 1
+    nonisolated static let positionedStyle: UInt = 2
     /// The application removes a closed window's model itself, after its disappear actions.
     nonisolated static let removesClosedWindowModels = true
 
@@ -209,16 +211,21 @@ final class WinUIPlatform: WindowPlatform {
         return { panel.cancel() }
     }
 
-    /// The content's size as laid out now (the user may have resized the window), at x and y 0: the
-    /// keeper opens each window at that size, where Windows puts it. A window not laid out yet (the session
-    /// ended right after it opened) is kept too, at size 0: the keeper then sizes it to fit, as on Linux.
+    /// Where each window's frame is (its top-left corner in screen pixels) and its content's size as laid out
+    /// now (the user may have moved or resized the window): the keeper opens each window there at that size.
+    /// Only this layer's keeper reads the frame, so it mixes units: x and y in pixels, the size in effective
+    /// pixels (at 200%, two pixels each). A window not laid out yet (the session ended right
+    /// after it opened) is kept too, at size 0: the keeper then sizes it to fit, as on Linux.
     func keptWindowStates(_ ids: [String]) -> [KeptWindowState] {
         ids.compactMap { id in
             guard let window = shown[id] else { return nil }
             let size = application.contentSize(windowUUID: id) ?? (0, 0)
+            let position = application.position(windowUUID: id)
+            let style = (window.isResizable ? Self.resizableStyle : 0) | (position != nil ? Self.positionedStyle : 0)
             return KeptWindowState(id: id, title: window.title, subtitle: window.subtitle,
-                                   frame: [0, 0, size.width.rounded(), size.height.rounded()],
-                                   styleMask: window.isResizable ? Self.resizableStyle : 0)
+                                   frame: [Double(position?.x ?? 0), Double(position?.y ?? 0),
+                                           size.width.rounded(), size.height.rounded()],
+                                   styleMask: style)
         }
     }
 }
