@@ -115,15 +115,23 @@ public final class AdwaitaApplication {
         /// windowOptions(windowUUID:) does not return them.
         public var topBar: (@MainActor @Sendable () -> UnsafeMutableRawPointer)?
         public var bottomBar: (@MainActor @Sendable () -> UnsafeMutableRawPointer)?
+        /// The window's title already says what the subtitle says (a host that starts its titles
+        /// with it): the subtitle's own line then shows only while the header bar does not show the
+        /// title (the JSON's principal toolbar items take its place, or the JSON brings its own
+        /// header bars), and in sheets, which cover the window. False: the line always shows.
+        /// windowOptions(windowUUID:) does not return it.
+        public var titleCarriesSubtitle: Bool
 
         public init(subtitle: String? = nil, contentSize: (width: Int, height: Int)? = nil, isResizable: Bool = true,
                     topBar: (@MainActor @Sendable () -> UnsafeMutableRawPointer)? = nil,
-                    bottomBar: (@MainActor @Sendable () -> UnsafeMutableRawPointer)? = nil) {
+                    bottomBar: (@MainActor @Sendable () -> UnsafeMutableRawPointer)? = nil,
+                    titleCarriesSubtitle: Bool = false) {
             self.subtitle = subtitle
             self.contentSize = contentSize
             self.isResizable = isResizable
             self.topBar = topBar
             self.bottomBar = bottomBar
+            self.titleCarriesSubtitle = titleCarriesSubtitle
         }
     }
 
@@ -595,7 +603,7 @@ public final class AdwaitaApplication {
         adw_application_window_set_content(typed(window), toolbar)
         let size = WindowAssembly.assemble(window, toolbar: toolbar, content: content, renderTree: renderTree, windowUUID: windowUUID,
                             subtitle: options.subtitle, contentSize: options.contentSize, presents: true,
-                            topBar: options.topBar.map { $0().assumingMemoryBound(to: GtkWidget.self) },
+                            titleCarriesSubtitle: options.titleCarriesSubtitle, topBar: options.topBar.map { $0().assumingMemoryBound(to: GtkWidget.self) },
                             bottomBar: options.bottomBar.map { $0().assumingMemoryBound(to: GtkWidget.self) })
         gtk_window_set_default_size(window, size.width, size.height)
         gtk_window_set_resizable(window, options.isResizable ? 1 : 0)
@@ -656,7 +664,7 @@ public final class AdwaitaApplication {
         adw_window_set_content(typed(window), toolbar)
         let size = WindowAssembly.assemble(window, toolbar: toolbar, content: content, renderTree: renderTree, windowUUID: prepared.windowUUID,
                             subtitle: options.subtitle, contentSize: options.contentSize, presents: false,
-                            topBar: options.topBar.map { $0().assumingMemoryBound(to: GtkWidget.self) },
+                            titleCarriesSubtitle: options.titleCarriesSubtitle, topBar: options.topBar.map { $0().assumingMemoryBound(to: GtkWidget.self) },
                             bottomBar: options.bottomBar.map { $0().assumingMemoryBound(to: GtkWidget.self) })
         // The toolbars join the header bar in the scheduler's next flush; now, so the window is
         // complete when this returns and what its renderers log is logged here.

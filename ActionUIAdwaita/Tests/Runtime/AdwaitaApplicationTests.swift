@@ -1166,6 +1166,42 @@ final class AdwaitaApplicationTests: XCTestCase {
         }
     }
 
+    func testATitleThatCarriesTheSubtitleShowsTheLineOnlyWhenTheTitleIsHidden() throws {
+        let app = AdwaitaApplication()
+        let subtitle = "Requested by a test"
+        let options = AdwaitaApplication.WindowOptions(subtitle: subtitle, contentSize: (500, 400), titleCarriesSubtitle: true)
+        let windowsJSON: [(String, String)] = [
+            ("carry-plain", Self.json),
+            ("carry-principal", #"{"type": "Text", "id": 1, "properties": {"text": "Document"}, "toolbar": [{"type": "ToolbarItem", "id": 2, "properties": {"placement": "principal"}, "content": {"type": "Text", "id": 3, "properties": {"text": "Principal"}}}]}"#),
+            ("carry-own", #"{"type": "NavigationStack", "id": 1, "properties": {"navigationTitle": "Own bars"}, "content": {"type": "Text", "id": 2, "properties": {"text": "Page"}}}"#),
+        ]
+        var shown: [String: Int] = [:]
+        var titleShown: [String: Bool] = [:]
+        var bars: [String: Int32] = [:]
+        app.handlers.didFinishLaunching = {
+            for (uuid, windowJSON) in windowsJSON {
+                app.presentWindow(json: Data(windowJSON.utf8), windowUUID: uuid, title: "a test: Title", options: options)
+            }
+            _ = runAfter(milliseconds: 500) {
+                for (uuid, _) in windowsJSON {
+                    guard let window = app.gtkWindow(uuid) else { continue }
+                    shown[uuid] = self.labels(showing: subtitle, in: typed(window)).filter { gtk_widget_get_mapped($0) != 0 }.count
+                    titleShown[uuid] = self.labels(showing: "a test: Title", in: typed(window)).contains { gtk_widget_get_mapped($0) != 0 }
+                    bars[uuid] = WindowRegistry.shared.barsHeight(uuid) ?? 0
+                    app.closeWindow(uuid)
+                }
+                app.terminate()
+            }
+        }
+        XCTAssertEqual(app.run(), 0)
+        XCTAssertEqual(shown, ["carry-plain": 0, "carry-principal": 1, "carry-own": 1],
+                       "the line only where the header bar does not show the title")
+        XCTAssertEqual(titleShown["carry-plain"], true, "the header bar shows the window's title")
+        XCTAssertEqual(titleShown["carry-principal"], false, "principal items have its place")
+        // The line beside principal items at open is measured with the bars, not taken from the content.
+        XCTAssertGreaterThan(bars["carry-principal"] ?? 0, (bars["carry-plain"] ?? 0) + 10, "\(bars)")
+    }
+
     /// The labels in `widget` showing `text`: the window's first, then those of what is over it.
     private func labels(showing text: String, in widget: WidgetPointer) -> [WidgetPointer] {
         var found: [WidgetPointer] = []

@@ -38,12 +38,13 @@ package enum WindowAssembly {
     /// height above and below the content (what a size between the bars adds to make the window's).
     package static func assemble(_ window: UnsafeMutablePointer<GtkWindow>, toolbar: WidgetPointer, content: WidgetPointer,
                                  renderTree: AdwaitaWindow?, windowUUID: String, subtitle: String?,
-                                 contentSize: (width: Int, height: Int)?, presents: Bool,
+                                 contentSize: (width: Int, height: Int)?, presents: Bool, titleCarriesSubtitle: Bool = false,
                                  topBar: WidgetPointer? = nil, bottomBar: WidgetPointer? = nil) -> (width: Int32, height: Int32, barsHeight: Int32) {
         // First of the bars, where the JSON's toolbar items cannot push it away (WindowSubtitle).
+        var line: WidgetPointer?
         if let subtitle, !subtitle.isEmpty {
             WindowSubtitle.set(subtitle, on: window)
-            let line = WindowSubtitle.line(subtitle)
+            line = WindowSubtitle.line(subtitle)
             adw_toolbar_view_add_top_bar(OpaquePointer(toolbar), line)
         }
         // ActionUI JSON that brings its own header bars (a NavigationStack's pages) gets none here.
@@ -52,8 +53,17 @@ package enum WindowAssembly {
             adw_toolbar_view_add_top_bar(OpaquePointer(toolbar), header)
             // The primary menu at the end, outside the toolbars' items.
             adw_header_bar_pack_end(OpaquePointer(header), AppCommands.shared.makeMenuButton())
-            // The JSON's toolbars show in it.
-            renderTree?.root?.screenBar = ScreenBar(header: header, toolbarView: toolbar)
+            // The JSON's toolbars show in it. With a title that carries the subtitle, the line shows
+            // only while principal items take the title's place (WindowSubtitle.TitleSlot).
+            if titleCarriesSubtitle, let line {
+                let slot = WindowSubtitle.TitleSlot(header: header, line: line)
+                let screenBar = ScreenBar(header: header, toolbarView: toolbar, principalChanged: { slot.update() })
+                slot.screenBar = screenBar
+                slot.update()
+                renderTree?.root?.screenBar = screenBar
+            } else {
+                renderTree?.root?.screenBar = ScreenBar(header: header, toolbarView: toolbar)
+            }
         } else {
             // The JSON's own header bars carry the primary menu.
             renderTree?.root?.showsPrimaryMenu = true
@@ -64,6 +74,11 @@ package enum WindowAssembly {
         }
         if let bottomBar {
             adw_toolbar_view_add_bottom_bar(OpaquePointer(toolbar), bottomBar)
+        }
+        // A title that carries the subtitle shows the line only beside principal items, which join
+        // the header bar in the scheduler's next flush: now, so the bars are measured as they show.
+        if titleCarriesSubtitle, line != nil {
+            SyncScheduler.shared.flush()
         }
         // Measured in the window, where the bars have their style, and together, as stacked bars
         // share their padding. The view has no content yet: this is the bars alone.
