@@ -30,14 +30,16 @@ package enum WindowAssembly {
     /// Fills `toolbar`, an AdwToolbarView already the content of `window` (so the bars have their
     /// style when measured): the subtitle line (none when nil or empty), the header bar with the
     /// the JSON's toolbars and the primary menu unless the JSON brings its own header bars,
-    /// and `content` below them, scrolled when its minimum is larger than the monitor. With
-    /// `presents`, the JSON's modals, dialogs and toasts start showing. `contentSize` (below
+    /// and `content` below them, scrolled when its minimum is larger than the monitor. A host's
+    /// `topBar` goes under those bars and its `bottomBar` under the content (WindowOptions). With
+    /// `presents`, the JSON's modals, dialogs and toasts start showing. `contentSize` (between
     /// the bars; a side of zero or less keeps the JSON's) overrides the JSON's size.
     /// Returns the window's opening size, bars included, no larger than the monitor, and the bars'
-    /// height above the content (what a size below the bars adds to make the window's).
+    /// height above and below the content (what a size between the bars adds to make the window's).
     package static func assemble(_ window: UnsafeMutablePointer<GtkWindow>, toolbar: WidgetPointer, content: WidgetPointer,
                                  renderTree: AdwaitaWindow?, windowUUID: String, subtitle: String?,
-                                 contentSize: (width: Int, height: Int)?, presents: Bool) -> (width: Int32, height: Int32, barsHeight: Int32) {
+                                 contentSize: (width: Int, height: Int)?, presents: Bool,
+                                 topBar: WidgetPointer? = nil, bottomBar: WidgetPointer? = nil) -> (width: Int32, height: Int32, barsHeight: Int32) {
         // First of the bars, where the JSON's toolbar items cannot push it away (WindowSubtitle).
         if let subtitle, !subtitle.isEmpty {
             WindowSubtitle.set(subtitle, on: window)
@@ -55,6 +57,13 @@ package enum WindowAssembly {
         } else {
             // The JSON's own header bars carry the primary menu.
             renderTree?.root?.showsPrimaryMenu = true
+        }
+        // The host's own bars: the last of the top bars, and under the content.
+        if let topBar {
+            adw_toolbar_view_add_top_bar(OpaquePointer(toolbar), topBar)
+        }
+        if let bottomBar {
+            adw_toolbar_view_add_bottom_bar(OpaquePointer(toolbar), bottomBar)
         }
         // Measured in the window, where the bars have their style, and together, as stacked bars
         // share their padding. The view has no content yet: this is the bars alone.

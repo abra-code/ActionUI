@@ -31,7 +31,7 @@ package final class WindowRegistry {
     final class Entry {
         let window: UnsafeMutablePointer<GtkWindow>
         let renderTree: AdwaitaWindow?
-        /// The height of the bars above the content (WindowAssembly.assemble), 0 when not measured.
+        /// The height of the bars above and below the content (WindowAssembly.assemble), 0 when not measured.
         let barsHeight: Int32
         /// The window's "destroy" handler, which forgets it.
         var destroyHandler: gulong = 0
@@ -49,7 +49,7 @@ package final class WindowRegistry {
     init() {}
 
     /// Registers `window` as the one showing `windowUUID`, in place of any before it; `barsHeight`
-    /// is the height of the bars above its content, as WindowAssembly.assemble measured it.
+    /// is the height of the bars above and below its content, as WindowAssembly.assemble measured it.
     package func register(_ windowUUID: String, window: UnsafeMutablePointer<GtkWindow>, renderTree: AdwaitaWindow?,
                           barsHeight: Int32 = 0) {
         MainLoopBridge.install()
@@ -90,9 +90,9 @@ package final class WindowRegistry {
         entries[windowUUID]?.window
     }
 
-    /// The height of the bars above the content of the window showing `windowUUID` (its header bar
-    /// and subtitle line), nil when no window shows it. A host adds it to a size below the bars to
-    /// get the window's size (actionUIGetWindowBarsHeight).
+    /// The height of the bars of the window showing `windowUUID` (its header bar and subtitle line,
+    /// and a host's own bars, WindowOptions), nil when no window shows it. A host adds it to the
+    /// size of the content between the bars to get the window's size (actionUIGetWindowBarsHeight).
     package func barsHeight(_ windowUUID: String) -> Int32? {
         entries[windowUUID]?.barsHeight
     }
