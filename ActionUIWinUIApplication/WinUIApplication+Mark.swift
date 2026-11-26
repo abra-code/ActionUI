@@ -34,14 +34,20 @@ extension WinUIApplication {
             case line
         }
 
-        /// A button in a bar's row: its title, its tooltip, and what it does.
+        /// A button in a bar's row: its title, an icon in its place, its tooltip, and what it does.
         public struct Button: Sendable {
+            /// The button's text, or with `symbol` its name for screen readers only.
             public var title: String
+            /// An SF Symbol name ("folder") the button shows instead of its title, when the shim has
+            /// its outline; nil: the title.
+            public var symbol: String?
             public var toolTip: String?
             public var action: @MainActor @Sendable () -> Void
 
-            public init(title: String, toolTip: String? = nil, action: @escaping @MainActor @Sendable () -> Void) {
+            public init(title: String, symbol: String? = nil, toolTip: String? = nil,
+                        action: @escaping @MainActor @Sendable () -> Void) {
                 self.title = title
+                self.symbol = symbol
                 self.toolTip = toolTip
                 self.action = action
             }
@@ -290,7 +296,14 @@ final class MarkRow {
 
     private static func button(_ content: WinUIApplication.WindowMark.Button) -> WinUIObject? {
         guard let button = WinUIObject(adopting: actionUIWinUIButtonCreate()) else { return nil }
-        _ = actionUIWinUIButtonSetTitle(button.pointer, content.title)
+        if let symbol = content.symbol, actionUIWinUISymbolExists(symbol),
+           let icon = WinUIObject(adopting: actionUIWinUISymbolCreate(symbol)) {
+            _ = actionUIWinUISymbolSetSize(icon.pointer, 14)
+            _ = actionUIWinUIButtonSetContent(button.pointer, icon.pointer)
+            _ = actionUIWinUIElementSetAccessibleName(button.pointer, content.title)
+        } else {
+            _ = actionUIWinUIButtonSetTitle(button.pointer, content.title)
+        }
         if let toolTip = content.toolTip {
             _ = actionUIWinUIElementSetToolTip(button.pointer, toolTip)
         }

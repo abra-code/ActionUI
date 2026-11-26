@@ -35,7 +35,7 @@ enum WinUIWindowMarks {
         var reveal: Button?
         if let path {
             // Selects the file in File Explorer; never opens it. A file that is gone gets a beep.
-            reveal = Button(title: "Show in Folder", toolTip: "Show in File Explorer") {
+            reveal = Button(title: "Show in Folder", symbol: "folder", toolTip: "Show in File Explorer") {
                 if !WinUIApplication.revealInFileExplorer(path: path) {
                     _ = MessageBeep(UINT(MB_OK))
                 }
