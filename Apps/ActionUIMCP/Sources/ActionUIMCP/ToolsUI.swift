@@ -50,7 +50,7 @@ func showUITool(host: WindowHost, label: String?) -> MCPTool {
     return MCPTool(
         name: "show_ui",
         title: "Show ActionUI JSON in a window",
-        description: """
+        description: readTheReferenceFirst + " " + """
             Open a native window from ActionUI JSON you wrote. It gets the checks of \
             validate_ui: errors come back as a tool error and nothing is shown, warnings come \
             back with the result. mode "dialog" waits for the user \
@@ -126,7 +126,7 @@ func validateUITool(host: WindowHost) -> MCPTool {
     return MCPTool(
         name: "validate_ui",
         title: "Check ActionUI JSON",
-        description: """
+        description: readTheReferenceFirst + " " + """
             Check ActionUI JSON without showing it: structure (element shape, unique positive \
             ids, container keys such as children placed next to properties) and refused elements \
             (SecureField, LoadableView); \

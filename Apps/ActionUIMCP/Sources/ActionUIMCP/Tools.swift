@@ -24,7 +24,7 @@ func makeTools(host: WindowHost, label: String?) -> [MCPTool] {
     [askUserTool(host: host, label: label), pickPathTool(host: host, label: label),
      showTool(host: host, label: label), notifyTool(host: host, label: label), showUITool(host: host, label: label), validateUITool(host: host),
      waitTool(host: host), updateWindowTool(host: host), getValuesTool(host: host), screenshotTool(host: host),
-     closeWindowTool(host: host)]
+     closeWindowTool(host: host), docsTool()]
 }
 
 /// "Requested by <client> - <label>": who asked for a window, not settable by a tool. It leads every
@@ -202,7 +202,7 @@ private func showTool(host: WindowHost, label: String?) -> MCPTool {
         "columns": ["type": "array", "items": ["type": "string"], "description": "For table: column headers."],
         "rows": ["type": "array", "description": "For table: rows, each an array of cells (strings or numbers), at most one per column.",
                  "items": ["type": "array", "items": ["type": ["string", "number", "boolean", "null"]]]],
-        "chart": ["type": "object", "description": "For chart: the Chart element's description, {\"columns\", \"data\", \"content\", ...} (resource actionui://docs/elements/Chart). It gets the checks of show_ui. The window's Chart has id 1: replace the description with update_window properties {\"1\": {\"chart\": {...}}}, and replace or stream its data with update_window rows or append_rows {\"1\": [[...]]}, cells in column order."],
+        "chart": ["type": "object", "description": "For chart: the Chart element's description, {\"columns\", \"data\", \"content\", ...} (actionui_docs topic element, type Chart, or resource actionui://docs/elements/Chart). It gets the checks of show_ui. The window's Chart has id 1: replace the description with update_window properties {\"1\": {\"chart\": {...}}}, and replace or stream its data with update_window rows or append_rows {\"1\": [[...]]}, cells in column order."],
         "width": ["type": "number", "description": "Content width in points. Default 800."],
         "height": ["type": "number", "description": "Content height in points. Default 600."],
         "keep": ["type": "boolean", "description": "Keep the window open after this session ends (default false). Use it for content the user will want to read after you are done. The kept window is a copy that no longer reports to you."],

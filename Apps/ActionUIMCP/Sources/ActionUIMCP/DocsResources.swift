@@ -10,6 +10,8 @@
 //   actionui://docs/elements           the element index
 //   actionui://docs/elements/<Type>    one element's properties (core and add-ons)
 //   actionui://docs/templates/<Type>   a ready-to-edit JSON template for one element
+// The actionui_docs tool (ToolsDocs.swift) serves the same pages from the same Index, for clients
+// that show the model tools but not resources.
 //
 // On macOS the pages come from the documentation resource bundles that SwiftPM builds next to the
 // executable (ActionUI_ActionUIDocumentation.bundle and one per add-on). They are found by name
@@ -39,39 +41,83 @@ enum DocsResources {
     ]
     private static let prefix = "actionui://docs/"
 
-    /// nil when no documentation bundle was found; the server then offers no resources.
-    static func make() -> MCPResources? {
+    /// One page of the reference: its file and MIME type.
+    struct Page: Sendable {
+        let url: URL
+        let mimeType: String
+    }
+
+    /// The reference's URI -> file table, which both the resources and the actionui_docs tool read,
+    /// so the two always serve the same text.
+    struct Index: Sendable {
+        /// Every page by URI.
+        let pages: [String: Page]
+        /// What resources/list returns: the guide, the index, then each element page by name.
+        let listed: [MCPResource]
+
+        /// Built from documentation folders (each holding Schemas/ and Elements/), core first: on a
+        /// name clash the first folder's page wins. Element pages and templates come from every folder.
+        init(folders: [URL]) {
+            var pages: [String: Page] = [:]
+            var listed: [MCPResource] = []
+            if let core = folders.first {
+                for (file, uri, title) in [("ActionUI-JSON-Guide.md", "guide", "ActionUI JSON guide"),
+                                           ("ActionUI-Elements.md", "elements", "ActionUI element index")] {
+                    let url = core.appendingPathComponent(file)
+                    guard FileManager.default.fileExists(atPath: url.path) else { continue }
+                    pages[prefix + uri] = Page(url: url, mimeType: "text/markdown")
+                    listed.append(MCPResource(uri: prefix + uri, name: uri, title: title, mimeType: "text/markdown"))
+                }
+            }
+            var elementPages: [String: URL] = [:]
+            for folder in folders {
+                for page in contents(of: folder.appendingPathComponent("Schemas"), extension: "md") where elementPages[page.name] == nil {
+                    elementPages[page.name] = page.url
+                }
+                for template in contents(of: folder.appendingPathComponent("Elements"), extension: "json") {
+                    let uri = prefix + "templates/" + template.name
+                    if pages[uri] == nil { pages[uri] = Page(url: template.url, mimeType: "application/json") }
+                }
+            }
+            for (name, url) in elementPages.sorted(by: { $0.key < $1.key }) {
+                let uri = prefix + "elements/" + name
+                pages[uri] = Page(url: url, mimeType: "text/markdown")
+                listed.append(MCPResource(uri: uri, name: name, title: "\(name) element", mimeType: "text/markdown"))
+            }
+            self.pages = pages
+            self.listed = listed
+        }
+
+        /// The page at `uri` as resources/read returns it, links pointed at actionui:// URIs; nil for
+        /// an unknown URI or a file that cannot be read.
+        func read(_ uri: String) -> (mimeType: String, text: String)? {
+            guard let page = pages[uri], let text = try? String(contentsOf: page.url, encoding: .utf8) else { return nil }
+            return (page.mimeType, page.mimeType == "text/markdown" ? rewriteLinks(text) : text)
+        }
+
+        /// The element types with a page, sorted.
+        var elementNames: [String] {
+            pages.keys.filter { $0.hasPrefix(prefix + "elements/") }.map { String($0.dropFirst(prefix.count + "elements/".count)) }.sorted()
+        }
+    }
+
+    /// The URI of a page: "guide", "elements", "elements/<Type>" or "templates/<Type>".
+    static func uri(_ path: String) -> String { prefix + path }
+
+    /// The reference found next to the server, built once; nil when no documentation was found.
+    static let index: Index? = {
         let folders = resourceFolders()
         guard !folders.isEmpty else {
             HostSupport.logLine("[actionui-mcp] documentation bundles not found; no docs resources")
             return nil
         }
-        // URI -> file, built once. Element pages and templates come from every bundle.
-        var files: [String: (url: URL, mimeType: String)] = [:]
-        var listed: [MCPResource] = []
-        let core = folders[0]
-        for (file, uri, title) in [("ActionUI-JSON-Guide.md", "guide", "ActionUI JSON guide"),
-                                   ("ActionUI-Elements.md", "elements", "ActionUI element index")] {
-            let url = core.appendingPathComponent(file)
-            guard FileManager.default.fileExists(atPath: url.path) else { continue }
-            files[prefix + uri] = (url, "text/markdown")
-            listed.append(MCPResource(uri: prefix + uri, name: uri, title: title, mimeType: "text/markdown"))
-        }
-        var elementPages: [String: URL] = [:]
-        for folder in folders {
-            for page in contents(of: folder.appendingPathComponent("Schemas"), extension: "md") where elementPages[page.name] == nil {
-                elementPages[page.name] = page.url
-            }
-            for template in contents(of: folder.appendingPathComponent("Elements"), extension: "json") {
-                let uri = prefix + "templates/" + template.name
-                if files[uri] == nil { files[uri] = (template.url, "application/json") }
-            }
-        }
-        for (name, url) in elementPages.sorted(by: { $0.key < $1.key }) {
-            let uri = prefix + "elements/" + name
-            files[uri] = (url, "text/markdown")
-            listed.append(MCPResource(uri: uri, name: name, title: "\(name) element", mimeType: "text/markdown"))
-        }
+        return Index(folders: folders)
+    }()
+
+    /// nil when no documentation was found; the server then offers no resources (actionui_docs then
+    /// says the reference is not installed).
+    static func make(index: Index? = DocsResources.index) -> MCPResources? {
+        guard let index else { return nil }
         let templates = [
             MCPResourceTemplate(uriTemplate: prefix + "elements/{type}", name: "element",
                                 description: "Properties, value and behavior of one ActionUI element type, such as Button or TextField.",
@@ -80,11 +126,7 @@ enum DocsResources {
                                 description: "A JSON template of one ActionUI element type with its common properties, to copy into ActionUI JSON.",
                                 mimeType: "application/json"),
         ]
-        let table = files
-        return MCPResources(resources: listed, templates: templates) { uri in
-            guard let entry = table[uri], let text = try? String(contentsOf: entry.url, encoding: .utf8) else { return nil }
-            return (entry.mimeType, entry.mimeType == "text/markdown" ? rewriteLinks(text) : text)
-        }
+        return MCPResources(resources: index.listed, templates: templates) { index.read($0) }
     }
 
     /// The pages link to each other by bundle-relative file paths ("Schemas/Button.md"), which mean
