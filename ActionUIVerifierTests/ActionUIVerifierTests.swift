@@ -91,6 +91,27 @@ private func errors(_ json: JSONValue, platform: String? = "macos") throws -> [S
         + "reference such as \"$1\"; it cannot keep its state and is display-only"])
 }
 
+@Test func anImageContentModeNeedsResizable() throws {
+    func warnings(_ properties: JSONValue, platform: String? = "macos") throws -> [String] {
+        try issues(["type": "Image", "properties": properties], platform: platform)
+    }
+    let noEffect = "[WARNING] doc: properties.contentMode: 'contentMode' has no effect unless 'resizable' is true, "
+        + "as in SwiftUI; add \"resizable\": true to scale the image"
+    #expect(try warnings(["systemName": "star", "contentMode": "fit"]) == [noEffect])
+    #expect(try warnings(["systemName": "star", "contentMode": "fill", "resizable": false]) == [noEffect])
+    #expect(try warnings(["systemName": "star", "contentMode": "fit", "resizable": true]) == [])
+    #expect(try warnings(["systemName": "star", "resizable": true]) == [])
+    // Cross-platform, a resizable for other platforms only leaves the plain contentMode without effect.
+    #expect(try warnings(["systemName": "star", "contentMode": "fit", "resizable:android": true], platform: nil).count == 1)
+    #expect(try warnings(["systemName": "star", "contentMode:ios": "fit", "resizable:ios": true], platform: nil) == [])
+    // Deployed, the variant for that platform counts.
+    #expect(try warnings(["systemName": "star", "contentMode": "fit", "resizable:macos": true]) == [])
+    // The variant the runtime keeps decides: the more specific false wins over a plain true.
+    #expect(try warnings(["systemName": "star", "contentMode": "fit", "resizable": true, "resizable:macos": false]) == [noEffect])
+    // An umbrella suffix covers its platforms.
+    #expect(try warnings(["systemName": "star", "contentMode:ios": "fit", "resizable:apple": true], platform: nil) == [])
+}
+
 @Test func tableToggleColumnIsClean() throws {
     let table: JSONValue = ["type": "Table", "id": 600, "properties": [
         "columns": ["", "Pack"],

@@ -1,0 +1,13 @@
+{ "type": "VStack", "children": [
+  { "type": "Image", "properties": { "systemName": "star", "contentMode": "fit" } },
+  { "type": "Image", "properties": { "systemName": "star", "contentMode": "fill", "resizable": false } },
+  { "type": "Image", "properties": { "systemName": "star", "contentMode": "fit", "resizable": true } },
+  { "type": "Image", "properties": { "systemName": "star", "resizable": true } },
+  { "type": "Image", "properties": { "systemName": "star", "contentMode": "fit", "resizable:android": true } },
+  { "type": "Image", "properties": { "systemName": "star", "contentMode:ios": "fit", "resizable:ios": true } },
+  { "type": "Image", "properties": { "systemName": "star", "contentMode": "fit", "resizable:macos": true } },
+  { "type": "Image", "properties": { "systemName": "star", "contentMode": "fill", "resizable": "true" } },
+  { "type": "Image", "properties": { "systemName": "star", "contentMode": "fit", "resizable": true, "resizable:macos": false } },
+  { "type": "Image", "properties": { "systemName": "star", "contentMode:ios": "fit", "resizable:apple": true } },
+  { "type": "Image", "properties": { "systemName": "star", "contentMode": "fit", "contentMode:macos": "fill", "resizable:apple": true } }
+] }

@@ -274,6 +274,30 @@ class TemplateRowDataTests(unittest.TestCase):
         doc = self._list({"type": "Toggle", "properties": {"isOn": "$12", "title": "t"}})
         self.assertEqual(_validate(doc), [])
 
+    def test_an_image_content_mode_needs_resizable(self):
+        def warnings(properties, platform="macos"):
+            return _warnings(_validate({"type": "Image", "properties": properties}, platform=platform))
+        for properties in [{"systemName": "star", "contentMode": "fit"},
+                           {"systemName": "star", "contentMode": "fill", "resizable": False}]:
+            found = warnings(properties)
+            self.assertEqual(len(found), 1, _msg(found))
+            self.assertIn("has no effect unless 'resizable' is true", str(found[0]))
+        self.assertEqual(warnings({"systemName": "star", "contentMode": "fit", "resizable": True}), [])
+        self.assertEqual(warnings({"systemName": "star", "resizable": True}), [])
+        # Cross-platform, a resizable for other platforms only leaves the plain contentMode without effect.
+        self.assertEqual(len(warnings({"systemName": "star", "contentMode": "fit", "resizable:android": True},
+                                      platform=None)), 1)
+        self.assertEqual(warnings({"systemName": "star", "contentMode:ios": "fit", "resizable:ios": True},
+                                  platform=None), [])
+        # Deployed, the variant for that platform counts.
+        self.assertEqual(warnings({"systemName": "star", "contentMode": "fit", "resizable:macos": True}), [])
+        # The variant the runtime keeps decides: the more specific false wins over a plain true.
+        self.assertEqual(len(warnings({"systemName": "star", "contentMode": "fit", "resizable": True,
+                                       "resizable:macos": False})), 1)
+        # An umbrella suffix covers its platforms.
+        self.assertEqual(warnings({"systemName": "star", "contentMode:ios": "fit", "resizable:apple": True},
+                                  platform=None), [])
+
     def test_table_toggle_column_is_clean(self):
         doc = {"type": "Table", "id": 600, "properties": {
             "columns": ["", "Pack"],
