@@ -44,7 +44,7 @@ class HostSurfaceTrustTest {
     private val refused = Recorder()
     private var savedPolicy: ActionUITrustPolicy = DefaultTrustPolicy
 
-    private val document = """
+    private val json = """
         { "type": "VStack", "id": 1, "children": [
             { "type": "HostSurface", "id": 5, "properties": {
                 "surfaceName": "test.allowed", "frame": { "width": 120, "height": 80 } } },
@@ -75,7 +75,7 @@ class HostSurfaceTrustTest {
 
     @Test
     fun aRefusedSurfaceIsNeverAnnounced() {
-        rule.setContent { ActionUI.Render(document, windowUUID = window) }
+        rule.setContent { ActionUI.Render(json, windowUUID = window) }
         rule.waitUntil(5_000) { allowed.events.isNotEmpty() }
         // The SurfaceHolder callbacks come on a later frame: give the refused one the same chance.
         Thread.sleep(300)

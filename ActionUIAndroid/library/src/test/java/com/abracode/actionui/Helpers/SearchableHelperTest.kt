@@ -28,7 +28,7 @@ class SearchableHelperTest {
         }
     }
 
-    /** Reads the `properties` object out of a single-element document. */
+    /** Reads the `properties` object out of a single-element JSON. */
     private fun propertiesOf(json: String) =
         ActionUIJson.decodeFromString(ActionUIElement.serializer(), json).properties
 

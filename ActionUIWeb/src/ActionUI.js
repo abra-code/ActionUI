@@ -133,7 +133,7 @@ export class Window {
         this.uuid = uuid ?? generateUUID();
         this.logger = logger ?? new ConsoleLogger();
         this.rootElement = rootElement;
-        // Where the window's own document came from: the host's (fromJSON), or as a
+        // Where the window's own JSON came from: the host's (fromJSON), or as a
         // LoadableView's source is classified (fromURL).
         this.origin = origin;
         // The configuration is fixed from the first window on (Common/Configuration.js).
@@ -197,7 +197,7 @@ export class Window {
             origin: this.origin,
         };
         ctx.build = (element) => buildElementView(element, ctx);
-        // Every id of the window's document is the document's from the start, also those of
+        // Every id of the window's JSON is the window's from the start, also those of
         // elements built later (a destination, a sheet), so loaded content cannot take one first.
         for (const id of collectElementIds(this.rootElement)) this.model.origins.set(id, this.origin);
         this.rootNode = ctx.build(this.rootElement);
@@ -205,12 +205,12 @@ export class Window {
         // Hand the render context to the model so the insertion API can render
         // inserted subtrees and query the live tree by id. What the host adds itself
         // (insertElement, insertRow, presentModal) is the host's, whatever the window's
-        // document is.
+        // JSON is.
         const hostCtx = { ...ctx, origin: HOST_ORIGIN };
         hostCtx.build = (element) => buildElementView(element, hostCtx);
         this.model.setRenderContext(this.rootNode, hostCtx.build, this.rootElement.id);
         container.replaceChildren(this.rootNode);
-        // Page-lifecycle action hooks declared on the document root
+        // Page-lifecycle action hooks declared on the root of the window's JSON
         // (onForeground/onBackground/onTerminateActionID:web). Re-installed on each
         // present(); the prior cleanup removes any stale listeners first.
         this._lifecycleCleanup?.();
@@ -326,7 +326,7 @@ export class Window {
     dismissDialog() { dismissActiveDialog(this.rootNode); }
 
     // Window-level modal - same names/signature as the Node.js adapter's Window.
-    // Loads a JSON sub-document (`description`: a JSON string or object) and
+    // Loads JSON for a sub-view (`description`: a JSON string or object) and
     // presents it over the window as a native <dialog> (sheet or fullScreenCover);
     // the modal's own controls bind into the window model (addressable by id) and
     // are removed on dismiss. The modal dismisses itself by routing an actionID the

@@ -27,7 +27,7 @@ import kotlinx.serialization.json.floatOrNull
  * The ActionUI `CachedImage` add-on element for Android: a cached, off-main image view backed by the
  * AsyncImageCache library's two-tier (memory + on-disk) [com.abracode.asyncimagecache.ImageStore]. A 1:1
  * mirror of the Apple add-on `Add-ons/ActionUICachedImage` (`CachedImage.swift`), which wraps the very same
- * `AsyncImageCache.CachedImage` view - so a document authored for Apple renders equivalently here.
+ * `AsyncImageCache.CachedImage` view - so ActionUI JSON authored for Apple renders equivalently here.
  *
  * Linking this module is all a client does: [CachedImageProvider] registers the element at app startup
  * (the Android analog of Apple's `ActionUICachedImage.register()` launch call).
@@ -86,7 +86,7 @@ object CachedImageView : ActionUIViewConstruction {
         // The runtime value (a host write) overrides the static `url`, Apple parity.
         val viewModel = LocalWindowModel.current?.viewModels?.get(element.id)
         val urlString = (viewModel?.value as? String)?.takeIf { it.isNotEmpty() } ?: config.url
-        // Less-trusted content (a LoadableView's document from a server or from outside the app's
+        // Less-trusted content (a LoadableView's JSON from a server or from outside the app's
         // resources) shows a local file only when the trust policy lets it read it, and no address
         // other than web, data and file ones; the image library keeps what it loads by address,
         // so the check comes before it is asked. A refused address shows the placeholder.

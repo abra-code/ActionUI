@@ -112,7 +112,7 @@ export function resolveContainer(containers, requested, expectedShape) {
 }
 
 // Resolves a flat-container insertion index from a position + the current child
-// ids (in document order). Mirrors Swift's resolveFlatIndex.
+// ids (in JSON order). Mirrors Swift's resolveFlatIndex.
 export function resolveFlatIndex(childIds, position, positionParam, container) {
     switch (position) {
         case InsertPosition.APPEND:

@@ -68,7 +68,7 @@ import kotlinx.serialization.json.JsonObject
 class ViewModel {
     /**
      * Where this element's content came from (see [JSONContentOrigin]); null for the host's own
-     * content: a document the host passed in, or an element it inserted at run time. Set
+     * content: ActionUI JSON that the host passed in, or an element it inserted at run time. Set
      * when the model is made, by the load that brought the element in.
      */
     var origin: JSONContentOrigin? = null
@@ -93,7 +93,7 @@ class ViewModel {
 
     /**
      * The element's authored `properties` JSON, as decoded (and platform-
-     * filtered) from the document. Immutable; the read-side base layer of
+     * filtered) from the JSON. Immutable; the read-side base layer of
      * [ActionUIModel.getElementProperty] and of the effective-properties merge.
      */
     var authoredProperties: JsonObject? = null

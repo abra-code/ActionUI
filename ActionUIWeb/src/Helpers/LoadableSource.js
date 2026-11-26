@@ -40,7 +40,7 @@ export function classifyLoadableSource(source) {
     }
     // A path or name is fetched from the page's own server. "//host/path" is a path on other
     // platforms, but a browser fetches it (and spellings such as "\\host/path",
-    // "file:////host/path" or "https:host/path") from another server; a document that means a
+    // "file:////host/path" or "https:host/path") from another server; JSON that means a
     // remote address names its scheme.
     let local;
     if (lower.startsWith("file://")) {

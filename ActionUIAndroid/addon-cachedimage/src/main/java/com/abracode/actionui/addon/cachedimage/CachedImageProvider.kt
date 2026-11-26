@@ -12,7 +12,7 @@ import android.net.Uri
  *
  * Kotlin has no auto-running static constructor, so this uses Android's canonical equivalent: a
  * manifest-declared [ContentProvider], merged into the app manifest, whose [onCreate] the system
- * invokes at process start - before `Application.onCreate`, and therefore before any document can
+ * invokes at process start - before `Application.onCreate`, and therefore before any JSON can
  * reference a `CachedImage`. The provider serves no data; every query method is a stub. This is the
  * Android analog of the Apple add-on's explicit `ActionUICachedImage.register()` launch call
  * (Apple has no guaranteed pre-main hook for a statically linked Swift type). Mirrors

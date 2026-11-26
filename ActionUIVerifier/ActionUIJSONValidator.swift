@@ -609,6 +609,37 @@ public struct ActionUIJSONValidator: Sendable {
                                         + "such as \"$1\"; the Toggle cannot keep its state and is display-only"))
             }
         }
+
+        // An Image's contentMode keeps the aspect ratio of a resizable image and does nothing
+        // otherwise, as SwiftUI's .aspectRatio(contentMode:) on an image that is not resizable.
+        if elementType == "Image" {
+            let modes = expanded["contentMode"] ?? []
+            let sizing = expanded["resizable"] ?? []
+            // Each contentMode in effect, with the resizable the runtime picks beside it: deployed,
+            // the variants that survive for the target; cross-platform, for each contentMode the
+            // resizable picked on that variant's platforms (the unsuffixed one for an unsuffixed
+            // contentMode).
+            var pairs: [(suffix: String?, resizable: JSONValue?)] = []
+            if let target = targetPlatform {
+                if let mode = Platforms.select(modes, for: target) {
+                    pairs.append((mode.suffix, Platforms.select(sizing, for: target)?.value))
+                }
+            } else {
+                for mode in modes {
+                    if let suffix = mode.suffix {
+                        pairs.append((suffix, Platforms.select(sizing, for: suffix)?.value))
+                    } else {
+                        pairs.append((nil, sizing.first { $0.suffix == nil }?.value))
+                    }
+                }
+            }
+            for pair in pairs where pair.resizable != .bool(true) {
+                let label = Platforms.label("contentMode", pair.suffix)
+                issues.append(.init(severity: .warning, path: "\(path).\(label)",
+                                    message: "'\(label)' has no effect unless 'resizable' is true, as in SwiftUI; "
+                                        + "add \"resizable\": true to scale the image"))
+            }
+        }
         return issues
     }
 

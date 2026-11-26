@@ -41,15 +41,14 @@ extension Image: ActionUISwiftUIRenderer {
             }
         }
 
-        // contentMode implies "resizable" even if not explicitly declared (see Props)
-        if props.resizable, let contentMode = props.contentMode {
-            switch contentMode {
-            case .fit: return image.resizable().aspectRatio(contentMode: .fit)
-            case .fill: return image.resizable().aspectRatio(contentMode: .fill)
-            }
+        // As in SwiftUI: resizable alone stretches the image to its frame; a content mode keeps
+        // its aspect ratio, and only a resizable image has one to keep (see Props).
+        guard props.resizable else { return image }
+        switch props.contentMode {
+        case .fit?: return image.resizable().aspectRatio(contentMode: .fit)
+        case .fill?: return image.resizable().aspectRatio(contentMode: .fill)
+        case nil: return image.resizable()
         }
-
-        return image
     }
 
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in

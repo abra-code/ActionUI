@@ -595,7 +595,8 @@ public final class MCPServer: @unchecked Sendable {
         for task in tasks.values { task.cancel() }
     }
 
-    /// Waits until no tool call is running. For tests.
+    /// Waits until no tool call is running. For tests. By then every finished call's answer is
+    /// queued, so a flush() after it delivers them.
     public func waitUntilIdle() async {
         while true {
             let tasks = lock.withLock { Array(running.values) }
@@ -838,15 +839,14 @@ public final class MCPServer: @unchecked Sendable {
             body["structuredContent"] = structured
         }
         if result.isError { body["isError"] = true }
-        // Serialized before the lock: a large result (a screenshot) would hold up every other request.
-        let line = Self.outputLine(resultResponse(id: id, result: complete(.object(body), era: era)))
-        // The call leaves `running` and its answer is queued under one lock, so waitUntilIdle, which reads
-        // `running`, cannot return between the two with the answer not queued yet.
+        let answer = Self.outputLine(resultResponse(id: id, result: complete(.object(body), era: era)))
+        // The call leaves `running` and its answer is queued under one lock: waitUntilIdle cannot
+        // return between the two, so a flush after it always finds the answer.
         lock.lock()
         running[key] = nil
         let wasCancelled = cancelled.remove(key) != nil
         // The specification asks receivers of notifications/cancelled not to answer the request.
-        if !wasCancelled { enqueue(line) }
+        if !wasCancelled { enqueue(answer) }
         lock.unlock()
     }
 
@@ -904,11 +904,12 @@ public final class MCPServer: @unchecked Sendable {
         enqueue(Self.outputLine(message))
     }
 
+    /// One message as the client reads it: JSON text and a newline.
     private static func outputLine(_ message: JSONValue) -> Data {
         Data((message.serialized() + "\n").utf8)
     }
 
-    /// Queues one line for output, in the order of the calls.
+    /// Hands a line to `output` on the write queue. Does not wait, so it may be called under `lock`.
     private func enqueue(_ line: Data) {
         writeQueue.async { [output] in output(line) }
     }

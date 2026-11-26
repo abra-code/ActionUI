@@ -35,7 +35,7 @@ import com.abracode.actionui.Common.subElements
  * `ModalBottomSheet` / `Dialog` is a window-scoped overlay no matter where it is
  * composed, so wrapping at each of the ~20 container child-loop call sites would buy
  * nothing. Instead `ActionUI.RenderWindow` places a single [ElementModalsHost]
- * beside [WindowDialogHost] / [WindowModalHost]; it walks the document once
+ * beside [WindowDialogHost] / [WindowModalHost]; it walks the JSON once
  * ([collectModalCarriers], pure and testable) and observes every carrier's
  * presentation state. A bonus over per-element composition: a carrier inside a
  * lazy container that is scrolled out of composition can still present.
@@ -66,7 +66,7 @@ import com.abracode.actionui.Common.subElements
 fun ElementModalsHost(root: ActionUIElement) {
     val carriers = remember(root) { collectModalCarriers(root) }
     if (carriers.isEmpty()) return
-    // A less-trusted window document (from a server, or from a file outside the app's
+    // A less-trusted window JSON (from a server, or from a file outside the app's
     // resources) presents no sheet or cover of its own over the window.
     if (!ActionUIModel.allows(ActionUICapability.PresentModal, LocalJSONContentOrigin.current)) {
         val logger = LocalActionUILogger.current
@@ -87,7 +87,7 @@ const val SHEET_VISIBLE_STATE_KEY = "sheetVisible"
 const val FULL_SCREEN_COVER_VISIBLE_STATE_KEY = "fullScreenCoverVisible"
 
 /**
- * Walks the document and returns every element carrying a `sheet` or
+ * Walks the JSON and returns every element carrying a `sheet` or
  * `fullScreenCover` subview, in tree order. Traverses [subElements], so modal
  * content is itself walked (a sheet may open from inside a sheet) while
  * `template` stays excluded by design.

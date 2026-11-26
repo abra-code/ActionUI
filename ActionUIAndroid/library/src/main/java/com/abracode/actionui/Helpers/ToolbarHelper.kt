@@ -48,7 +48,7 @@ import kotlinx.serialization.json.booleanOrNull
  * SwiftUI's `.toolbar` attaches to a view and the navigation chrome renders it.
  * Android has no per-view toolbar modifier - the native home is a screen-level
  * `Scaffold` - so a `toolbar` is consumed by a screen-level host: a
- * `NavigationStack` screen (`RenderNavChild`), or the document root itself when a
+ * `NavigationStack` screen (`RenderNavChild`), or the JSON root itself when a
  * top-level `VStack` / `List` / etc. carries a `toolbar` (`ActionUI.Render`).
  *
  * A `persistentToolbar` on a `NavigationStack` / `NavigationSplitView` belongs to the
@@ -86,12 +86,12 @@ internal fun isNavigationContainer(elementType: String): Boolean =
  * any host: macOS applied it outside the stack, where it reached the shared window
  * toolbar and persisted, while iOS, Android and web each dropped or misplaced it -
  * Android never read it at all. Reading it here gives all four hosts one behavior and
- * keeps existing documents working unchanged. [WindowModel] logs a deprecation warning
+ * keeps existing JSON files working unchanged. [WindowModel] logs a deprecation warning
  * naming the element when it sees one.
  *
  * Order is only meaningful against the SCREEN's own items, which are applied first so
  * the persistent ones sit at the outer edge of each slot; between these two keys it is
- * unspecified, and a document should author one or the other, never both. Pure.
+ * unspecified, and a window's JSON should use one or the other, never both. Pure.
  */
 internal fun persistentToolbarItems(element: ActionUIElement): List<ActionUIElement> =
     element.persistentToolbar.orEmpty() + element.toolbar.orEmpty()
@@ -238,7 +238,7 @@ internal fun resolveToolbar(
  * `TopAppBar`. [body] receives the Scaffold inset padding.
  *
  * [modifier] is applied to the `Scaffold`. A `NavigationStack` screen leaves it at
- * the default (the `NavHost` bounds it); the document root passes a height-bounding
+ * the default (the `NavHost` bounds it); the JSON root passes a height-bounding
  * modifier, since a `Scaffold` fills its parent and would otherwise have no finite
  * height under a scrolling host (see [[android-bounded-height-scroll]]).
  *
@@ -255,7 +255,7 @@ fun ToolbarHost(
     body: @Composable (PaddingValues) -> Unit,
 ) {
     val buckets = remember(element, persistentItems) { resolveToolbar(element, logger, persistentItems) }
-    // Less-trusted content (a LoadableView's document from a server or from outside the app's
+    // Less-trusted content (a LoadableView's JSON from a server or from outside the app's
     // resources) does not title the screen: it could pass itself off as the app.
     val declaredTitle = element.properties?.stringProperty("navigationTitle")
     val origin = LocalJSONContentOrigin.current

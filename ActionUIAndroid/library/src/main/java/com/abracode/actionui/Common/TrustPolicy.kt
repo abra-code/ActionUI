@@ -113,7 +113,7 @@ object DefaultTrustPolicy : ActionUITrustPolicy {
      * What content of [origin] may do when the host does not say: trusted content anything;
      * less-trusted content may open only web and mail links, show only web addresses in a
      * WebView, play only web addresses in a VideoPlayer (local files as below), give its
-     * inline html a base address only of its own document's origin, run no
+     * inline html a base address only of its own JSON's origin, run no
      * WebView user scripts, keep no WebView data in the app's persistent store, read
      * local files (images, videos, WebView script files) and load ActionUI JSON from local
      * files only inside the app's resource folders, neither set the title nor present its
@@ -126,8 +126,8 @@ object DefaultTrustPolicy : ActionUITrustPolicy {
             is ActionUICapability.OpenLink -> schemeOf(capability.url) in linkSchemes
             is ActionUICapability.WebView -> capability.url == null || schemeOf(capability.url) in webViewSchemes
             is ActionUICapability.WebViewBaseURL -> {
-                val document = origin.source as? JSONContentOrigin.Source.Remote ?: return false
-                haveSameOrigin(capability.url, document.url)
+                val remote = origin.source as? JSONContentOrigin.Source.Remote ?: return false
+                haveSameOrigin(capability.url, remote.url)
             }
             ActionUICapability.WebViewUserScripts, ActionUICapability.WebViewPersistentData -> false
             is ActionUICapability.ReadLocalFile -> isInAppResources(capability.path)

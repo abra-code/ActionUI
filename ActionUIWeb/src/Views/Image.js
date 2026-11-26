@@ -10,8 +10,11 @@
 //                 ligature (no lookup table needed on web).
 //   assetName / resourceName / filePath  → <img src> (resolved as a URL; an
 //                 absolute filePath only loads if reachable as a URL).
-// Scaling: contentMode ("fit"/"fill") → object-fit (contain/cover); implies
-//   resizable. imageScale ("small"/"medium"/"large") sizes symbol glyphs.
+// Scaling, as in SwiftUI: a raster image keeps its own size unless "resizable"
+//   is true. Resizable alone stretches it to fill its box (object-fit: fill);
+//   contentMode "fit"/"fill" keeps its aspect ratio (contain/cover) and has no
+//   effect unless resizable. Symbol glyphs do not scale to a frame here.
+//   imageScale ("small"/"medium"/"large") sizes symbol glyphs.
 // Axis overrides for symbols: materialFill (0/1 or bool), materialWeight
 //   (100..700) — default to the SF→Material map's per-symbol tuning.
 // foregroundStyle tints symbols (handled by ModifierResolver). Runtime value
@@ -110,9 +113,9 @@ function render(node, source, props, ctx) {
         const img = document.createElement("img");
         img.src = source[rasterKey];
         img.alt = props.accessibilityLabel ?? "";
-        const mode = props.contentMode;
-        if (mode) {
-            img.style.objectFit = mode === "fill" ? "cover" : "contain";
+        if (props.resizable === true) {
+            const mode = props.contentMode;
+            img.style.objectFit = mode === "fill" ? "cover" : mode === "fit" ? "contain" : "fill";
             img.style.width = "100%";
             img.style.height = "100%";
         }

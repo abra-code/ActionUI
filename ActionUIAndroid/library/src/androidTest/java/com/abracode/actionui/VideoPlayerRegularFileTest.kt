@@ -13,10 +13,10 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * A VideoPlayer `file://` url a document names could be a named pipe. MediaPlayer opens a
+ * A VideoPlayer `file://` url that ActionUI JSON names could be a named pipe. MediaPlayer opens a
  * file: address in the app's own process, on the main thread, once the video surface is
  * made, and opening a pipe nobody writes to never returns, so the window froze. Only a
- * regular file is opened now; anything else is logged and the rest of the document renders.
+ * regular file is opened now; anything else is logged and the rest of the JSON renders.
  */
 @RunWith(AndroidJUnit4::class)
 class VideoPlayerRegularFileTest {

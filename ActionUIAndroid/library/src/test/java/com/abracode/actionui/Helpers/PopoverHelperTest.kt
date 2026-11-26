@@ -41,7 +41,7 @@ class PopoverHelperTest {
         }
     }
 
-    private val document = """
+    private val json = """
         {
           "type": "VStack",
           "id": 1,
@@ -70,7 +70,7 @@ class PopoverHelperTest {
 
     @Test
     fun `popover subview key decodes and is included in subElements`() {
-        val root = decode(document)
+        val root = decode(json)
         val button = root.children!![0]
         assertNotNull(button.popover)
         assertEquals("VStack", button.popover!!.type)
@@ -79,7 +79,7 @@ class PopoverHelperTest {
 
     @Test
     fun `popover content registers in the window pool and the carrier state is addressable`() {
-        ActionUIModel.loadDescription(decode(document), windowUUID = "")
+        ActionUIModel.loadDescription(decode(json), windowUUID = "")
 
         // The Toggle inside the popover has a ViewModel: the host value API reaches it.
         assertEquals(true, ActionUIModel.getElementValue(viewID = 11))
@@ -93,7 +93,7 @@ class PopoverHelperTest {
 
     @Test
     fun `arrow edge parses the four SwiftUI edges and defaults to top`() {
-        val root = decode(document)
+        val root = decode(json)
         assertEquals(PopoverEdge.TOP, parsePopoverArrowEdge(root.children!![0].properties, null))
         assertEquals(PopoverEdge.TRAILING, parsePopoverArrowEdge(root.children!![1].properties, null))
 

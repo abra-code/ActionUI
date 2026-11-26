@@ -89,7 +89,7 @@ register("WebView", {
         }
 
         // userScripts: validate the array-of-dicts shape (Swift parity) even though
-        // an iframe cannot inject them - so a cross-platform document still warns
+        // an iframe cannot inject them - so a cross-platform ActionUI JSON file still warns
         // on a malformed value rather than silently mis-shaping it.
         if (validated.userScripts !== undefined) {
             if (Array.isArray(validated.userScripts)) {
@@ -249,7 +249,7 @@ function historyGo(frame, delta, logger) {
 }
 
 // The base address inline html may have: `baseURL` when the trust policy allows it (for
-// less-trusted content, only its own document's origin), else none. The html runs in an
+// less-trusted content, only its own JSON's origin), else none. The html runs in an
 // opaque-origin sandbox either way, so a base resolves its relative addresses and gives it no
 // site's cookies or storage.
 function allowedBase(baseURL, ctx) {

@@ -380,7 +380,7 @@ test("a blank actionID wires no tap target at all", () => {
 });
 
 test("an element with NO actionID is left completely alone", () => {
-    // The property that keeps this from changing hit-testing for every existing document:
+    // The property that keeps this from changing hit-testing for every existing ActionUI JSON file:
     // no listener, nothing marking the node as an action handler (which would make a
     // genuinely tappable ancestor stand down for no reason), and no button semantics
     // announced to a screen reader for a plain layout box.

@@ -2,11 +2,11 @@
 // Web analog of ActionUI/Views/LoadableView.swift (and ActionUIAndroid
 // Views/LoadableView.kt).
 //
-// A "dynamic include": fetches a sub-document (a JSON UI description) from a source
+// A "dynamic include": fetches JSON for a sub-view (a UI description) from a source
 // and renders it inline as a nested ActionUIView, so an author can split a UI
 // across files. Exactly one source — `url`, `filePath`, or `name` (Apple's
 // priority) — and the active source is also the element's String value, so a host
-// can swap it with setString(id) to load a different document.
+// can swap it with setString(id) to load different JSON.
 //
 // Web specifics. The browser has no app bundle or synchronous filesystem, so every
 // source kind resolves to a `fetch` relative to the host page (see
@@ -23,9 +23,9 @@
 //                        the source, so a re-render for the same source does not
 //                        re-fire — Apple/Android dedup).
 //
-// Nesting: a loaded document may hold LoadableViews of its own, up to
-// the configuration's maximumNestingDepth levels; a document that loads itself, directly or through
-// another, is refused at the repeat, so a self-including document cannot fetch
+// Nesting: loaded JSON may hold LoadableViews of its own, up to
+// the configuration's maximumNestingDepth levels; JSON that loads itself, directly or through
+// another file, is refused at the repeat, so self-including JSON cannot fetch
 // without end.
 //
 // Deferred vs. Apple: `.plist` sources warn-and-skip (no web property-list parser —
@@ -49,7 +49,7 @@ function maximumNestingDepth() {
 // The resolved address each LoadableView node shows, for the nesting checks.
 const loadedAddressOf = new WeakMap();
 
-// Why a document loaded at `address` into `node` must not be shown, or null when it may be: too
+// Why JSON loaded at `address` into `node` must not be shown, or null when it may be: too
 // deep, or the same address as a LoadableView it sits in. Read when the fetch completes, by which
 // time the node is in its parent's tree.
 function nestingRefusal(node, address) {
@@ -71,7 +71,7 @@ function resolvedAddress(fetchURL) {
 }
 
 register("LoadableView", {
-    // The active source (url/filePath/name); settable to swap the document.
+    // The active source (url/filePath/name); settable to swap the content.
     valueType: "string",
 
     // Mirrors LoadableView.swift validateProperties (warnings verbatim).
@@ -137,7 +137,7 @@ register("LoadableView", {
                 return;
             }
 
-            // The window's load budget, whatever the source: a document that reloads itself
+            // The window's load budget, whatever the source: JSON that reloads itself
             // through its value, or a chain of them, cannot spin the page.
             if (!ctx.model.loadBudget.spend()) {
                 const budget = ctx.model.loadBudget.budget;
@@ -227,7 +227,7 @@ register("LoadableView", {
                 });
         };
 
-        // Value bridge: the source string; setting it reloads the document.
+        // Value bridge: the source string; setting it reloads the content.
         if (element.id > 0) {
             ctx.model.bind(element.id, {
                 getValue: () => currentSource,

@@ -31,16 +31,16 @@ import com.abracode.actionui.Common.imageRegistryOf
 import com.abracode.actionui.demo.ui.theme.ActionUIAndroidTheme
 
 /**
- * Bundled modal sub-document presented by [presentModal] in Modal.json's handlers
+ * Bundled modal JSON presented by [presentModal] in Modal.json's handlers
  * (see [MainActivity.loadAssetText]). Uses ids (100+) that don't collide with the
- * host document, and a Close button that routes "modal.close" back to
+ * host JSON, and a Close button that routes "modal.close" back to
  * [ActionUIModel.dismissModal]. Mirrors the Swift test app's `Sheet.modal.json`.
  */
 private const val MODAL_CONTENT_ASSET = "Modal.content.json"
 
 class MainActivity : ComponentActivity() {
 
-    /** Reads a bundled `assets/` document to a String, or null if it can't be read. */
+    /** Reads a bundled `assets/` JSON file to a String, or null if it can't be read. */
     private fun loadAssetText(path: String): String? =
         runCatching { assets.open(path).bufferedReader().use { it.readText() } }.getOrNull()
 
@@ -127,7 +127,7 @@ class MainActivity : ComponentActivity() {
         // Clear drive the rows API on the List (viewID 1); tapping a row fires the
         // selection handler, which toasts the selected item. (The Android demo
         // surfaces value feedback with toasts, as the Slider/Picker demos do; the
-        // Swift app updates an in-document label instead, which needs a value-bound
+        // Swift app updates an in-window label instead, which needs a value-bound
         // Text - not yet ported.)
         val listExtraItems = listOf("Haskell", "Elixir", "Julia", "Zig", "Dart")
         var listAppendIndex = 0
@@ -389,17 +389,17 @@ class MainActivity : ComponentActivity() {
             )
         }
 
-        // View.actionHooks.json - the lifecycle action hooks. The document root
+        // View.actionHooks.json - the lifecycle action hooks. The JSON root
         // and a lazy-list row carry onAppearActionID / onDisappearActionID
         // (composition entry/exit toasts); the badge Text carries
         // openURLActionID, receiving deep links the Activity forwards through
         // ActionUIModel.onOpenURL (see onNewIntent) - the handler writes the
         // URL into the badge through the property API.
         ActionUIModel.registerActionHandler("hooks.demo.appeared") { _, _, _, _, _ ->
-            Toast.makeText(this, "Document appeared", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Screen appeared", Toast.LENGTH_SHORT).show()
         }
         ActionUIModel.registerActionHandler("hooks.demo.disappeared") { _, _, _, _, _ ->
-            Toast.makeText(this, "Document disappeared", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Screen disappeared", Toast.LENGTH_SHORT).show()
         }
         ActionUIModel.registerActionHandler("hooks.demo.row.appeared") { _, _, viewID, _, _ ->
             Toast.makeText(this, "Row $viewID appeared", Toast.LENGTH_SHORT).show()
@@ -542,7 +542,7 @@ class MainActivity : ComponentActivity() {
         // Toast.json: window-level toasts presented by the host via presentToast.
         // "toast.show" posts a plain message; "toast.undo.show" adds an inline Undo
         // action whose actionID ("toast.undo") routes back through the action layer and
-        // updates the in-document result text (viewID 99); "toast.queue" posts three in
+        // updates the in-window result text (viewID 99); "toast.queue" posts three in
         // quick succession to show they queue and play one at a time. On Android these
         // render as native bottom Material snackbars (see WindowToastHost).
         ActionUIModel.registerActionHandler("toast.show") { _, windowUUID, _, _, _ ->
@@ -565,11 +565,11 @@ class MainActivity : ComponentActivity() {
             ActionUIModel.setElementValue(windowUUID = windowUUID, viewID = 99, value = "Undo tapped - entry restored.")
         }
 
-        // Modal.json: window-level modals load a JSON sub-document from assets
+        // Modal.json: window-level modals load nested JSON from assets
         // (MODAL_CONTENT_ASSET) and present it as a bottom sheet or full-screen cover.
         // The modal's Close button fires "modal.close" -> dismissModal. The cover also
         // carries an onDismissActionID ("modal.dismissed") that fires on close (back
-        // press or Close), landing on the default handler's toast. Reading the document
+        // press or Close), landing on the default handler's toast. Reading the JSON
         // from the bundle mirrors the Swift handler that loads Sheet.modal.json.
         ActionUIModel.registerActionHandler("modal.sheet") { _, windowUUID, _, _, _ ->
             val json = loadAssetText(MODAL_CONTENT_ASSET) ?: return@registerActionHandler
@@ -594,7 +594,7 @@ class MainActivity : ComponentActivity() {
 
         // View.insertion.json - the runtime structural-mutation API (insertElement /
         // insertRow / removeElement). Each button mints a fresh positive id (host ids
-        // start at 900, so they never collide with the authored document) and mutates
+        // start at 900, so they never collide with the authored JSON) and mutates
         // a container by id; the declaring view recomposes with no rebuild. Inserted
         // VStack-children ids are tracked so "Remove last" can pop them. The mutations
         // throw InsertError on a bad request, so each is wrapped to toast the failure
@@ -742,11 +742,11 @@ class MainActivity : ComponentActivity() {
  *
  * The picker -> detail routing is a real Navigation Compose [NavHost], not a
  * `selected`-state swap, so that a `NavigationStack` (or `NavigationSplitView`)
- * *inside* the rendered document nests correctly under the system back button.
+ * *inside* the rendered JSON nests correctly under the system back button.
  * Nested NavHosts coordinate through the shared `OnBackPressedDispatcher`: the
- * inner (document) stack - composed deeper - takes back priority and pops its own
+ * inner (JSON) stack - composed deeper - takes back priority and pops its own
  * push levels first, and this host only returns to the picker once that inner
- * stack is at its root. A `BackHandler` placed above the document would instead
+ * stack is at its root. A `BackHandler` placed above the JSON would instead
  * shadow it (it registers in a `DisposableEffect`, after the inner NavHost
  * registers during composition), jumping straight to the picker from any depth -
  * the bug this structure fixes. See [ExampleDetailScreen].
@@ -755,8 +755,8 @@ class MainActivity : ComponentActivity() {
 fun DemoApp() {
     val context = LocalContext.current
     // The synthetic RenderSource + SafeArea-fullscreen entries lead; the bundled assets follow (sorted).
-    // The full-bleed SafeArea document is reached only via its fullscreen entry and hidden from the normal
-    // (Scaffold-framed) list, where an edge-to-edge document cannot show its safe-area behavior.
+    // The full-bleed SafeArea JSON is reached only via its fullscreen entry and hidden from the normal
+    // (Scaffold-framed) list, where an edge-to-edge content cannot show its safe-area behavior.
     val files = remember {
         listOf(RENDER_SOURCE_DEMO_LABEL, SAFE_AREA_FULLSCREEN_LABEL) +
             listJsonAssets(context).filterNot { it.equals(SAFE_AREA_FULLSCREEN_ASSET, ignoreCase = true) }
@@ -784,7 +784,7 @@ fun DemoApp() {
                 modifier = Modifier.fillMaxSize(),
             )
         }
-        // Fullscreen route: renders a document edge-to-edge with NO Scaffold / top bar / outer scroll, so
+        // Fullscreen route: renders ActionUI JSON edge-to-edge with NO Scaffold / top bar / outer scroll, so
         // its ignoresSafeArea / safeAreaInset reach the real screen edges (status bar / cutout / gesture nav).
         composable(DEMO_FULLSCREEN_ROUTE) {
             ExampleFullscreenScreen(

@@ -13,10 +13,10 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * An Image or Canvas `filePath` a document names could be a named pipe or a device. The
+ * An Image or Canvas `filePath` that ActionUI JSON names could be a named pipe or a device. The
  * platform decoder opens the path on the main thread, and opening a pipe nobody writes to
  * never returns, so the window froze. Only a regular file is opened now; anything else
- * draws nothing and the rest of the document renders.
+ * draws nothing and the rest of the JSON renders.
  */
 @RunWith(AndroidJUnit4::class)
 class ImageFilePathRegularFileTest {

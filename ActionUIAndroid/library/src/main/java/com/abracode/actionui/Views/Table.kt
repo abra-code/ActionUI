@@ -15,7 +15,7 @@ import com.abracode.actionui.Common.LoggerLevel
  * is the "every other platform" case, so this builder renders **nothing**,
  * matching the Apple `#else` branch.
  *
- * It is registered (so a cross-platform document referencing `Table` resolves and
+ * It is registered (so a cross-platform JSON referencing `Table` resolves and
  * does not warn as an unknown type) and produces no layout node; the base
  * modifier therefore has nothing to attach to and is intentionally unused.
  * Authors targeting Android should use a `List` (template mode) for tabular data.

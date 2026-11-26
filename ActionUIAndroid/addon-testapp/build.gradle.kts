@@ -1,6 +1,6 @@
 // ActionUI Add-On Test App - the Android counterpart of Apple's Add-ons/ActionUIAddOnTestApp. It exists so the
 // core :demoApp (and the core :library) stay free of any add-on dependency: add-on elements are optional, and
-// this small app is the only place that links them and exercises their example documents. Currently it links
+// this small app is the only place that links them and exercises their example JSON files. Currently it links
 // the :addon-cachedimage element (which pulls AsyncImageCache via the composite build); further add-ons would
 // be added here the same way.
 
@@ -61,7 +61,7 @@ dependencies {
 }
 
 // ── ActionUI JSON asset validation ───────────────────────────────────────────
-// Same as the core demoApp: runs the shared Python validator over this app's add-on documents. Add-on element
+// Same as the core demoApp: runs the shared Python validator over this app's add-on JSON files. Add-on element
 // schemas (e.g. CachedImage) are auto-discovered from Add-ons/<AddOn>/Schemas when the validator runs in-place.
 fun isPythonAvailable(): Boolean = try {
     ProcessBuilder("python3", "--version").redirectErrorStream(true).start().waitFor() == 0

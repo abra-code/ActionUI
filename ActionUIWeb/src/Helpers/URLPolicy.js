@@ -1,6 +1,6 @@
-// URLPolicy.js - which addresses a document may open in a new tab or show in a frame.
+// URLPolicy.js - which addresses ActionUI JSON may open in a new tab or show in a frame.
 //
-// A document names addresses in Link url, WebView url, Map openInMapsURL and ShareLink item. The
+// ActionUI JSON names addresses in Link url, WebView url, Map openInMapsURL and ShareLink item. The
 // browser reads such a string with its own URL parser (it drops tabs and line breaks, trims
 // spaces, resolves relative addresses against the page), so the checks here parse the same way
 // and test the resulting scheme, never the raw text.

@@ -58,7 +58,7 @@ import kotlinx.serialization.json.JsonObject
 
 object ActionUI {
 
-    // The shared document decoder (Foundation-leniency parity; see ActionUIJson).
+    // The shared JSON decoder (Foundation-leniency parity; see ActionUIJson).
     private val json: Json = ActionUIJson
 
     /**
@@ -82,7 +82,7 @@ object ActionUI {
     /**
      * Renders [jsonString] for the window identified by [windowUUID].
      *
-     * A [com.abracode.actionui.Common.WindowModel] is built once per document
+     * A [com.abracode.actionui.Common.WindowModel] is built once per window's ActionUI JSON
      * (remembered, keyed by [windowUUID] + [jsonString]) and registered with
      * [ActionUIModel] for the lifetime of this composition, so host code can read
      * and write control values via `ActionUIModel.getElementValue(...)` /
@@ -92,7 +92,7 @@ object ActionUI {
      *
      * [windowUUID] defaults to the empty string: Android is single-window today,
      * and the value/state API uses the same default, so a single rendered
-     * document needs no explicit id.
+     * window needs no explicit id.
      *
      * Text that does not parse or decode shows "Failed to load view: ..." and is
      * logged as an error, as [RenderSource] does; it no longer throws during
@@ -161,7 +161,7 @@ object ActionUI {
      * *merges* its loaded tree into the current window as a sub-view), this builds a
      * **fresh** [com.abracode.actionui.Common.WindowModel] whose root *is* the loaded
      * element ([ActionUIModel.loadDescription]) - true root replacement, so the
-     * loaded document owns the window and the value/state API addresses it directly.
+     * loaded JSON owns the window and the value/state API addresses it directly.
      *
      * The source is classified by Apple's heuristics ([classifyLoadableSource]): a
      * `url` ([LoadableSource.Remote]) loads **asynchronously** off the main thread
@@ -233,7 +233,7 @@ object ActionUI {
      * since [element] itself may be a fresh instance each recomposition).
      * Registration in [ActionUIModel.loadDescription] makes the model resolvable
      * synchronously (before effects run); the [DisposableEffect] tears it down when
-     * the window leaves the composition. The `expected` guard means a document swap
+     * the window leaves the composition. The `expected` guard means a swap of the window's JSON
      * that already re-registered a new model under the same id is not evicted by the
      * old window's disposal.
      */
@@ -257,7 +257,7 @@ object ActionUI {
         val builder = ActionUIRegistry.lookup(element.type) ?: return
         val shownOrigin = origin ?: JSONContentOrigin.HOST
         // Links in Markdown text open through LocalUriHandler, which asks the trust policy for
-        // a less-trusted window document.
+        // a less-trusted window JSON.
         val inheritedLinks = LocalUriHandler.current
         val links = remember(inheritedLinks, shownOrigin, logger) { uriHandlerFor(shownOrigin, inheritedLinks, logger) }
         CompositionLocalProvider(
@@ -274,7 +274,7 @@ object ActionUI {
             // modal (presentModal), or an element-level `sheet` / `fullScreenCover`
             // subview whose carrier's visible state flips true.
             // The dialogs, modals and toasts the host presents are the host's own content, also
-            // over a less-trusted window document (as on Apple); the document's own sheets ask.
+            // over a less-trusted window JSON (as on Apple); the JSON's own sheets ask.
             CompositionLocalProvider(LocalJSONContentOrigin provides JSONContentOrigin.HOST, LocalUriHandler provides inheritedLinks) {
                 WindowDialogHost(windowModel)
                 WindowModalHost(windowModel)
@@ -290,7 +290,7 @@ object ActionUI {
     }
 
     /**
-     * Renders the document's root [element]. When the root declares a `toolbar` or
+     * Renders the JSON's root [element]. When the root declares a `toolbar` or
      * a `navigationTitle` (see [hasRootToolbarChrome]) it is wrapped in a
      * [ToolbarHost] - a `Scaffold` + `TopAppBar` / `BottomAppBar` - so a top-level
      * `VStack` / `List` / etc. carries the native navigation chrome the same way a

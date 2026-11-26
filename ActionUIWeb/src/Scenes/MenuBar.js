@@ -1,7 +1,7 @@
 // MenuBar.js - the application menu bar, rendered as a modern web app shell.
 //
 // Canonical model (Documentation/ActionUI-MenuBar-JSON-Guide.md): the app menu
-// bar is NOT a view - it is a separate ARRAY-root document (MainMenu.json) built
+// bar is NOT a view - it is a separate ARRAY-root JSON file (MainMenu.json) built
 // by the ActionUIMenuBar library as "standard macOS bar + deltas". A `CommandMenu`
 // adds a top-level menu; a `CommandGroup` inserts / replaces / deletes within the
 // standard bar (App / File / Edit / Format / Window / Help). The only leaf items
@@ -50,7 +50,7 @@ const GROUP_TO_MENU = {
     toolbar: "View", sidebar: "View", help: "Help",
 };
 // Drawer order for the standard-menu sections (custom CommandMenus come first, in
-// document order, since they are the app's own commands).
+// JSON order, since they are the app's own commands).
 const STANDARD_MENU_ORDER = ["File", "Edit", "Format", "View", "Window", "App", "Help"];
 const DEFAULT_ACCOUNT_ICON = "person.crop.circle";
 
@@ -108,7 +108,7 @@ export function parseMenuBar(raw, logger) {
         }
     }
 
-    // Custom sections (document order) first, then standard sections by bar order.
+    // Custom sections (JSON order) first, then standard sections by bar order.
     const entries = [...sections.entries()].filter(([, s]) => s.items.length > 0);
     const custom = entries.filter(([, s]) => !s.standard);
     const standard = entries.filter(([, s]) => s.standard)

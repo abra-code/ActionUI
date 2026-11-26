@@ -186,7 +186,7 @@ object VideoPlayer : ActionUIViewConstruction {
                     if (view.tag != shown) {
                         view.tag = shown
                         isAudioOnly = false // re-detect on prepare for the new source
-                        // A document names the address: a file: one must be a regular file.
+                        // ActionUI JSON names the address: a file: one must be a regular file.
                         // MediaPlayer opens it in this process on the main thread, and a named
                         // pipe nobody writes to never opens. A missing file goes on to
                         // MediaPlayer, which reports it.

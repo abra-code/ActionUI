@@ -43,7 +43,7 @@ class WebViewTrustTest {
     }
 
     @Test
-    fun `inline html keeps only its own document's origin as its base`() {
+    fun `inline html keeps only its own JSON's origin as its base`() {
         assertEquals("https://example.com/page/", WebViewTrust.base("https://example.com/page/", remote, logger))
         assertEquals(WebViewTrust.BLANK_BASE, WebViewTrust.base("https://bank.example/", remote, logger))
         assertEquals(WebViewTrust.BLANK_BASE, WebViewTrust.base("file:///sdcard/", remote, logger))

@@ -9,7 +9,7 @@ import android.view.Surface
  (Add-ons/ActionUIHostSurface/Sources/CActionUIHostSurface/include/ActionUIHostSurface.h):
 
  - A client binds a [HostSurfaceDelegate] to the elements whose "surfaceName" is a name, before or after the
-   document loads: [HostSurfaces.setDelegate]. Live surfaces are announced to it at once.
+   JSON loads: [HostSurfaces.setDelegate]. Live surfaces are announced to it at once.
  - It gets CREATED (a Surface with a nonzero size), CHANGED (a new size), SUSPENDED and RESUMED (hidden, or a
    TextureView surface while the app is in the background), and DESTROYED (synchronous: stop all use of the
    Surface before returning). A replaced or unbound delegate gets DESTROYED first, and a surface's DESTROYED

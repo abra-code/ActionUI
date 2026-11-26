@@ -63,7 +63,7 @@ dependencies {
 // Android counterpart of the Xcode "verify_json_resources" run-script phase
 // (ActionUISwiftTestApp/Scripts/verify_json_resources.sh). Runs the shared
 // Python validator over the demoApp assets, filtering platform-suffixed keys for
-// "android", and fails the build if any document is invalid. The equivalent
+// "android", and fails the build if any JSON file is invalid. The equivalent
 // standalone / CI entry point is scripts/verify_json_resources.sh.
 fun isPythonAvailable(): Boolean = try {
     ProcessBuilder("python3", "--version")

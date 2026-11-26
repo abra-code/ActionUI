@@ -53,7 +53,7 @@ import kotlinx.serialization.json.JsonObject
  *      `$1`/`$2`/`$0` column substitution. See `Helpers/TemplateHelper.kt`.
  *   2. **Heterogeneous (children)** - when `children` are present: each child is a
  *      full ActionUI view, built through the registry. This is the only mode that
- *      renders from a static document (no host data needed).
+ *      renders from a static JSON (no host data needed).
  *   3. **Homogeneous (itemType)** - otherwise: each row renders its first column
  *      via [resolveItemType]. `Text` (default) and `Button` are supported;
  *      `Button` fires its `itemType.actionID` with the row's value (or index,

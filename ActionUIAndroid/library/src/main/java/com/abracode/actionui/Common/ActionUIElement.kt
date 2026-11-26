@@ -148,7 +148,7 @@ data class ActionUIElement(
  * This element with every contained element that has no `type` left out, at any depth: from the
  * arrays, and a single-element slot set to null. [PlatformFilter] leaves such an element when its
  * type is given only for other platforms (`"type:macos"` and no `type`), and it is not shown here,
- * as Swift's `ElementSlot` and the Web renderer skip it when the document loads: it takes no
+ * as Swift's `ElementSlot` and the Web renderer skip it when the JSON loads: it takes no
  * place in a container and its id is not registered. The element itself is kept whatever its
  * type (the caller decides what a root with none means). Each one left out is logged at info.
  *

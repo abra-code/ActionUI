@@ -65,7 +65,7 @@ import kotlin.math.roundToLong
  * the `background` color - reads its current value off a per-property
  * [Animatable] instead of using the target directly. When a target moves in
  * the same recomposition as the watched value, the [Animatable] springs/eases
- * to it; when it moves without the watched value (e.g. the document was
+ * to it; when it moves without the watched value (e.g. the JSON was
  * swapped), it snaps.
  *
  * **Curve mapping** (SwiftUI -> Compose): the duration curves (`linear`,

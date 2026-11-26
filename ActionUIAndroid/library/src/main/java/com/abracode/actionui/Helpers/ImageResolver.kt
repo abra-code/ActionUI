@@ -66,9 +66,12 @@ import java.io.IOException
  *
  * ## Scaling
  *
- * [resolveContentScale] maps Apple's `contentMode` (`fit`/`fill`) to a Compose
- * [ContentScale] for raster sources. `imageScale` sizes symbol glyphs (Material and
- * SF) via [resolveSymbolSizeSp] in the `Image` builder.
+ * `resizable` and `contentMode` follow SwiftUI's `.resizable()` and
+ * `.aspectRatio(contentMode:)`: [resolveContentScale] keeps a raster image that is
+ * not resizable at its own size, stretches a resizable one with no `contentMode`,
+ * and fits or fills it with one; a `contentMode` alone changes nothing.
+ * `imageScale` sizes symbol glyphs (Material and SF) via [resolveSymbolSizeSp] in
+ * the `Image` builder.
  *
  * Unresolvable or invalid input is warned through the optional [ActionUILogger]
  * and skipped, consistent with the resolver's "unknown value -> warn + skip"
@@ -345,16 +348,17 @@ internal fun resolveSymbolSizeSp(
  * drawing at the font-relative size (and `imageScale` no longer applies - the
  * caller passes the result as the explicit size with no scale).
  *
- * `resizable` follows the Apple contract: the explicit boolean wins, else it is
- * implied by a `contentMode` (see `Image.swift`). With both axes given,
- * `contentMode: "fill"` takes the larger (the square glyph em overflows the
- * short axis - the crop analog), anything else aspect-fits the smaller; a
- * single-axis frame uses that axis. Pure / unit-testable.
+ * `resizable` is the explicit boolean only, as in SwiftUI (`Image.swift`): a
+ * `contentMode` does not imply it. With both axes given, `contentMode: "fill"`
+ * takes the larger (the square glyph em overflows the short axis - the crop
+ * analog), anything else aspect-fits the smaller; a single-axis frame uses that
+ * axis. With no `contentMode`, SwiftUI stretches the symbol to both axes; a font
+ * glyph here is drawn at one size, so it is fitted instead. Pure / unit-testable.
  */
 internal fun resolveResizableGlyphFrameDp(properties: JsonObject?): Float? {
     if (properties == null) return null
     val contentMode = properties.stringProperty("contentMode")
-    val resizable = properties.booleanProperty("resizable") ?: (contentMode != null)
+    val resizable = properties.booleanProperty("resizable") ?: false
     if (!resizable) return null
     val frame = properties["frame"] as? JsonObject ?: return null
     val width = frame.numberProperty("width")?.toFloat()
@@ -367,29 +371,41 @@ internal fun resolveResizableGlyphFrameDp(properties: JsonObject?): Float? {
 }
 
 /**
- * Maps the `contentMode` property (`fit`/`fill`) to a Compose [ContentScale].
- * Defaults to [ContentScale.Fit] when unset or invalid. Pure / unit-testable.
+ * Maps `resizable` and `contentMode` (`fit`/`fill`) to a Compose [ContentScale]
+ * for a raster image, as SwiftUI sizes `Image` with `.resizable()` and
+ * `.aspectRatio(contentMode:)`. Pure / unit-testable.
  *
- *   * `"fit"`  -> [ContentScale.Fit]  (aspect-fit; SwiftUI `.aspectRatio(.fit)`)
- *   * `"fill"` -> [ContentScale.Crop] (aspect-fill with overflow cropped; `.fill`)
+ *   * not resizable (the default) -> [ContentScale.None] (its own size; a
+ *     `contentMode` alone changes nothing)
+ *   * resizable, no `contentMode` -> [ContentScale.FillBounds] (stretched to its
+ *     frame; SwiftUI `.resizable()`)
+ *   * resizable, `"fit"`  -> [ContentScale.Fit]  (aspect-fit; `.aspectRatio(.fit)`)
+ *   * resizable, `"fill"` -> [ContentScale.Crop] (aspect-fill with overflow cropped; `.fill`)
+ *
+ * An invalid `contentMode` warns and counts as none, as on Apple.
  */
 internal fun resolveContentScale(
     properties: JsonObject?,
     logger: ActionUILogger? = null
 ): ContentScale {
-    if (properties == null) return ContentScale.Fit
+    if (properties == null) return ContentScale.None
 
-    return when (val mode = properties.stringProperty("contentMode")?.lowercase()) {
-        null   -> ContentScale.Fit
-        "fit"  -> ContentScale.Fit
-        "fill" -> ContentScale.Crop
-        else   -> {
+    // Exact names, as on Apple and in resolveResizableGlyphFrameDp: "FILL" is invalid.
+    val mode = when (val raw = properties.stringProperty("contentMode")) {
+        null, "fit", "fill" -> raw
+        else -> {
             logger?.log(
-                "Image contentMode '$mode' invalid; expected 'fit' or 'fill'. Using 'fit'.",
+                "Image contentMode '$raw' invalid; expected 'fit' or 'fill'. Ignoring it.",
                 LoggerLevel.warning
             )
-            ContentScale.Fit
+            null
         }
+    }
+    if (properties.booleanProperty("resizable") != true) return ContentScale.None
+    return when (mode) {
+        "fit"  -> ContentScale.Fit
+        "fill" -> ContentScale.Crop
+        else   -> ContentScale.FillBounds
     }
 }
 

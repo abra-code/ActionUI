@@ -93,7 +93,14 @@ final class ChartScrollTests: XCTestCase {
         XCTAssertEqual(spec.xLength, .amount(604800))
         XCTAssertEqual(spec.yLength, .amount(5))
         XCTAssertEqual(spec.initialY, .integer(2))
-        guard case .date? = spec.initialX else { return XCTFail("a date axis scrolls to a date") }
+        guard case .date(let day)? = spec.initialX else { return XCTFail("a date axis scrolls to a date") }
+        // A calendar day starts the window at the start of that day, not at DateHelper's noon.
+        let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: day)
+        XCTAssertEqual([components.year, components.month, components.day, components.hour, components.minute], [2026, 9, 10, 0, 0])
+        // A time of day is kept.
+        spec = scroll(dates(["chartScrollableAxes": "horizontal", "chartScrollPosition": ["initialX": "2026-09-10T15:30:00"]]))
+        guard case .date(let instant)? = spec.initialX else { return XCTFail("a date axis scrolls to a date") }
+        XCTAssertEqual(Calendar.current.component(.hour, from: instant), 15)
         XCTAssertEqual(logger.warnings, [])
     }
 

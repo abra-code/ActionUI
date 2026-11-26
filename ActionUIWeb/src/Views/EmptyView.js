@@ -5,7 +5,7 @@
 // Renders nothing. The node is an empty, layout-collapsed box (display:none via
 // .aui-empty) so it occupies no space and draws nothing, matching SwiftUI's
 // EmptyView and the Android no-op. It is still registered (and carries its
-// data-aui-id when given one) so a cross-platform document resolves the type and
+// data-aui-id when given one) so a cross-platform ActionUI JSON file resolves the type and
 // a host can address it, but it has no value and no children.
 //
 // Note: like Apple, baseline View modifiers (padding/background/frame/...) apply

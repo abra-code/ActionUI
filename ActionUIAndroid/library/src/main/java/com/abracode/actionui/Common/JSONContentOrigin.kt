@@ -7,7 +7,7 @@ import java.io.File
 import java.io.IOException
 
 /**
- * Where content came from, and how far it is trusted. A document the host passes in, or
+ * Where content came from, and how far it is trusted. ActionUI JSON that the host passes in, or
  * one in the app's resources (its assets, or a folder in the configuration's resourceFolder ([ActionUIConfiguration])),
  * is trusted; one a LoadableView loads from a server or from a file elsewhere is less
  * trusted, and so is anything inside it: [trust] is the lower of the source's own trust
@@ -86,8 +86,8 @@ internal fun classifyOrigin(
 
 /**
  * The origin of the content a composable belongs to: the host's outside any LoadableView,
- * else that of the document the nearest LoadableView around it loaded. Renderers ask the
+ * else that of the JSON the nearest LoadableView around it loaded. Renderers ask the
  * trust policy with this, so elements with no id (which have no view model) and template
- * rows are judged by the document they are in.
+ * rows are judged by the JSON they are in.
  */
 val LocalJSONContentOrigin = staticCompositionLocalOf { JSONContentOrigin.HOST }

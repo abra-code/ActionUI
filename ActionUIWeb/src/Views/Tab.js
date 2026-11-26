@@ -6,7 +6,7 @@
 // `content`, and is only meaningful inside a TabView's `children`. TabView reads
 // that metadata and builds the `content` itself, so a Tab is never constructed
 // through the registry in normal use. It is registered anyway so a
-// cross-platform document resolves the type; built standalone (misuse) it
+// cross-platform ActionUI JSON file resolves the type; built standalone (misuse) it
 // renders nothing and warns — Apple returns EmptyView(), Android no-ops.
 
 import { register } from "../Common/ActionUIRegistry.js";

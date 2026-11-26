@@ -39,7 +39,7 @@ import com.abracode.actionui.Common.ActionUIModel
 /**
  * ActionUI Add-On Test App - the Android counterpart of Apple's `ActionUIAddOnTestApp`. A minimal selector +
  * detail app (using the core [ActionUI.RenderAsset] entry point) that renders the bundled add-on example
- * documents in `assets/`. Its whole reason to exist is to keep the core `:demoApp` free of any add-on /
+ * JSON files in `assets/`. Its whole reason to exist is to keep the core `:demoApp` free of any add-on /
  * AsyncImageCache dependency; add-on elements self-register via their ContentProviders once this app links them.
  *
  * Host action handlers for the CachedImage example's value bridge are registered here (the same split the core
@@ -85,7 +85,7 @@ private fun AddOnTestApp() {
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
             val context = LocalContext.current
-            val documents = remember {
+            val jsonNames = remember {
                 (context.assets.list("") ?: emptyArray())
                     .filter { it.endsWith(".json", ignoreCase = true) }
                     .sorted()
@@ -94,11 +94,11 @@ private fun AddOnTestApp() {
 
             when (val current = selected) {
                 null -> Scaffold(topBar = { TopAppBar(title = { Text("ActionUI Add-On Test") }) }) { pad ->
-                    if (documents.isEmpty()) {
-                        Text("No add-on documents in assets.", modifier = Modifier.padding(pad).padding(16.dp))
+                    if (jsonNames.isEmpty()) {
+                        Text("No add-on JSON files in assets.", modifier = Modifier.padding(pad).padding(16.dp))
                     } else {
                         LazyColumn(modifier = Modifier.padding(pad).fillMaxSize()) {
-                            items(documents) { name ->
+                            items(jsonNames) { name ->
                                 ListItem(
                                     headlineContent = { Text(name.removeSuffix(".json")) },
                                     modifier = Modifier.clickable { selected = name },
@@ -123,7 +123,7 @@ private fun AddOnTestApp() {
                             )
                         },
                     ) { pad ->
-                        // ActionUI has no ScrollView element yet, so the shell scrolls tall documents.
+                        // ActionUI has no ScrollView element yet, so the shell scrolls tall content.
                         Column(
                             modifier = Modifier
                                 .padding(pad)

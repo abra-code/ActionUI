@@ -13,7 +13,7 @@ import com.abracode.actionui.Helpers.stringProperty
  * (`ActionUI/Views/Tab.swift`): it is **not** a standalone view - it carries a
  * tab's metadata (`title`, `systemImage`/`assetImage`, `badge`) in `properties`
  * and the tab body in `content`, and is only meaningful inside a [TabView]'s
- * `children`. Registered so a cross-platform document resolves it; rendered
+ * `children`. Registered so a cross-platform JSON resolves it; rendered
  * standalone it produces nothing (matching Apple's `EmptyView()`).
  */
 object Tab : ActionUIViewConstruction {

@@ -13,7 +13,7 @@ import org.junit.Test
 /**
  * Unit tests for the element-level modal plumbing in `ElementModalHost.kt`:
  * decoding the `sheet` / `fullScreenCover` subview keys, the
- * [collectModalCarriers] document walk, and the registration of modal content
+ * [collectModalCarriers] JSON walk, and the registration of modal content
  * in the window's ViewModel pool (so the host state API can address it). The
  * `ModalBottomSheet` / `Dialog` presentation itself is exercised by running
  * the app, the stance the rest of the renderer takes for Compose code.
@@ -28,7 +28,7 @@ class ElementModalHostTest {
     private fun decode(json: String): ActionUIElement =
         ActionUIJson.decodeFromString(ActionUIElement.serializer(), json)
 
-    private val document = """
+    private val json = """
         {
           "type": "VStack",
           "id": 1,
@@ -57,7 +57,7 @@ class ElementModalHostTest {
 
     @Test
     fun `sheet and fullScreenCover subview keys decode`() {
-        val root = decode(document)
+        val root = decode(json)
         val button = root.children!![0]
         assertNotNull(button.sheet)
         assertEquals("VStack", button.sheet!!.type)
@@ -68,7 +68,7 @@ class ElementModalHostTest {
 
     @Test
     fun `subElements includes the modal containers`() {
-        val root = decode(document)
+        val root = decode(json)
         val button = root.children!![0]
         assertTrue(button.subElements().contains(button.sheet))
         val nestedCarrier = button.sheet!!.children!![1]
@@ -77,20 +77,20 @@ class ElementModalHostTest {
 
     @Test
     fun `collectModalCarriers finds carriers in tree order, including inside modal content`() {
-        val root = decode(document)
+        val root = decode(json)
         val carriers = collectModalCarriers(root)
         assertEquals(listOf(2, 12), carriers.map { it.id })
     }
 
     @Test
-    fun `collectModalCarriers is empty for a document without modal subviews`() {
+    fun `collectModalCarriers is empty for ActionUI JSON without modal subviews`() {
         val root = decode("""{ "type": "VStack", "children": [ { "type": "Text" } ] }""")
         assertTrue(collectModalCarriers(root).isEmpty())
     }
 
     @Test
     fun `modal content registers in the window pool and is host-addressable`() {
-        ActionUIModel.loadDescription(decode(document), windowUUID = "")
+        ActionUIModel.loadDescription(decode(json), windowUUID = "")
 
         // The Toggle inside the sheet has a ViewModel: the host value API reaches it.
         assertEquals(true, ActionUIModel.getElementValue(viewID = 11))

@@ -12,7 +12,7 @@ import com.abracode.actionui.Common.LoggerLevel
  * element (`ActionUI/Views/ToolbarItem.swift`). It is **not** a standalone view:
  * it lives in an element's `toolbar` array, carries a `placement` property and a
  * single `content` view, and is consumed by the navigation screen's `ToolbarHost`
- * (`Helpers/ToolbarHelper.kt`). Registered so a cross-platform document resolves
+ * (`Helpers/ToolbarHelper.kt`). Registered so a cross-platform JSON resolves
  * it and its `content` gets a `ViewModel`; rendered standalone it produces nothing
  * (like `Tab`/`Table`).
  */

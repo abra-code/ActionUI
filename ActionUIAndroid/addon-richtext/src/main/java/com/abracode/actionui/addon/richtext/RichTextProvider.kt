@@ -11,7 +11,7 @@ import android.net.Uri
  *
  * Kotlin has no auto-running static constructor, so this uses Android's canonical equivalent: a
  * manifest-declared [ContentProvider], merged into the app manifest, whose [onCreate] the system invokes at
- * process start - before `Application.onCreate`, and therefore before any document can reference a `RichText`.
+ * process start - before `Application.onCreate`, and therefore before any JSON can reference a `RichText`.
  * The provider serves no data; every query method is a stub. This is the Android analog of the Apple add-on's
  * explicit `ActionUIRichText.register()` launch call. Mirrors `addon-cachedimage`'s `CachedImageProvider`.
  */

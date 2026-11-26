@@ -19,7 +19,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
 
-/** The trust policy's default rules, the host's policy, the id rule for less-trusted content, and the document cap. */
+/** The trust policy's default rules, the host's policy, the id rule for less-trusted content, and the JSON size cap. */
 class TrustPolicyTest {
 
     private val remote = JSONContentOrigin(JSONContentOrigin.Source.Remote("https://example.com/docs/v.json"), JSONContentOrigin.Trust.LESS_TRUSTED, 3)
@@ -56,7 +56,7 @@ class TrustPolicyTest {
     }
 
     @Test
-    fun `less-trusted html keeps only its own document's origin as its base`() {
+    fun `less-trusted html keeps only its own JSON's origin as its base`() {
         assertTrue(allows(ActionUICapability.WebViewBaseURL("https://example.com/other/")))
         assertTrue(allows(ActionUICapability.WebViewBaseURL("https://EXAMPLE.com:443/")))
         assertFalse(allows(ActionUICapability.WebViewBaseURL("https://bank.example/")))
@@ -129,7 +129,7 @@ class TrustPolicyTest {
         }
         assertEquals(null, window.viewModels[10])
         assertEquals("TextField", window.viewModels[2]?.elementType)
-        // Two LoadableViews showing one less-trusted document share ids: allowed, the first keeps its models.
+        // Two LoadableViews showing one less-trusted JSON share ids: allowed, the first keeps its models.
         val shared = ActionUIElement(id = 20, type = "Text")
         window.loadSubDescription(shared, parentID = 3, origin = remote)
         window.loadSubDescription(shared, parentID = 4, origin = remote.copy(parentID = 4))
@@ -176,7 +176,7 @@ class TrustPolicyTest {
     }
 
     @Test
-    fun `a document larger than 16 MB is not decoded or read`() {
+    fun `ActionUI JSON larger than 16 MB is not decoded or read`() {
         assertFalse(utf8LongerThan("abc", 3))
         assertTrue(utf8LongerThan("abcd", 3))
         assertTrue("two bytes each", utf8LongerThan("\u00e9\u00e9", 3))

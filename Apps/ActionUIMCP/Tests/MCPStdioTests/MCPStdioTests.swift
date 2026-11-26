@@ -13,6 +13,7 @@ import Foundation
 import ActionUI
 import Glibc
 #endif
+import Dispatch
 #if !os(Windows)
 private func closeDescriptor(_ fd: Int32) { _ = close(fd) }
 #else
@@ -146,6 +147,9 @@ private func line(_ value: JSONValue) -> String { value.serialized() }
         try? await Task.sleep(nanoseconds: 10_000_000)
         server.flush()
     }
+    // The echo task can queue its answer before handle queues the ping's. When the echo answer is
+    // there at the loop's first look, the loop never flushed, and the ping's may still be queued.
+    server.flush()
     #expect(sink.response(id: 2) != nil)
     #expect(sink.response(id: 3) != nil)
     #expect(sink.response(id: 1) == nil)
@@ -164,6 +168,26 @@ private func line(_ value: JSONValue) -> String { value.serialized() }
     server.flush()
     #expect(sink.response(id: "1") != nil)
     #expect(sink.response(id: 1) != nil)
+}
+
+@Test func answerIsQueuedWhenIdle() async {
+    // A call left `running` before its answer was queued, so waitUntilIdle could return first and
+    // the flush after it found no answer (about 1 run in 40 with one call).
+    let (server, sink) = makeServer(tools: [echoTool])
+    for id in 1...2000 {
+        server.handle(line: line(["jsonrpc": "2.0", "id": .int(id), "method": "tools/call", "params": ["name": "echo"]]))
+        // A different wait each time, so waitUntilIdle looks at a different moment of the call:
+        // looking right away, it nearly always finds the call running and waits for all of it.
+        let start = DispatchTime.now().uptimeNanoseconds
+        let wait = UInt64(id % 50) * 2_000
+        while DispatchTime.now().uptimeNanoseconds - start < wait {}
+        await server.waitUntilIdle()
+        server.flush()
+        if sink.messages.last?["id"] != .int(id) {
+            Issue.record("call \(id): no answer after waitUntilIdle and flush")
+            return
+        }
+    }
 }
 
 @Test func heartbeatSendsProgressWhileWaiting() async {
@@ -360,20 +384,6 @@ private func modernMeta(client: String = "modern-client", version: String = "202
     #expect(sink.response(id: 1)?["error"]?["code"] == -32602)
     #expect(sink.response(id: 2)?["error"]?["code"] == -32602)
     #expect(sink.response(id: 3)?["result"]?["structuredContent"]?["client"] == .null)
-}
-
-// waitUntilIdle once returned between a call leaving the running set and its answer being queued, about once in a
-// thousand calls: many calls, each on a new server, so that a return of that gap fails here, not now and then elsewhere.
-@Test func answerIsQueuedWhenIdle() async {
-    var missing = 0
-    for _ in 0..<2000 {
-        let (server, sink) = makeServer(tools: [echoTool])
-        server.handle(line: line(["jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": ["name": "echo", "arguments": [:]]]))
-        await server.waitUntilIdle()
-        server.flush()
-        if sink.response(id: 1) == nil { missing += 1 }
-    }
-    #expect(missing == 0)
 }
 
 @Test func legacyResultsStayUnchanged() async {

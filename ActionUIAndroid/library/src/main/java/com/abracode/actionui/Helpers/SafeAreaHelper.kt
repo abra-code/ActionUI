@@ -55,7 +55,7 @@ internal fun ignoresSafeAreaModifier(properties: JsonObject?): Modifier {
 }
 
 /**
- * The default safe-area inset for a CHROME-LESS document root (no `toolbar` /
+ * The default safe-area inset for a CHROME-LESS JSON root (no `toolbar` /
  * `navigationTitle` - e.g. a plain `VStack` root). SwiftUI insets the root content by
  * the safe area automatically; Android draws edge-to-edge, so without this a bare root
  * sits under the status / navigation bars (and behind a display cutout). Returns the

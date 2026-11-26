@@ -1,7 +1,7 @@
 // LifecycleHooks.js — page-lifecycle action hooks at the window/scene level.
 // Web-only (there is no Apple/Android ActionUI equivalent — Apple's lifecycle hooks
 // are per-element onAppear/onDisappear; this is the browser's page lifecycle). The
-// document root may declare, with the `:web` suffix (resolved by PlatformFilter
+// root of the ActionUI JSON may declare, with the `:web` suffix (resolved by PlatformFilter
 // before build, so we read the bare keys here):
 //
 //   "onForegroundActionID:web" — fires when the page becomes visible again.

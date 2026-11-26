@@ -64,7 +64,7 @@ class ReactivePropertyKeepsCompositionTest {
 
     // 2: a probe that is written to directly. 4: a probe inside a stack that is written to.
     // 5: a searchable probe, whose hidden content takes a separate path (SearchableHelper.kt).
-    private val document = """
+    private val json = """
         { "type": "VStack", "id": 1, "children": [
             { "type": "ReactiveProbe", "id": 2, "properties": { "frame": { "width": 100, "height": 40 } } },
             { "type": "VStack", "id": 3, "children": [
@@ -79,7 +79,7 @@ class ReactivePropertyKeepsCompositionTest {
     @Before
     fun setUp() {
         ActionUIRegistry.register("ReactiveProbe", Probe())
-        rule.setContent { ActionUI.Render(document, windowUUID = window) }
+        rule.setContent { ActionUI.Render(json, windowUUID = window) }
         rule.waitForIdle()
     }
 

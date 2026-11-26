@@ -79,7 +79,7 @@
       ]
     },
     { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "Window-level modals (presentModal loads a JSON sub-document into a native <dialog>; the modal's Close button routes an actionID to dismissModal):", "foregroundStyle": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "Window-level modals (presentModal loads JSON for a sub-view into a native <dialog>; the modal's Close button routes an actionID to dismissModal):", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "HStack",
       "properties": { "spacing": 8 },
@@ -105,6 +105,7 @@
       "id": 320,
       "properties": {
         "resourceName": "abracadabra.png",
+        "resizable": true,
         "contentMode": "fit",
         "frame": { "width": 72, "height": 72 },
         "cornerRadius": 8
@@ -119,6 +120,7 @@
         "type": "Image",
         "properties": {
           "resourceName": "abracadabra.png",
+          "resizable": true,
           "contentMode": "fit",
           "frame": { "width": 240, "height": 240 }
         }

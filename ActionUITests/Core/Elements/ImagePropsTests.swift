@@ -1,7 +1,8 @@
 // Core/Elements/ImagePropsTests.swift
 /*
  Tests for Image.Props: the sources in priority order (filePath, resourceName, assetName,
- systemName), the content mode with its deprecated alias, the resizable default and the image scale.
+ systemName), the content mode with its removed old name, the resizable default (false; a
+ content mode does not imply it) and the image scale.
  A filePath whose extension is a known non-image type is skipped by the renderer, not by Props (it
  needs the platform's type table), so a filePath is always a source here.
 */
@@ -49,8 +50,10 @@ final class ImagePropsTests: XCTestCase {
         XCTAssertEqual(props.sources, [.systemName("s")])
     }
 
-    func testContentModeImpliesResizable() {
-        XCTAssertTrue(Image.Props(["contentMode": "fit"]).resizable)
+    func testContentModeDoesNotImplyResizable() {
+        // As in SwiftUI, where .aspectRatio(contentMode:) does not scale an image that is not resizable.
+        XCTAssertFalse(Image.Props(["contentMode": "fit"]).resizable)
+        XCTAssertTrue(Image.Props(["contentMode": "fit", "resizable": true]).resizable)
         XCTAssertFalse(Image.Props(["contentMode": "fit", "resizable": false]).resizable)
         XCTAssertTrue(Image.Props(["resizable": true]).resizable)
     }
@@ -72,7 +75,7 @@ final class ImagePropsTests: XCTestCase {
 
     func testResizableMustBeABool() {
         XCTAssertFalse(Image.Props(["resizable": "true"]).resizable)
-        XCTAssertTrue(Image.Props(["resizable": "true", "contentMode": "fit"]).resizable)
+        XCTAssertFalse(Image.Props(["resizable": "true", "contentMode": "fit"]).resizable)
     }
 
     func testImageScaleNames() {

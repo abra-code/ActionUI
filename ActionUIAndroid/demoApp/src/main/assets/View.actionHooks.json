@@ -19,7 +19,7 @@
       {
         "type": "Text",
         "properties": {
-          "text": "The document root carries onAppearActionID / onDisappearActionID - the host toasts when this screen opens and closes.",
+          "text": "The JSON root carries onAppearActionID / onDisappearActionID - the host toasts when this screen opens and closes.",
           "font": "caption",
           "foregroundStyle": "secondary",
           "padding": { "bottom": 8.0 }

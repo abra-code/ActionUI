@@ -10,13 +10,15 @@
    pt. (SwiftUI's symbols are 1.25 times the font, measured on macOS, which would give 18 px here,
    larger than GNOME's own icons.) Small is 0.9em and large 1.4em: SwiftUI's small and large are
    0.82 and 1.3 times its medium.
- - A resizable symbol (resizable with a contentMode, as on Apple) scales to its frame: a widget that
-   looks the icon up at the size it draws it, fitted or filled, in the text color. Its natural size
-   is the symbol's; given a width, it is as tall as wide (height for width), as SwiftUI's fitted
-   symbol is.
- - A file is a GtkPicture at the image's own size, never scaled up; resizable with a contentMode,
-   it scales to its frame keeping its aspect ratio (fit: contain; fill: cover, clipped to the frame,
-   where SwiftUI draws past it). A file that does not exist shows the photo symbol, as on Apple; one
+ - "resizable" and "contentMode" size an image as SwiftUI's .resizable() and
+   .aspectRatio(contentMode:) do: resizable alone stretches it to its frame on both axes, a content
+   mode keeps its aspect ratio, and a content mode without resizable changes nothing.
+ - A resizable symbol scales to its frame: a widget that looks the icon up at the size it draws it,
+   stretched, fitted or filled, in the text color. Its natural size is the symbol's; given a width,
+   it is as tall as wide (height for width), as SwiftUI's fitted symbol is.
+ - A file is a GtkPicture at the image's own size, never scaled up; resizable, it scales to its
+   frame (no content mode: fill, stretched; fit: contain; fill: cover, clipped to the frame, where
+   SwiftUI draws past it). A file that does not exist shows the photo symbol, as on Apple; one
    GTK cannot decode shows nothing (Apple: the photo symbol), since telling would mean decoding it
    on every sync. A PDF is not an image on Linux.
  - An assetName names an icon of the icon theme, where Linux programs install their own images;
@@ -70,7 +72,8 @@ enum ImageContent: Equatable {
     /// The view model's mutationToken when the file was loaded.
     var loadedToken: Int?
     var iconName: String?
-    var fill = false
+    /// How the scalable icon meets its frame: fitted, filled, or with none, stretched to it.
+    var contentMode: Image.Props.ContentMode?
     /// The scalable icon's natural size, in em of the font.
     var em = 1.1
 
@@ -119,7 +122,7 @@ extension Image: ActionUIAdwaitaRenderer {
     static func kind(_ content: ImageContent, _ props: Props) -> Kind {
         switch content {
         case .file: return .picture
-        case .symbol, .themeIcon: return isResizable(props) ? .scalableIcon : .icon
+        case .symbol, .themeIcon: return props.resizable ? .scalableIcon : .icon
         }
     }
 
@@ -145,7 +148,7 @@ extension Image: ActionUIAdwaitaRenderer {
         guard let state = attached(on: widget, key: imageStateKey) else { return }
         let props = Props(node.properties)
         let content = content(node, props)
-        let resizable = isResizable(props)
+        let resizable = props.resizable
         // A file that appeared or went since widgetKind looked: the next sync makes the right
         // widget. Nothing observes a file, so the node is marked here.
         guard kind(content, props) == state.kind else {
@@ -168,7 +171,14 @@ extension Image: ActionUIAdwaitaRenderer {
                 gtk_picture_set_can_shrink(picture, canShrink)
             }
             // Not resizable: its own size, never scaled up when given more room, as on Apple.
-            let fit = !resizable ? GTK_CONTENT_FIT_SCALE_DOWN : props.contentMode == .fill ? GTK_CONTENT_FIT_COVER : GTK_CONTENT_FIT_CONTAIN
+            // Resizable: stretched to its frame, or with a content mode, fitted or filled.
+            let fit: GtkContentFit
+            switch (resizable, props.contentMode) {
+            case (false, _): fit = GTK_CONTENT_FIT_SCALE_DOWN
+            case (true, .fit?): fit = GTK_CONTENT_FIT_CONTAIN
+            case (true, .fill?): fit = GTK_CONTENT_FIT_COVER
+            case (true, nil): fit = GTK_CONTENT_FIT_FILL
+            }
             if gtk_picture_get_content_fit(picture) != fit {
                 gtk_picture_set_content_fit(picture, fit)
             }
@@ -176,12 +186,12 @@ extension Image: ActionUIAdwaitaRenderer {
         case .symbol, .themeIcon:
             let name = iconName(content)
             if resizable {
-                let fill = props.contentMode == .fill
+                let contentMode = props.contentMode
                 let em = iconSize(props.imageScale)
-                if state.iconName != name || state.fill != fill || state.em != em {
+                if state.iconName != name || state.contentMode != contentMode || state.em != em {
                     let resize = state.em != em
                     state.iconName = name
-                    state.fill = fill
+                    state.contentMode = contentMode
                     state.em = em
                     if resize { gtk_widget_queue_resize(widget) }
                     gtk_widget_queue_draw(widget)
@@ -195,12 +205,6 @@ extension Image: ActionUIAdwaitaRenderer {
                 StyleSheet.shared.apply(["-gtk-icon-size: \(iconSize(props.imageScale))em;"], to: widget, slot: "iconSize")
             }
         }
-    }
-
-    /// Resizing applies when a content mode goes with it, as on Apple (resizable alone keeps the
-    /// image at its own size).
-    static func isResizable(_ props: Props) -> Bool {
-        props.resizable && props.contentMode != nil
     }
 
     private static func setExpands(_ widget: WidgetPointer, _ expands: Bool) {
@@ -320,10 +324,10 @@ extension Image: ActionUIAdwaitaRenderer {
     // MARK: Scalable icon
 
     /// A GtkWidget subclass that draws its ImageState's icon at the size it is given, fitted (the
-    /// smaller side) or filled (the larger side), centered, recolored with the text color as
-    /// GtkImage recolors symbolic icons. Its natural size is the symbol's at the widget's font
-    /// (ImageState.em), and given one side, the other is as long (the icon is square); its minimum
-    /// is 0.
+    /// smaller side) or filled (the larger side), centered, or with no content mode stretched to
+    /// both sides, recolored with the text color as GtkImage recolors symbolic icons. Its natural
+    /// size is the symbol's at the widget's font (ImageState.em), and given one side, the other is
+    /// as long (the icon is square); its minimum is 0.
     static func scalableIconType() -> GType {
         if scalableIconWidgetType != 0 { return scalableIconWidgetType }
         var info = GTypeInfo()
@@ -372,7 +376,9 @@ extension Image: ActionUIAdwaitaRenderer {
               let display = gtk_widget_get_display(widget) else { return }
         let width = Double(gtk_widget_get_width(widget))
         let height = Double(gtk_widget_get_height(widget))
-        let side = state.fill ? max(width, height) : min(width, height)
+        // Fit: the smaller side; fill and stretch: the larger, so a stretched icon is looked up at
+        // the size it is drawn at along its longer side, then scaled down along the other.
+        let side = state.contentMode == .fit ? min(width, height) : max(width, height)
         guard side >= 1 else { return }
         let theme = gtk_icon_theme_get_for_display(display)
         guard let lookedUp = gtk_icon_theme_lookup_icon(theme, name, nil, Int32(side.rounded(.up)),
@@ -387,8 +393,14 @@ extension Image: ActionUIAdwaitaRenderer {
         colors[2] = GdkRGBA(red: 0.804, green: 0.576, blue: 0.035, alpha: 1)
         colors[3] = GdkRGBA(red: 0.180, green: 0.761, blue: 0.494, alpha: 1)
         gtk_snapshot_save(snapshot)
-        var origin = graphene_point_t(x: Float((width - side) / 2), y: Float((height - side) / 2))
-        gtk_snapshot_translate(snapshot, &origin)
+        if state.contentMode == nil {
+            // Stretched to the frame on both axes, its aspect ratio not kept, as SwiftUI's
+            // .resizable() alone stretches a symbol.
+            gtk_snapshot_scale(snapshot, Float(width / side), Float(height / side))
+        } else {
+            var origin = graphene_point_t(x: Float((width - side) / 2), y: Float((height - side) / 2))
+            gtk_snapshot_translate(snapshot, &origin)
+        }
         gtk_symbolic_paintable_snapshot_symbolic(icon.opaquePointer, snapshot, side, side, colors, 4)
         gtk_snapshot_restore(snapshot)
     }

@@ -94,7 +94,7 @@ JSON schema and usage documentation for `Chart`.
                                               //   chartYVisibleDomain. A length so short that the axis would lay out more than
                                               //   100 automatic marks is lengthened to the shortest that does not, with a warning
        "chartScrollPosition": { "initialX": "2026-09-01" } // Optional: where a scrolling axis starts, a value of the axis's
-                                              //   type; also "initialY"
+                                              //   type (a date with no time of day starts at the start of that day); also "initialY"
      }
    }
    // Marks: every argument is a key named like Swift's initializer argument. A plottable value is an object

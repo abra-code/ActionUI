@@ -14,7 +14,7 @@
 // register("Map", ...) again and overrides this one (last registration wins) — the
 // same "swap the module" choice a developer makes on Android (:map-osm vs
 // :map-google) or Apple (native MapKit). Provider config rides on :web-suffixed
-// keys (openInMapsURL:web) so the shared document stays clean.
+// keys (openInMapsURL:web) so the shared JSON stays clean.
 //
 // Value bridge (valueType "string"): the value is the center as a JSON coordinate
 // string. A host setString re-centers (we own the iframe src and rebuild it).

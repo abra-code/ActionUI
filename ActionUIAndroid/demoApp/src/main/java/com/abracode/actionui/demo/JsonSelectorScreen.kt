@@ -30,31 +30,31 @@ import com.abracode.actionui.ActionUI
 /**
  * Native (Compose) JSON picker for the demo app - the Android counterpart of the
  * Swift test app's `JSONSelectorView` (`ActionUISwiftTestApp.swift`). The picker
- * itself is plain Compose shell code around the renderer (not an ActionUI
- * document); the picker -> detail routing is a Navigation Compose `NavHost`
- * (see `DemoApp`) so a `NavigationStack` inside a rendered document nests under
+ * itself is plain Compose shell code around the renderer (not ActionUI
+ * JSON); the picker -> detail routing is a Navigation Compose `NavHost`
+ * (see `DemoApp`) so a `NavigationStack` inside a rendered JSON nests under
  * the system back button.
  *
  * Flow: [JsonSelectorScreen] lists the bundled `.json` example files in
  * `assets/`; tapping one routes to [ExampleDetailScreen], which renders that
- * document with [ActionUI.RenderAsset] inside a scroll container (the demo shell
- * provides scrolling for documents taller than the viewport) and offers a top-bar
+ * JSON with [ActionUI.RenderAsset] inside a scroll container (the demo shell
+ * provides scrolling for content taller than the viewport) and offers a top-bar
  * back affordance; system back is owned by the host NavHost.
  *
  * The list also carries one synthetic entry, [RENDER_SOURCE_DEMO_LABEL], that is
- * not a bundled file: it renders a remote document as the window *root* via
+ * not a bundled file: it renders remote JSON as the window *root* via
  * [ActionUI.RenderSource] (the Android counterpart of Apple's `LoadableWindowGroup`
  * / `isContentView == true`), to demonstrate root-replacement loading.
  */
 
 /**
- * Synthetic selector entry (not an asset file): renders a remote document as the
+ * Synthetic selector entry (not an asset file): renders remote JSON as the
  * window root via [ActionUI.RenderSource], demonstrating async root replacement.
  */
 const val RENDER_SOURCE_DEMO_LABEL: String = "RenderSource (remote root)"
 private const val RENDER_SOURCE_DEMO_URL: String = "https://abracode.com/ActionUI/HelloWorld.json"
 
-/** Lists the bundled example documents: top-level `.json` files in `assets/`, sorted. */
+/** Lists the bundled example JSON files: top-level `.json` files in `assets/`, sorted. */
 fun listJsonAssets(context: Context): List<String> =
     (context.assets.list("") ?: emptyArray())
         .filter { it.endsWith(".json", ignoreCase = true) }
@@ -99,11 +99,11 @@ fun ExampleDetailScreen(
 ) {
     // Back - both the system gesture/button and the top-bar arrow - is routed
     // through the OnBackPressedDispatcher (DemoApp hosts the picker/detail flow in a
-    // NavHost). That way a NavigationStack inside the rendered document pops its own
+    // NavHost). That way a NavigationStack inside the rendered JSON pops its own
     // push levels first, and only the detail route's final back returns to the
     // picker. The arrow MUST dispatch rather than pop the host controller directly:
     // a direct pop (or a BackHandler here, which registers in a DisposableEffect
-    // after the document's NavHost registers during composition) would skip the
+    // after the JSON's NavHost registers during composition) would skip the
     // nested NavHost and jump straight to the picker from any depth.
     val backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
 
@@ -122,19 +122,19 @@ fun ExampleDetailScreen(
         },
     ) { innerPadding ->
         // ActionUI has no ScrollView element yet, so the native shell provides
-        // scrolling for documents taller than the viewport.
+        // scrolling for content taller than the viewport.
         Column(
             modifier = Modifier
                 .padding(innerPadding)
                 // Consume the insets the Scaffold already padded for, so a nested insets-aware
-                // component inside the document (a safeAreaInset bar's windowInsetsPadding) does not
+                // component inside the JSON (a safeAreaInset bar's windowInsetsPadding) does not
                 // double-count the system bars and reserve a spurious second gap.
                 .consumeWindowInsets(innerPadding)
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState()),
         ) {
             if (assetPath == RENDER_SOURCE_DEMO_LABEL) {
-                // Root-replacement loadable: fetch a remote document and render it
+                // Root-replacement loadable: fetch remote JSON and render it
                 // as the window root (spinner while loading, error text on failure).
                 ActionUI.RenderSource(source = RENDER_SOURCE_DEMO_URL, modifier = Modifier.fillMaxWidth())
             } else {
@@ -145,7 +145,7 @@ fun ExampleDetailScreen(
 }
 
 /**
- * Renders a document edge-to-edge as the window root - no Scaffold, top bar, or outer scroll - so its
+ * Renders ActionUI JSON edge-to-edge as the window root - no Scaffold, top bar, or outer scroll - so its
  * ignoresSafeArea / safeAreaInset reach the real screen edges (status bar / camera cutout / gesture nav),
  * which the Scaffold-framed [ExampleDetailScreen] cannot show. System back returns to the picker.
  */

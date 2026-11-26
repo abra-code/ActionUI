@@ -43,8 +43,8 @@ import com.abracode.actionui.Helpers.stringProperty
  * with an infinity maximum ... constraints") if measured unbounded. The usual
  * trigger is a `ScrollView` nested in another scroll of the same axis (the demo
  * shell already scrolls vertically, so a `ScrollView` with no bounding `frame`
- * placed in a document is a vertical-in-vertical nest). Rather than crash the
- * whole render from one bad document, this element reads its incoming
+ * is a vertical-in-vertical nest). Rather than crash the
+ * whole render from bad JSON, this element reads its incoming
  * constraints ([BoxWithConstraints]) and **drops any scroll axis that is
  * unbounded** ([resolveAppliedScroll]): that axis defers to the enclosing scroll
  * (which handles the overflow), matching SwiftUI's tolerance of nested

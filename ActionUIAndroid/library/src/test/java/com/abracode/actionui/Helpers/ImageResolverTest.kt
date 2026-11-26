@@ -328,15 +328,16 @@ class ImageResolverTest {
     }
 
     @Test
-    fun `contentMode implies resizable like the Apple contract`() {
-        val size = resolveResizableGlyphFrameDp(
-            props("""{ "contentMode": "fit", "frame": { "width": 80, "height": 80 } }""")
+    fun `contentMode does not imply resizable, as in SwiftUI`() {
+        assertNull(
+            resolveResizableGlyphFrameDp(
+                props("""{ "contentMode": "fit", "frame": { "width": 80, "height": 80 } }""")
+            )
         )
-        assertEquals(80f, size!!, 0.001f)
     }
 
     @Test
-    fun `explicit resizable false wins over an implied contentMode`() {
+    fun `resizable false with a contentMode is not resizable`() {
         assertNull(
             resolveResizableGlyphFrameDp(
                 props("""{ "resizable": false, "contentMode": "fit", "frame": { "width": 80 } }""")
@@ -435,25 +436,36 @@ class ImageResolverTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `contentMode fit maps to ContentScale Fit`() {
-        assertSame(ContentScale.Fit, resolveContentScale(props("""{ "contentMode": "fit" }""")))
+    fun `resizable contentMode fit maps to ContentScale Fit`() {
+        assertSame(ContentScale.Fit, resolveContentScale(props("""{ "resizable": true, "contentMode": "fit" }""")))
     }
 
     @Test
-    fun `contentMode fill maps to ContentScale Crop`() {
-        assertSame(ContentScale.Crop, resolveContentScale(props("""{ "contentMode": "fill" }""")))
+    fun `resizable contentMode fill maps to ContentScale Crop`() {
+        assertSame(ContentScale.Crop, resolveContentScale(props("""{ "resizable": true, "contentMode": "fill" }""")))
     }
 
     @Test
-    fun `missing contentMode defaults to Fit`() {
-        assertSame(ContentScale.Fit, resolveContentScale(props("{}")))
-        assertSame(ContentScale.Fit, resolveContentScale(null))
+    fun `resizable with no contentMode stretches, as SwiftUI resizable alone`() {
+        assertSame(ContentScale.FillBounds, resolveContentScale(props("""{ "resizable": true }""")))
     }
 
     @Test
-    fun `invalid contentMode warns and defaults to Fit`() {
+    fun `not resizable keeps its own size, a contentMode alone changes nothing`() {
+        assertSame(ContentScale.None, resolveContentScale(props("{}")))
+        assertSame(ContentScale.None, resolveContentScale(null))
+        assertSame(ContentScale.None, resolveContentScale(props("""{ "contentMode": "fit" }""")))
+        assertSame(ContentScale.None, resolveContentScale(props("""{ "contentMode": "fill" }""")))
+        assertSame(ContentScale.None, resolveContentScale(props("""{ "resizable": false, "contentMode": "fit" }""")))
+    }
+
+    @Test
+    fun `invalid contentMode warns and counts as none`() {
         val log = CapturingLogger()
-        assertSame(ContentScale.Fit, resolveContentScale(props("""{ "contentMode": "cover" }"""), log))
+        assertSame(ContentScale.FillBounds, resolveContentScale(props("""{ "resizable": true, "contentMode": "cover" }"""), log))
         assertEquals(1, log.warnings.size)
+        // Exact names, as on Apple.
+        assertSame(ContentScale.FillBounds, resolveContentScale(props("""{ "resizable": true, "contentMode": "FILL" }"""), log))
+        assertEquals(2, log.warnings.size)
     }
 }

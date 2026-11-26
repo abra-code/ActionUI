@@ -1,6 +1,6 @@
 // Tests for `hidden` on the web renderer: the whole element hides, as on Apple, Android and
 // Linux - the view-valued background/overlay wrapper and the safe-area inset bar around the
-// node too, not only the node - both when the document says so and when a host sets it at
+// node too, not only the node - both when the JSON says so and when a host sets it at
 // run time. The searchable field and toolbar chrome outside those wrappers are not hidden.
 
 import { test, before, beforeEach } from "node:test";

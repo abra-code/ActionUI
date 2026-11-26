@@ -6,7 +6,7 @@
     {
       "type": "Text",
       "properties": {
-        "text": "ignoresSafeArea lets a view draw into the safe area; safeAreaInset pins a bar at an edge while the content insets to clear it. This in-app browser scrolls the document inside a top bar, so the true screen-edge clearance shows only when a document is the window root - the layouts are shown here in bounded blocks.",
+        "text": "ignoresSafeArea lets a view draw into the safe area; safeAreaInset pins a bar at an edge while the content insets to clear it. This in-app browser scrolls the content inside a top bar, so the true screen-edge clearance shows only when the content is the window root - the layouts are shown here in bounded blocks.",
         "font": "caption",
         "foregroundStyle": "secondary"
       }

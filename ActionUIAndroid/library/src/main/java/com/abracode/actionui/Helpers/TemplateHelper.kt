@@ -147,7 +147,7 @@ object TemplateHelper {
      * container's view model) after a user edit of a row-bound control. The row is the
      * one drawn at [rowIndex] when it is still [drawnRow], else the first equal row; a
      * row shorter than [column] is padded with empty strings, by at most
-     * [MAX_ROW_PADDING] cells: the column comes from the document (`"$2000000000"` would
+     * [MAX_ROW_PADDING] cells: the column comes from the JSON (`"$2000000000"` would
      * otherwise pad one row by billions of cells on one tap). A selection resting on
      * that row follows it, so the write loses no highlight and fires no selection
      * action. Returns the index of the row written, or `null` when the row is gone or

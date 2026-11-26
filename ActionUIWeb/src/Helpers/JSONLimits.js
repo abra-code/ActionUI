@@ -60,7 +60,7 @@ export function nestsDeeperThan(text, depth) {
     return false;
 }
 
-// Why the document `text` is not decoded, or null when it may be.
+// Why the JSON `text` is not decoded, or null when it may be.
 export function jsonRefusal(text) {
     if (typeof text !== "string") return null;
     if (utf8LongerThan(text, maximumJSONSize())) return tooLarge();
@@ -102,7 +102,7 @@ export async function fetchWithTimeLimit(url) {
 // gives when the limit ends it.
 const timeLimitOf = new WeakMap();
 
-// The body of `response` as text, read up to the document cap: a larger body is refused (an
+// The body of `response` as text, read up to the size cap: a larger body is refused (an
 // Error) without reading the rest, as reading more only costs memory.
 export async function readJSONText(response) {
     try {
