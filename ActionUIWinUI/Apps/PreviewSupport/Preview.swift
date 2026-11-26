@@ -75,6 +75,8 @@
 //                            (of the trust policy options, the last one given wins)
 //   --no-launch              a Link the trust policy lets open logs its address and opens nothing (no
 //                            browser or other app starts)
+//   --windowed-popovers      popovers in windows of their own, as in an application (else kept inside the
+//                            window's content, so the rendering includes them; this rendering does not)
 // Every action that fires is printed. Prints "preview:" lines; exit status 0 when the JSON
 // loaded and rendered, the PNG is not empty, every operation worked, every expected action fired
 // at least once, every expected log message was logged and no element held more template instances
@@ -651,12 +653,14 @@ public func runActionUIWinUIPreview(registeringElements registerElements: () -> 
 
     let arguments = CommandLine.arguments
 
-    let usage = "usage: ActionUIWinUIPreview UI.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --select-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --scroll-row ID ROW | --expect-row-name ID ROW NAME | --drag ID X1 Y1 X2 Y2 | --wheel ID X Y DX DY | --expect-width ID W | --expect-height ID H | --invoke-menu-item ID N | --toggle-menu-item ID N | --set-value ID VALUE | --set-property ID NAME VALUE | --set-path ID IDS | --add-row ID TEXT | --add-rows ID N TEXT | --set-state ID KEY VALUE | --expect-state ID KEY VALUE | --expect-automation ID FIELD TEXT | --delay MS | --wait]... [--max-instances ID N]... [--expect-action ACTION]... [--expect-log TEXT]... [--forbid-log TEXT]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]... [--no-launch] [--fetch-limit BYTES] [--refuse-remote-loads] [--refuse-media] [--allow-user-scripts] [--configuration JSON]"
+    let usage = "usage: ActionUIWinUIPreview UI.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --select-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --scroll-row ID ROW | --expect-row-name ID ROW NAME | --drag ID X1 Y1 X2 Y2 | --wheel ID X Y DX DY | --expect-width ID W | --expect-height ID H | --invoke-menu-item ID N | --toggle-menu-item ID N | --set-value ID VALUE | --set-property ID NAME VALUE | --set-path ID IDS | --add-row ID TEXT | --add-rows ID N TEXT | --set-state ID KEY VALUE | --expect-state ID KEY VALUE | --expect-automation ID FIELD TEXT | --delay MS | --wait]... [--max-instances ID N]... [--expect-action ACTION]... [--expect-log TEXT]... [--forbid-log TEXT]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]... [--no-launch] [--windowed-popovers] [--fetch-limit BYTES] [--refuse-remote-loads] [--refuse-media] [--allow-user-scripts] [--configuration JSON]"
     guard arguments.count >= 3 else {
         print(usage)
         exit(64)
     }
     let preview = Preview.shared
+    // Popovers stay inside the window's content, so the rendering includes them.
+    NodePresentations.popoversKeptInWindow = true
     // The program's own element types (the preview's add-on probe), before the JSON loads.
     registerElements()
     /// --expect-log: the texts some logged message must contain.
@@ -808,6 +812,9 @@ public func runActionUIWinUIPreview(registeringElements registerElements: () -> 
             // A host policy that refuses every VideoPlayer's address but a local file
             // (ActionUICapability.playMedia).
             ActionUIModel.shared.trustPolicy = RefusingMedia()
+            index += 1
+        } else if option == "--windowed-popovers" {
+            NodePresentations.popoversKeptInWindow = false
             index += 1
         } else if option == "--no-launch" {
             // Links log what they would open (the renderer's "Link N: opening URL") and open nothing, so a run

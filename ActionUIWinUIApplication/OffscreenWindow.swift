@@ -57,6 +57,7 @@ extension WinUIApplication {
         public func close() {
             guard !isClosed else { return }
             isClosed = true
+            NodePresentations.windowsKeepingPopovers.remove(tree.windowUUID)
             tree.detach()
             if !actionUIWinUIWindowClose(window.pointer) {
                 ActionUIModel.shared.logger.log("WinUIApplication: \(WinUIError.last("closing an offscreen window"))", .error)
@@ -101,6 +102,8 @@ extension WinUIApplication {
         }
         // From here on, closing it detaches the tree and closes the WinUI window.
         let offscreen = OffscreenWindow(window: window, tree: tree)
+        // A popover in a window of its own would show on the user's screen and be left out of the capture.
+        NodePresentations.windowsKeepingPopovers.insert(windowUUID)
         let shownTitle = title ?? tree.groupTitle ?? name ?? "ActionUI"
         let fullTitle = options.subtitle.flatMap { $0.isEmpty ? nil : "\($0) - \(shownTitle)" } ?? shownTitle
         // Placed before it is sized: the size is in the pixels of the monitor nearest its place. Sized as

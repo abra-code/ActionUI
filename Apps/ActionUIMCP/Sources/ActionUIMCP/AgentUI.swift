@@ -299,9 +299,9 @@ struct AgentUI {
         if type == "WindowGroup" {
             errors.append("\(here): WindowGroup is not allowed; it is an application's scene, and its commands would stay in the menu after its window closes, so give its content as the root element")
         }
-        // A popover is a surface of its own, placed by the system: on macOS and on Linux, one of
-        // any size, from an element anywhere, can open over the title bar's "Requested by" line
-        // (both flip a popover that does not fit), and show a line of its own there.
+        // A popover is a surface of its own, placed by the system: on macOS, Linux and Windows, one
+        // of any size, from an element anywhere, can open over the title bar's "Requested by" line
+        // (each flips a popover that does not fit), and show a line of its own there.
         if object["popover"] != nil {
             errors.append("\(here): \"popover\" is not allowed; it can open over the window's \"Requested by\" line, so show its content in the window or in a sheet")
         }

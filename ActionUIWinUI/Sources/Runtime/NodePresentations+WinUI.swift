@@ -13,7 +13,10 @@
    (logged). The dialog keeps WinUI's minimum size (320 by 184) and padding (24). Closing it (Escape) sets the state
    false; any dismissal, by the user or by the host's state, fires sheetOnDismissActionID or
    fullScreenCoverOnDismissActionID.
- - popover: a Flyout on the element's box, kept inside the window, on the side popoverArrowEdge names (measured on macOS 27
+ - popover: a Flyout on the element's box, in a window of its own that can reach past the window's
+   edges as a macOS popover does (inside the window's content when popoversKeptInWindow or for a
+   window in windowsKeepingPopovers, for a rendering of the window to include it), on the side
+   popoverArrowEdge names (measured on macOS 27
    for Linux: top puts it above the element, leading before it). Closing it (a click outside,
    Escape) sets the state false. An element other than a Button shows or hides it on a tap, firing
    popoverActionID when it shows, as PopoverHelper's tap gesture does.
@@ -36,6 +39,15 @@ import Dispatch
 
 @MainActor
 package final class NodePresentations {
+    /// Whether popovers stay inside their window's content, where a rendering of the window includes
+    /// them (the preview tool, which renders windows to PNG files), rather than reaching past the
+    /// window's edges as a macOS popover does (the default).
+    package static var popoversKeptInWindow = false
+    /// The windows (by UUID) whose popovers stay inside their content whatever popoversKeptInWindow says:
+    /// a window drawn past every monitor's edge (WinUIApplication's offscreen rendering), where a popover
+    /// in a window of its own would show on the user's screen and be left out of the capture.
+    package static var windowsKeepingPopovers: Set<String> = []
+
     /// A presentation an element can declare: its subview key and its visibility state.
     enum Kind: CaseIterable {
         case sheet, fullScreenCover, popover
@@ -156,6 +168,10 @@ package final class NodePresentations {
                 ActionUIModel.shared.logger.log("NodePresentations: \(WinUIError.last("making a popover"))", .error)
                 root.detach()
                 return
+            }
+            let kept = Self.popoversKeptInWindow || Self.windowsKeepingPopovers.contains(node.windowModel.windowUUID)
+            if kept, !actionUIWinUIFlyoutSetKeptInWindow(flyout.pointer, true) {
+                ActionUIModel.shared.logger.log("NodePresentations: \(WinUIError.last("keeping a popover in its window"))", .warning)
             }
             WinUIEvents.connect(flyout, actionUIWinUIFlyoutOnClosed, "a popover's closing") { [weak self, weak root] in
                 guard let root else { return }

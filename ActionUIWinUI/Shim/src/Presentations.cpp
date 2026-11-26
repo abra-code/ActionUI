@@ -75,9 +75,9 @@ ActionUIWinUIObject *actionUIWinUIFlyoutCreate(ActionUIWinUIObject *content) {
         mux::UIElement child = objectAs<mux::UIElement>(content, L"UIElement");
         muxc::Flyout flyout;
         flyout.Content(child);
-        // In the window's content rather than a window of its own (WinUI 3's default), so the window's
-        // rendering (RenderTargetBitmap) includes it, as it includes a dialog; it stays inside the window.
-        flyout.ShouldConstrainToRootBounds(true);
+        // In a window of its own (WinUI 3's default), so it can reach past its window as a macOS popover
+        // does; actionUIWinUIFlyoutSetKeptInWindow keeps it in the window's content instead.
+        flyout.ShouldConstrainToRootBounds(false);
         mux::Style style(winrt::xaml_typename<muxc::FlyoutPresenter>());
         // On the theme's own presenter style: a FlyoutPresenterStyle replaces it, and what is left
         // under it, the framework's built-in default, has another padding and no rounded corners.
@@ -93,6 +93,13 @@ ActionUIWinUIObject *actionUIWinUIFlyoutCreate(ActionUIWinUIObject *content) {
         style.Setters().Append(mux::Setter(mux::FrameworkElement::MaxHeightProperty(), winrt::box_value(unbounded)));
         flyout.FlyoutPresenterStyle(style);
         return toObject(flyout);
+    });
+}
+
+bool actionUIWinUIFlyoutSetKeptInWindow(ActionUIWinUIObject *flyout, bool kept) {
+    return guarded("flyout set kept in window", [&]() {
+        objectAs<muxc::Flyout>(flyout, L"Flyout").ShouldConstrainToRootBounds(kept);
+        return true;
     });
 }
 

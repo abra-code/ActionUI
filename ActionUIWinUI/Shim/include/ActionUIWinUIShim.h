@@ -1253,9 +1253,13 @@ typedef enum ActionUIWinUIFlyoutPlacement {
     ActionUIWinUIFlyoutPlacementLeft = 2,
     ActionUIWinUIFlyoutPlacementRight = 3,
 } ActionUIWinUIFlyoutPlacement;
-// A new flyout showing `content` (a Flyout, as large as its content and the window allow, kept inside
-// the window), for a popover. `content` must have no parent. NULL on failure.
+// A new flyout showing `content` (a Flyout as large as its content and the monitor allow, in a window of
+// its own that can reach past its window's edges, as a macOS popover does), for a popover. `content` must
+// have no parent. NULL on failure.
 ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIFlyoutCreate(ActionUIWinUIObject *content);
+// Keeps the flyout inside its window's content (true), where a rendering of the window (RenderTargetBitmap)
+// includes it, or lets it reach past the window (false, the default), before it shows.
+ACTIONUI_WINUI_API bool actionUIWinUIFlyoutSetKeptInWindow(ActionUIWinUIObject *flyout, bool kept);
 // Shows `flyout` on the `placement` side of `anchor` (a FrameworkElement in a window). A click outside
 // it or Escape closes it.
 ACTIONUI_WINUI_API bool actionUIWinUIFlyoutShow(ActionUIWinUIObject *flyout, ActionUIWinUIObject *anchor,

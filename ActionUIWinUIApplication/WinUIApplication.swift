@@ -596,8 +596,8 @@ public final class WinUIApplication {
         }
     }
 
-    /// Saves what the window showing `windowUUID` shows below its title bar, popups open over it
-    /// included, as a PNG file at `path`, drawn by WinUI itself (no screen capture). Asynchronous on
+    /// Saves what the window showing `windowUUID` shows below its title bar, the dialogs and menus open
+    /// over it included (a popover is in a window of its own, so it is not), as a PNG file at `path`, drawn by WinUI itself (no screen capture). Asynchronous on
     /// Windows: `completion` runs on the main thread with whether the file was written; false at once
     /// when there is no such window.
     public func savePNG(windowUUID: String, path: String, completion: @escaping @MainActor (Bool) -> Void) {
