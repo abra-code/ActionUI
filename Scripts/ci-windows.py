@@ -15,7 +15,7 @@ Usage:
       renders a window's content into DIR/shim-smoke.png. Everything goes to .build/winui-shim.
       --install-runtime first installs the Windows App SDK runtime from the package's MSIX files
       for the current user (the smoke test needs it; CI machines do not have it).
-  python Scripts/ci-windows.py winui [--results DIR] [--install-runtime]
+  python Scripts/ci-windows.py winui [--results DIR] [--install-runtime] [--quick]
       What shim does, then builds the Swift package for Windows (windowsPackage in Package.swift)
       with the shim's import library on the linker path, in .build/ci-windows-winui, runs its
       smoke test ActionUIWinUISmoke, which renders DIR/swift-smoke.png, and renders each test file
@@ -24,6 +24,11 @@ Usage:
       package (ActionUIWinUI/Library) in .build/ci-windows-library, runs the C, C++ and language
       binding checks against the DLL, and renders each test file in ActionUIWinUI/Apps/Preview/TestFiles/AddOns
       with ActionUIWinUIAddOnPreview (the add-ons the DLL links) into DIR/add-on-preview-<name>.png.
+      --quick builds the same, runs the smoke tests and the MCP server's tests, and makes the library
+      package, without the previews and the language and app checks: for trying a change, not a check.
+
+The shim's objects and precompiled header (ShimPrecompiled.h) are kept in the work folder between runs:
+a run compiles the sources whose text, local includes or shared headers changed (by content).
 
 Exit status: 0 passed, 1 a step failed or a tool is missing, 2 bad arguments.
 """
@@ -979,12 +984,112 @@ def ensure_webview2_runtime(work, results, findings):
     return step
 
 
-def check_shim(results, install, swift=False):
+# The shim's precompiled header: ShimPrecompiled.h (the system and C++/WinRT headers), compiled from
+# ShimPrecompiled.cpp; every other source uses it, forced in before its first line.
+SHIM_PCH_HEADER = "ShimPrecompiled.h"
+SHIM_PCH_SOURCE = "ShimPrecompiled.cpp"
+# Headers of the shim's own, any of which a source may include (ShimInternal.h, ActionUIWinUIShim.h, and any
+# header added later): a change to one compiles every source again.
+SHIM_HEADER_FOLDERS = [SHIM_DIR / "src", SHIM_DIR / "include"]
+
+
+def file_digest(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def local_includes(source):
+    """The files a source includes by a quoted name that are in its own folder (Symbols.cpp's generated table)."""
+    found = []
+    for name in re.findall(r'^\s*#\s*include\s+"([^"]+)"', source.read_text(encoding="utf-8", errors="replace"), re.M):
+        path = source.parent / name
+        if path.is_file() and path.name not in (SHIM_PCH_HEADER, "ShimInternal.h"):
+            found.append(path)
+    return found
+
+
+def build_shim_objects(objects, flags, msvc, results, summary):
+    """Compiles the shim's sources into `objects`: the precompiled header when it or the flags changed, then each
+    source whose text, local includes, the shared headers or the precompiled header changed (by content, not by
+    date: a file edited while a run builds would look older than its object). Returns the compile step (status 0
+    with nothing to do)."""
+    objects.mkdir(parents=True, exist_ok=True)
+    src = SHIM_DIR / "src"
+    state_file = objects / "build-state.json"
+    try:
+        state = json.loads(state_file.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        state = {}
+    if not isinstance(state, dict) or not isinstance(state.get("sources"), dict):
+        state = {}
+    # The packages name the C++/WinRT projection's inputs (generate_projection): its folder's path is in the flags,
+    # its content is not.
+    flags_key = hashlib.sha256(json.dumps([str(flag) for flag in flags] + [msvc.get("VCToolsVersion", ""),
+                                          msvc.get("WindowsSDKVersion", ""), WINUI_PACKAGES],
+                                          sort_keys=True).encode()).hexdigest()
+    if state.get("flags") != flags_key:
+        # Other flags or another compiler: nothing kept is of use.
+        shutil.rmtree(objects)
+        objects.mkdir(parents=True)
+        state = {"flags": flags_key, "sources": {}}
+    pch = objects / "ShimPrecompiled.pch"
+    pch_key = hashlib.sha256((file_digest(src / SHIM_PCH_HEADER) + file_digest(src / SHIM_PCH_SOURCE)).encode()).hexdigest()
+    if state.get("pch") != pch_key or not pch.is_file() or not (objects / "ShimPrecompiled.obj").is_file():
+        # Forgotten before the compile, so a run that fails or is stopped part way leaves nothing taken as built.
+        state.pop("pch", None)
+        state_file.write_text(json.dumps(state), encoding="utf-8")
+        command = [resolve_tool("cl", msvc), "/c"] + flags + [f"/Yc{SHIM_PCH_HEADER}", f"/Fp{pch}",
+                                                              f"/Fo{objects}\\", src / SHIM_PCH_SOURCE]
+        step = run_step("shim-pch", command, results, msvc, cwd=objects)
+        summary["steps"].append(step)
+        if step["status"] != 0:
+            return step
+        state["pch"] = pch_key
+        state["sources"] = {}
+        state_file.write_text(json.dumps(state), encoding="utf-8")
+    shared_headers = [path for folder in SHIM_HEADER_FOLDERS for path in sorted(folder.glob("*.h"))]
+    shared = hashlib.sha256("".join([pch_key] + [file_digest(path) for path in shared_headers]).encode()).hexdigest()
+    sources = [path for path in sorted(src.glob("*.cpp")) if path.name != SHIM_PCH_SOURCE]
+    keys = {}
+    for source in sources:
+        parts = [shared, file_digest(source)] + [file_digest(path) for path in local_includes(source)]
+        keys[source.name] = hashlib.sha256("".join(parts).encode()).hexdigest()
+    # Objects of sources that are gone would be linked in.
+    for old in objects.glob("*.obj"):
+        if old.stem != Path(SHIM_PCH_SOURCE).stem and not (src / (old.stem + ".cpp")).is_file():
+            old.unlink()
+    stale = [source for source in sources
+             if state["sources"].get(source.name) != keys[source.name] or not (objects / (source.stem + ".obj")).is_file()]
+    if not stale:
+        step = {"step": "shim-build", "status": 0, "seconds": 0.0, "note": f"0 of {len(sources)} files: up to date",
+                "log": ""}
+        summary["steps"].append(step)
+        return step
+    # Forgotten before the compile (as the precompiled header): an object left by a failed or stopped compile
+    # is never taken as built, even when the source goes back to the text it was recorded with.
+    for source in stale:
+        state["sources"].pop(source.name, None)
+    state_file.write_text(json.dumps(state), encoding="utf-8")
+    command = [resolve_tool("cl", msvc), "/c", "/MP"] + flags + [f"/Yu{SHIM_PCH_HEADER}", f"/FI{SHIM_PCH_HEADER}",
+                                                                 f"/Fp{pch}", f"/Fo{objects}\\"] + stale
+    step = run_step("shim-build", command, results, msvc, cwd=objects)
+    step["note"] = f"{len(stale)} of {len(sources)} files {step['note']}".rstrip()
+    summary["steps"].append(step)
+    if step["status"] == 0:
+        for source in stale:
+            state["sources"][source.name] = keys[source.name]
+        state_file.write_text(json.dumps(state), encoding="utf-8")
+    return step
+
+
+def check_shim(results, install, swift=False, quick=False):
     """The shim and its C smoke test; with `swift`, then the Swift package (windowsPackage) and its
-    smoke test, ActionUIWinUISmoke, linked against the shim just built."""
+    smoke test, ActionUIWinUISmoke, linked against the shim just built (with `quick`, only the builds and
+    the smoke and MCP tests: check_swift_smoke)."""
     arch = windows_arch()
     name = ("WinUI shim and renderer build and drive a window from C and Swift" if swift
             else "WinUI shim builds and drives a window from C")
+    if quick:
+        name += " (quick: no previews, no language or app checks)"
     summary = {"name": name, "environment": environment_facts(), "steps": [], "findings": [], "passed": False}
     findings = summary["findings"]
 
@@ -1034,14 +1139,12 @@ def check_shim(results, install, swift=False):
     if step["status"] != 0:
         return failed_step(step)
 
+    # Kept between runs (the objects and the precompiled header in out/obj): a run compiles only what changed.
     out = work / arch
-    if out.exists():
-        shutil.rmtree(out)
-    out.mkdir(parents=True)
+    out.mkdir(parents=True, exist_ok=True)
     foundation = folders["microsoft.windowsappsdk.foundation"]
     includes = [f"/I{generated}", f"/I{SHIM_DIR / 'include'}", f"/I{SHIM_DIR / 'src'}"]
     includes += [f"/I{folder / 'include'}" for folder in folders.values() if (folder / "include").is_dir()]
-    sources = sorted((SHIM_DIR / "src").glob("*.cpp"))
     # The shim's resources (Shim/resources/Shim.rc: the blank cursor), compiled for the linker to put in the DLL.
     resources = out / "Shim.res"
     step = run_step("shim-resources", [resolve_tool("rc", msvc), "/nologo", f"/fo{resources}",
@@ -1049,12 +1152,16 @@ def check_shim(results, install, swift=False):
     summary["steps"].append(step)
     if step["status"] != 0:
         return failed_step(step)
-    command = [resolve_tool("cl", msvc), "/nologo", "/std:c++20", "/EHsc", "/permissive-", "/MD", "/O1",
-               "/bigobj", "/utf-8", "/W3", "/WX", "/MP", "/DNOMINMAX"] + includes + sources + [resources,
-               "/LD", f"/Fe{out / 'ActionUIWinUIShim.dll'}", f"/Fo{out}\\",
-               "/link", "windowsapp.lib", "user32.lib", "ole32.lib", "shell32.lib",
+    flags = ["/nologo", "/std:c++20", "/EHsc", "/permissive-", "/MD", "/O1", "/bigobj", "/utf-8", "/W3", "/WX",
+             "/DNOMINMAX"] + includes
+    step = build_shim_objects(out / "obj", flags, msvc, results, summary)
+    if step["status"] != 0:
+        return failed_step(step)
+    command = [resolve_tool("link", msvc), "/nologo", "/DLL", f"/OUT:{out / 'ActionUIWinUIShim.dll'}",
+               f"/IMPLIB:{out / 'ActionUIWinUIShim.lib'}"] + sorted((out / "obj").glob("*.obj")) + [resources,
+               "windowsapp.lib", "user32.lib", "ole32.lib", "shell32.lib",
                foundation / "lib" / "native" / arch / "Microsoft.WindowsAppRuntime.Bootstrap.lib"]
-    step = run_step("shim-build", command, results, msvc, cwd=out)
+    step = run_step("shim-link", command, results, msvc, cwd=out)
     summary["steps"].append(step)
     if step["status"] != 0:
         return failed_step(step)
@@ -1110,7 +1217,7 @@ def check_shim(results, install, swift=False):
                                 foundation / "lib" / "native" / arch / "Microsoft.WindowsAppRuntime.Bootstrap.lib"],
                   # For the library package's notices.
                   "webview2_license": folders["microsoft.web.webview2"] / "LICENSE.txt"}
-    return finish(check_swift_smoke(out, bootstrap, results, summary, msvc, host_build))
+    return finish(check_swift_smoke(out, bootstrap, results, summary, msvc, host_build, quick))
 
 
 def check_viewer(shim_out, bin_path, results, summary, env):
@@ -1756,7 +1863,7 @@ def render_previews(program, folder, options_by_name, real_input_by_name, prefix
     return passed
 
 
-def check_swift_smoke(shim_out, bootstrap, results, summary, msvc, host_build):
+def check_swift_smoke(shim_out, bootstrap, results, summary, msvc, host_build, quick=False):
     """Builds the Swift package for Windows (ActionUIWinUISmoke, ActionUIWinUIPreview) and ActionUI.dll's
     package (build_library) with the shim's import library on the linker path, places the shim DLL, the
     bootstrapper DLL and the programs' manifests beside them, runs the smoke test and the C adapter's check, then
@@ -1799,6 +1906,13 @@ def check_swift_smoke(shim_out, bootstrap, results, summary, msvc, host_build):
     summary["findings"] += [line for line in (results / step["log"]).read_text(encoding="utf-8", errors="replace")
                             .splitlines() if line.startswith("smoke:")]
     passed = step["status"] == 0 and png.is_file() and png.stat().st_size > 0 and library_built
+    if quick:
+        # What trying a change needs: the MCP server and the library package (its DLLs and the scripts' PATH).
+        passed = check_mcp(shim_out, results, summary, env) and passed
+        if library_built:
+            passed = make_library_package(bin_path, results, summary, msvc, host_build["webview2_license"]) is not None and passed
+        summary["findings"].append("quick: the previews and the language and app checks were not run")
+        return passed
     # The programs that load ActionUI.dll, and the library package, need it built.
     if library_built:
         passed = check_c_adapter(bin_path, results, summary, msvc, env) and passed
@@ -2178,6 +2292,10 @@ def main():
     parser.add_argument("--results", default=str(REPO_DIR / ".build" / "ci-windows-results"))
     parser.add_argument("--install-runtime", action="store_true",
                         help="shim, winui: install the Windows App SDK runtime for the current user first")
+    parser.add_argument("--quick", action="store_true",
+                        help="winui: build everything and run the smoke tests and the MCP server's tests only, "
+                             "without the previews and the language and app checks (for trying a change; not a "
+                             "full check)")
     arguments = parser.parse_args()
     # Piped stdout on Windows uses the ANSI code page; a log line it cannot encode (a test
     # fixture's text in an assertion message) must not end the run with a traceback.
@@ -2197,7 +2315,7 @@ def main():
             print("ci-windows: swift is not on PATH; install the Swift toolchain for Windows",
                   file=sys.stderr)
             return 1
-        return check_shim(results, arguments.install_runtime, swift=True)
+        return check_shim(results, arguments.install_runtime, swift=True, quick=arguments.quick)
     return 2
 
 

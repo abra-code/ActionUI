@@ -3,28 +3,8 @@
 
 #pragma once
 
-#define ACTIONUI_WINUI_SHIM_BUILDING
-#include <windows.h>
-#include <unknwn.h>
-// windows.h defines GetCurrentTime() as a macro, which breaks Storyboard::GetCurrentTime in the
-// projection.
-#undef GetCurrentTime
-
-#include <chrono>
-#include <exception>
-#include <functional>
-#include <memory>
-#include <utility>
-#include <string>
-#include <string_view>
-
-#include <winrt/Windows.Foundation.h>
-#include <winrt/Windows.Foundation.Collections.h>
-#include <winrt/Microsoft.UI.Dispatching.h>
-#include <winrt/Microsoft.UI.Windowing.h>
-#include <winrt/Microsoft.UI.Xaml.h>
-#include <winrt/Microsoft.UI.Xaml.Controls.h>
-#include <winrt/Microsoft.UI.Xaml.Media.h>
+// The system and WinRT headers, precompiled (ShimPrecompiled.h).
+#include "ShimPrecompiled.h"
 
 #include "ActionUIWinUIShim.h"
 
