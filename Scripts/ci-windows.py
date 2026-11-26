@@ -96,7 +96,10 @@ WINUI_RUNTIME_MSIX = [
 ]
 SMOKE_TIMEOUT_SECONDS = 180
 # Options for ActionUIWinUIPreview by test file name (ActionUIWinUI/Apps/Preview/TestFiles), beside
-# the test file and the PNG: a window size, and elements to operate with the actions they must fire.
+# the test file and the PNG: elements to operate with the actions they must fire, and a window size only
+# where a check needs one (real mouse input at points, scrolling, an expected width or height, how many
+# rows a lazy stack makes) or a popover kept in the window must fit; the others open at their content's
+# own size, as an application's window opens, so the PNG shows what the content asks for on Windows.
 # "{test_files_url}" in an option is the test files folder's file URL (an AsyncImage's file URLs);
 # "{program_folder}" the folder the preview runs from (the app's resources, where ActionUIWinUI/Apps/Preview/Bundled
 # is copied), and "{program_folder_upper}" the same in upper case; "{test_files_folder_json}" the test files
@@ -105,16 +108,15 @@ PREVIEW_OPTIONS = {
     # An element registered the way an add-on registers one (the preview's AddOnProbe) shows its text, and so does
     # one registered through the linked add-ons call (ActionUILinkedAddOns_register, defined by the preview); an
     # element type nothing registered shows the placeholder.
-    "AddOns": ["420", "200",
+    "AddOns": [
                "--expect-automation", "3", "name", "add-on: registered",
                "--expect-automation", "5", "name", "add-on: linked",
                "--expect-log", "NoSuchAddOn is not available on Windows yet; showing a placeholder"],
-    # The two chart test files at sizes that show their charts whole (the second has two columns).
     # Chart 16 is named by its marks' accessibilityLabel and accessibilityValue, read through UI Automation.
-    "Charts": ["560", "720", "--expect-automation", "16", "name",
+    "Charts": ["--expect-automation", "16", "name",
                "Swift, 42 projects; Kotlin, 31 projects; JavaScript, 27 projects; Rust, 12 projects"],
-    "ChartTypes": ["760", "720"],
-    "ChartAnnotations": ["600", "720"],
+    "ChartTypes": [],
+    "ChartAnnotations": [],
     # Selection with the real mouse (x64): a drag across the range chart (3; its range goes at the release),
     # then one across the hover chart (1; not taken, so its moves hover and the value stays under the
     # pointer), a pause for the settled action.
@@ -124,48 +126,48 @@ PREVIEW_OPTIONS = {
     # value), three over the teams (2); the windows moved show in the PNG.
     "ChartScroll": ["600", "520", "--wheel", "1", "280", "100", "0", "2", "--wheel", "2", "280", "100", "0", "3",
                     "--delay", "500"],
-    "Floors": ["420", "380"],
-    "NestedFloors": ["420", "420"],
-    "Images": ["560", "440"],
-    "Labels": ["440", "300"],
-    "States": ["420", "320"],
-    "Forms": ["420", "370"],
-    "Pickers": ["460", "470"],
-    "Lists": ["420", "400", "--add-row", "3", "Apples", "--add-row", "3", "Bananas", "--add-row", "3", "Cherries"],
-    "ListTemplates": ["420", "430", "--add-row", "3", "folder|Documents|12 items", "--add-row", "3", "photo|Pictures|3 items",
+    "Floors": [],
+    "NestedFloors": [],
+    "Images": [],
+    "Labels": [],
+    "States": [],
+    "Forms": [],
+    "Pickers": [],
+    "Lists": ["--add-row", "3", "Apples", "--add-row", "3", "Bananas", "--add-row", "3", "Cherries"],
+    "ListTemplates": ["--add-row", "3", "folder|Documents|12 items", "--add-row", "3", "photo|Pictures|3 items",
                       "--add-row", "3", "music.note|Music|0 items",
                       "--add-row", "10", "false|Milk", "--add-row", "10", "true|Eggs", "--add-row", "10", "false|Bread",
                       "--toggle", "11", "--expect-action", "item.toggled",
                       "--on-action", "item.toggled", "12", "The first row was toggled"],
-    "ListCells": ["420", "380", "--add-row", "3", "Open", "--add-row", "3", "Rename", "--add-row", "3", "Delete",
+    "ListCells": ["--add-row", "3", "Open", "--add-row", "3", "Rename", "--add-row", "3", "Delete",
                   "--add-row", "5", "star.fill", "--add-row", "5", "heart", "--add-row", "5", "folder",
                   "--invoke-row", "3", "1", "--expect-action", "row.pressed"],
-    "TextEditors": ["420", "440", "--set-text", "8", "typed through UI Automation", "--expect-action", "typed.changed",
+    "TextEditors": ["--set-text", "8", "typed through UI Automation", "--expect-action", "typed.changed",
                     "--forbid-action", "wrapped.changed",
                     "--on-action", "typed.changed", "9", "The editor's text changed"],
-    "DatePickers": ["480", "600", "--forbid-action", "day.changed", "--forbid-action", "time.changed",
+    "DatePickers": ["--forbid-action", "day.changed", "--forbid-action", "time.changed",
                     "--forbid-action", "both.changed", "--forbid-action", "calendar.changed",
                     "--forbid-action", "outside.changed"],
-    "Sliders": ["420", "340", "--set-text", "10", "0.75", "--expect-action", "moved.changed",
+    "Sliders": ["--set-text", "10", "0.75", "--expect-action", "moved.changed",
                 "--on-action", "moved.changed", "12", "Moved through UI Automation",
                 "--forbid-action", "plain.changed", "--forbid-action", "stepped.changed", "--forbid-action", "outside.changed"],
-    "ProgressViews": ["420", "380", "--set-property", "7", "value", "0.8"],
-    "Steppers": ["420", "320", "--invoke-part", "6", "1", "--invoke-part", "6", "1", "--invoke-part", "6", "1",
+    "ProgressViews": ["--set-property", "7", "value", "0.8"],
+    "Steppers": ["--invoke-part", "6", "1", "--invoke-part", "6", "1", "--invoke-part", "6", "1",
                  "--expect-action", "count.changed", "--on-action", "count.changed", "7", "Stepped up three times"],
-    "ContentUnavailable": ["460", "640"],
-    "Gauges": ["420", "360", "--set-value", "7", "80"],
-    "SecureFields": ["360", "220", "--set-text", "4", "hunter2", "--expect-action", "typed.changed",
+    "ContentUnavailable": [],
+    "Gauges": ["--set-value", "7", "80"],
+    "SecureFields": ["--set-text", "4", "hunter2", "--expect-action", "typed.changed",
                      "--on-action", "typed.changed", "5", "The field's text changed",
                      "--forbid-action", "empty.changed", "--forbid-action", "filled.changed"],
-    "FormSections": ["420", "460"],
-    "FormColumns": ["460", "520"],
-    "Grids": ["420", "400"],
-    "TabViews": ["420", "300", "--select-part", "2", "2", "--expect-action", "tabs.changed",
+    "FormSections": [],
+    "FormColumns": [],
+    "Grids": [],
+    "TabViews": ["--select-part", "2", "2", "--expect-action", "tabs.changed",
                  "--on-action", "tabs.changed", "10", "Chose Advanced", "--set-value", "11", "1"],
-    "LazyStacks": ["420", "400"],
-    "NavigationStacks": ["420", "440", "--invoke", "4", "--wait", "--invoke-part", "1", "0", "--wait", "--invoke", "5",
+    "LazyStacks": [],
+    "NavigationStacks": ["--invoke", "4", "--wait", "--invoke-part", "1", "0", "--wait", "--invoke", "5",
                          "--set-path", "20", "30", "--select-part", "40", "1", "--expect-action", "places.chosen"],
-    "StackTemplates": ["420", "520", "--add-row", "2", "star|Starred", "--add-row", "2", "heart|Liked", "--add-row", "2", "folder|Filed",
+    "StackTemplates": ["--add-row", "2", "star|Starred", "--add-row", "2", "heart|Liked", "--add-row", "2", "folder|Filed",
                        "--add-row", "6", "A", "--add-row", "6", "B", "--add-row", "6", "C",
                        "--add-row", "8", "Lazy one", "--add-row", "8", "Lazy two",
                        "--add-row", "10", "true|Wi-Fi", "--add-row", "10", "false|Bluetooth",
@@ -184,12 +186,12 @@ PREVIEW_OPTIONS = {
     "LazyGrids": ["420", "460", "--add-rows", "21", "2000", "Cell #", "--add-rows", "31", "300", "#", "--wait",
                   "--scroll", "20", "0", "5000", "--scroll", "30", "3000", "0",
                   "--max-instances", "21", "300", "--max-instances", "31", "150"],
-    "DisclosureGroups": ["420", "380", "--add-row", "7", "Row one", "--add-row", "7", "Row two", "--toggle", "2",
+    "DisclosureGroups": ["--add-row", "7", "Row one", "--add-row", "7", "Row two", "--toggle", "2",
                          "--expect-action", "details.toggled", "--on-action", "details.toggled", "9", "Details collapsed"],
-    "Links": ["420", "220"],
+    "Links": [],
     # The app's own links open whatever they name; links in JSON from a server or from a file outside the
     # app's resources open only web and mail addresses. --no-launch: nothing is opened.
-    "LessTrustedLinks": ["420", "460", "--no-launch", "--delay", "4000",
+    "LessTrustedLinks": ["--no-launch", "--delay", "4000",
                          "--invoke", "3", "--invoke", "4", "--invoke", "101", "--invoke", "102", "--invoke", "103",
                          "--invoke", "104", "--invoke", "105", "--invoke", "106", "--invoke", "107", "--invoke", "201",
                          "--invoke", "202",
@@ -206,55 +208,55 @@ PREVIEW_OPTIONS = {
                          "--expect-log", "Link 104: opening mailto:someone@example.com",
                          "--expect-log", "Not opening ms-settings:display from element 201 ",
                          "--expect-log", "Link 202: opening https://example.com/"],
-    "ColorPickers": ["420", "300", "--set-text", "2", "#2060FF",
+    "ColorPickers": ["--set-text", "2", "#2060FF",
                      "--expect-action", "color.picked", "--forbid-action", "color.renderer",
                      "--on-action", "color.picked", "8", "Picked"],
-    "ControlGroups": ["420", "200", "--invoke", "4", "--expect-action", "group.italic"],
-    "Canvases": ["420", "320"],
-    "CanvasShading": ["420", "200"],
-    "CanvasImages": ["420", "190"],
-    "CanvasEffects": ["420", "210"],
-    "ScrollReaders": ["420", "230", "--set-property", "4", "scrollTo", "230", "--wait"],
-    "GeometryReaders": ["420", "190"],
+    "ControlGroups": ["--invoke", "4", "--expect-action", "group.italic"],
+    "Canvases": [],
+    "CanvasShading": [],
+    "CanvasImages": [],
+    "CanvasEffects": [],
+    "ScrollReaders": ["--set-property", "4", "scrollTo", "230", "--wait"],
+    "GeometryReaders": [],
     # The test files folder as the app's resources, so the files it loads are the app's own and load the files
     # beside them (content from a file elsewhere loads no local files).
-    "Loadables": ["420", "330", "--configuration", '{"resourceFolder": "{test_files_folder_json}"}', "--delay", "4000", "--expect-action", "child.loaded", "--expect-action", "grandchild.loaded",
+    "Loadables": ["--configuration", '{"resourceFolder": "{test_files_folder_json}"}', "--delay", "4000", "--expect-action", "child.loaded", "--expect-action", "grandchild.loaded",
                   "--expect-action", "remote.loaded"],
     # A LoadableView's download: a redirect (github.com to raw.githubusercontent.com) is followed; a body past
     # the limit (lowered to 50 bytes here) is refused.
-    "FetchRedirects": ["420", "120", "--delay", "6000", "--expect-action", "redirected.loaded"],
-    "FetchSizeLimit": ["420", "120", "--fetch-limit", "50", "--delay", "4000", "--forbid-action", "oversized.loaded",
+    "FetchRedirects": ["--delay", "6000", "--expect-action", "redirected.loaded"],
+    "FetchSizeLimit": ["--fetch-limit", "50", "--delay", "4000", "--forbid-action", "oversized.loaded",
                        "--expect-log", "the response is larger than 50 bytes"],
     # A host policy that refuses LoadableViews' remote loads: the download is not even started; a file loads.
-    "LoadPolicy": ["420", "160", "--refuse-remote-loads", "--delay", "3000", "--forbid-action", "refused.loaded",
+    "LoadPolicy": ["--refuse-remote-loads", "--delay", "3000", "--forbid-action", "refused.loaded",
                    "--expect-action", "file.loaded",
                    "--expect-log", "LoadableView 3: not loading https://raw.githubusercontent.com/abra-code/ActionUI/WinUI-CI/ActionUIWinUI/Apps/Preview/TestFiles/Loadable/Remote.json: the trust policy refuses it"],
     # The host trusts raw.githubusercontent.com (its configuration); JSON asked of github.com and redirected
     # there is judged by where it came from: trusted, so its Windows settings link opens (--no-launch).
-    "TrustedOrigins": ["420", "220", "--no-launch",
+    "TrustedOrigins": ["--no-launch",
                        "--configuration", '{"trust": {"trustedOrigins": ["https://raw.githubusercontent.com"]}}',
                        "--delay", "6000", "--invoke", "101",
                        "--expect-log", "was redirected to https://raw.githubusercontent.com/",
                        "--expect-log", "Link 101: opening ms-settings:display"],
-    "Groups": ["420", "300", "--add-row", "21", "First", "--add-row", "21", "Second"],
+    "Groups": ["--add-row", "21", "First", "--add-row", "21", "Second"],
     "NavigationSplitViews": ["420", "460", "--select-part", "2", "1", "--expect-action", "sidebar.changed",
                              "--drag", "20", "180.5", "70", "210.5", "70", "--expect-width", "23", "116",
                              "--invoke-part", "40", "0", "--expect-action", "sidebar.toggled"],
-    "ButtonStyles": ["480", "240"],
-    "Shadows": ["440", "260"],
+    "ButtonStyles": [],
+    "Shadows": [],
     # Black shadows of radius 4, 8 and 12 on clean edges, to compare their blur with SwiftUI's.
-    "ShadowBlur": ["420", "300"],
-    "Overlays": ["440", "240"],
-    "ControlSizes": ["560", "300"],
-    "Tints": ["560", "420"],
-    "TextAlignments": ["520", "320"],
-    "TextSelections": ["460", "160"],
+    "ShadowBlur": [],
+    "Overlays": [],
+    "ControlSizes": [],
+    "Tints": [],
+    "TextAlignments": [],
+    "TextSelections": [],
     "Hovers": ["420", "160", "--drag", "2", "-30.5", "20.5", "40.5", "20.5", "--drag", "2", "40.5", "20.5", "180.5", "20.5"],
-    "Sheets": ["440", "300", "--invoke", "2", "--delay", "500", "--expect-state", "2", "sheetVisible", "true",
+    "Sheets": ["--invoke", "2", "--delay", "500", "--expect-state", "2", "sheetVisible", "true",
                "--expect-automation", "11", "name", "A sheet", "--invoke", "13", "--expect-action", "sheet.done"],
     # JSON from a server presents no sheet or popover and titles no screen: the sheet's state changes, nothing
     # is shown.
-    "LessTrustedPresentations": ["440", "300", "--delay", "4000", "--invoke", "301", "--delay", "500",
+    "LessTrustedPresentations": ["--delay", "4000", "--invoke", "301", "--delay", "500",
                                  "--expect-state", "301", "sheetVisible", "true",
                                  "--expect-log", "Not presenting a sheet, cover or popover for element 301 ",
                                  "--expect-log", "Not presenting a sheet, cover or popover for element 303 ",
@@ -264,57 +266,57 @@ PREVIEW_OPTIONS = {
                  "--set-state", "4", "sheetVisible", "false", "--delay", "500", "--invoke", "3", "--delay", "500",
                  "--expect-automation", "21", "name", "A popover", "--expect-action", "sheet.dismissed",
                  "--expect-action", "popover.shown"],
-    "Appearances": ["420", "260", "--select-part", "3", "1", "--add-row", "9", "Row a", "--delay", "300",
+    "Appearances": ["--select-part", "3", "1", "--add-row", "9", "Row a", "--delay", "300",
                     "--add-row", "9", "Row b", "--delay", "300", "--expect-action", "page.shown",
                     "--expect-action", "first.shown", "--expect-action", "first.hidden", "--expect-action", "second.shown",
                     "--expect-action", "row.shown", "--forbid-action", "row.hidden"],
-    "Accessibility": ["420", "300", "--expect-automation", "2", "name", "Save the document",
+    "Accessibility": ["--expect-automation", "2", "name", "Save the document",
                       "--expect-automation", "2", "help", "Writes it to disk", "--expect-automation", "2", "id", "save-button",
                       "--expect-automation", "3", "help", "Turns on alerts", "--expect-automation", "4", "name", "Plain name",
                       "--expect-automation", "7", "name", "Wireless network", "--expect-automation", "7", "id", "wifi-toggle",
                       "--expect-automation", "2", "accelerator", "Ctrl+S"],
-    "Shares": ["420", "200"],
+    "Shares": [],
     # JSON from a server: a WebView shows the "Blocked" page for a file: address and reads no script file.
     # --allow-user-scripts: a host policy that lets it run user scripts, so only their files are refused.
-    "LessTrustedWebViews": ["420", "200", "--allow-user-scripts", "--delay", "8000",
+    "LessTrustedWebViews": ["--allow-user-scripts", "--delay", "8000",
                             "--set-value", "601", "file:///C:/Windows/system.ini", "--delay", "1000",
                             "--expect-log", "WebView not showing file:///C:/Windows/system.ini: the trust policy refuses it",
                             "--expect-log", "WebView not showing file:///C:/Windows/win.ini: the trust policy refuses it",
                             "--expect-log", "Not reading Loadable/Child.json for element 602: the trust policy refuses it",
                             "--expect-log", "for element 603: the trust policy refuses it"],
     # JSON from a server: its WebView runs none of its user scripts (the page keeps its own title).
-    "LessTrustedWebScripts": ["420", "180", "--delay", "10000", "--expect-state", "901", "title", "page",
+    "LessTrustedWebScripts": ["--delay", "10000", "--expect-state", "901", "title", "page",
                               "--expect-log", "WebView not running its 1 user script(s): the trust policy refuses them"],
     # JSON from a server: its pages' own navigations open no other app's scheme and no window.
-    "LessTrustedWebPages": ["420", "200", "--delay", "12000",
+    "LessTrustedWebPages": ["--delay", "12000",
                             "--expect-log", "WebView not going to ms-settings:display: the trust policy refuses it",
                             "--expect-log", "WebView 702 not opening a window for https://example.com/"],
     # JSON from a server: its page (html under a base on the JSON's own https origin, so a secure context
     # where the location is asked for, not refused unasked)
     # gets confirm() answered as dismissed, print() a no-op and the location denied (geolocation error 1),
     # with no dialog or question shown.
-    "LessTrustedWebLimits": ["420", "200", "--delay", "12000", "--expect-state", "801", "title", "secure:true confirm:false print:off geo:1"],
+    "LessTrustedWebLimits": ["--delay", "12000", "--expect-state", "801", "title", "secure:true confirm:false print:off geo:1"],
     # html under an https base: the page has the base's origin and its relative image loads from there.
-    "WebViewBase": ["420", "220", "--delay", "10000", "--expect-state", "3", "title", "loaded at https://raw.githubusercontent.com"],
-    "WebViews": ["420", "300", "--delay", "10000", "--expect-state", "2", "title", "Hello Windows (script ran)",
+    "WebViewBase": ["--delay", "10000", "--expect-state", "3", "title", "loaded at https://raw.githubusercontent.com"],
+    "WebViews": ["--delay", "10000", "--expect-state", "2", "title", "Hello Windows (script ran)",
                  "--expect-action", "web.loaded", "--expect-action", "web.url"],
     "Maps": ["420", "330", "--drag", "2", "200", "110", "120", "70", "--delay", "6000", "--expect-log", "Map 2 tiles: "],
-    "SymbolMix": ["820", "300"],
-    "UserLocations": ["420", "200", "--delay", "6000", "--expect-log", "; user location: "],
+    "SymbolMix": [],
+    "UserLocations": ["--delay", "6000", "--expect-log", "; user location: "],
     # 20 s: Media Foundation's first open on a cold runner has taken more than 8 s (x64 twice, arm64 once).
-    "VideoPlayers": ["420", "300", "--set-value", "2", "{test_files_url}/Media/one-second.mp4", "--delay", "20000",
+    "VideoPlayers": ["--set-value", "2", "{test_files_url}/Media/one-second.mp4", "--delay", "20000",
                      "--expect-log", "VideoPlayer 2 opened", "--expect-log", "VideoPlayer 4 could not play"],
     # A host policy decides for the app's own videos too: refused, an https video is not opened.
-    "RefusedMedia": ["420", "200", "--refuse-media", "--delay", "3000",
+    "RefusedMedia": ["--refuse-media", "--delay", "3000",
                      "--expect-log", "Not playing https://example.com/clip.mp4 for element 2 of window"],
     # JSON from a server plays no address of another scheme than file, http and https (the default policy).
-    "LessTrustedVideos": ["420", "160", "--delay", "4000",
+    "LessTrustedVideos": ["--delay", "4000",
                           "--expect-log", "Not playing rtsp://example.com/stream for element 501 of window",
                           "--expect-log", "Not playing ms-appdata:///local/clip.mp4 for element 502 of window",
                           # A drive path is a local file to Windows' player: asked as a file read, not as media.
                           "--expect-log", "Not reading C:/Windows/Media/clip.mp4 for element 503"],
     "SplitViews": ["420", "260", "--drag", "2", "120.5", "45", "180.5", "45", "--expect-width", "3", "180"],
-    "TableCells": ["420", "260", "--add-row", "2", "Write|false|star|false|{test_files_url}/Images/sample_image.png|Open",
+    "TableCells": ["--add-row", "2", "Write|false|star|false|{test_files_url}/Images/sample_image.png|Open",
                    "--add-row", "2", "Test|true|heart|true|{test_files_url}/Images/sample_image.png|Open", "--wait",
                    "--invoke-part", "2", "0", "--expect-action", "open.pressed", "--on-action", "open.pressed", "3", "Pressed row 0"],
     "Tables": ["420", "330", "--add-rows", "2", "100", "File #.txt|Document|# KB", "--add-row", "3", "Build|Run",
@@ -323,7 +325,7 @@ PREVIEW_OPTIONS = {
                "--drag", "2", "311.5", "10", "271.5", "10"],
     # The app's own Image and AsyncImage show a local file; the same file named by JSON from a server (Image,
     # AsyncImage, Canvas, List and Table cells, VideoPlayer) is refused, outside the app's resources.
-    "LessTrustedFiles": ["420", "330", "--set-value", "5", "{test_files_url}/Images/sample_image.png", "--delay", "4000",
+    "LessTrustedFiles": ["--set-value", "5", "{test_files_url}/Images/sample_image.png", "--delay", "4000",
                          "--set-value", "405", "{test_files_url}/Images/sample_image.png",
                          "--set-value", "406", "{test_files_url}/Media/one-second.mp4",
                          "--add-row", "403", "Images/sample_image.png",
@@ -341,45 +343,45 @@ PREVIEW_OPTIONS = {
     # JSON from a server loads no local file outside the app's resources, whatever form its Windows path has
     # (backslashes, forward slashes, a drive-relative path, an 8.3 short name, "..", a file: URL). Core's
     # refusal line names the element, so each element's line is one only the trust policy writes.
-    "LessTrustedLocalFiles": ["420", "260", "--delay", "4000"]
+    "LessTrustedLocalFiles": ["--delay", "4000"]
                              + [option for element in range(851, 857)
                                 for option in ["--expect-log", f"LoadableView {element}: not loading "]]
                              + ["--expect-log", ": the trust policy refuses it"],
     # JSON from a server: its LoadableView loads no file on a share (never touched).
     # The share on this machine (807) is the one check_share_reads shares and watches.
-    "LessTrustedShares": ["420", "300", "--delay", "4000"]
+    "LessTrustedShares": ["--delay", "4000"]
                          + [option for element in range(801, 812)
                             for option in ["--expect-log", f"for element {element}: less-trusted content reads no network or device path"]],
     # ActionUI JSON in the program's folder (the app's resources) is trusted, its path in any case: its links
     # open Windows' settings, which a server's cannot. --no-launch: nothing is opened.
-    "TrustedResources": ["420", "160", "--no-launch", "--set-value", "3", "{program_folder}\\BundledLinks.json",
+    "TrustedResources": ["--no-launch", "--set-value", "3", "{program_folder}\\BundledLinks.json",
                          "--set-value", "4", "{program_folder_upper}\\BUNDLEDLINKSUPPER.JSON", "--delay", "1000",
                          "--invoke", "901", "--invoke", "951",
                          "--expect-log", "Link 901: opening ms-settings:display",
                          "--expect-log", "Link 951: opening ms-settings:display"],
     # An image file that declares 9000 x 9000 pixels (in 10 KB) is not decoded: the photo symbol, logged.
-    "ImageDecodeCap": ["420", "120", "--set-value", "6", "{test_files_url}/Images/declares-81-megapixels.png", "--delay", "1000",
+    "ImageDecodeCap": ["--set-value", "6", "{test_files_url}/Images/declares-81-megapixels.png", "--delay", "1000",
                        "--expect-log", "Image not shown: Images/declares-81-megapixels.png is 9000 x 9000 pixels",
                        "--expect-log", "TestFiles/Images/declares-81-megapixels.png is 9000 x 9000 pixels"],
-    "AsyncImages": ["460", "340", "--set-value", "7", "{test_files_url}/Images/sample_image.png",
+    "AsyncImages": ["--set-value", "7", "{test_files_url}/Images/sample_image.png",
                     "--set-value", "8", "{test_files_url}/Images/ActionUIDemo.svg"],
-    "Menus": ["420", "260", "--invoke-menu-item", "2", "0", "--toggle-menu-item", "2", "3",
+    "Menus": ["--invoke-menu-item", "2", "0", "--toggle-menu-item", "2", "3",
               "--expect-action", "menu.copy", "--expect-action", "menu.grid",
               "--on-action", "menu.grid", "12", "Copied, then the grid turned on"],
-    "Toolbars": ["420", "300", "--invoke", "15", "--invoke", "20", "--expect-action", "toolbar.add",
+    "Toolbars": ["--invoke", "15", "--invoke", "20", "--expect-action", "toolbar.add",
                  "--expect-action", "toolbar.export", "--on-action", "toolbar.export", "3", "Added, then exported"],
-    "NavigationToolbars": ["420", "300", "--invoke", "6", "--invoke", "31", "--invoke", "12", "--wait", "--invoke", "24",
+    "NavigationToolbars": ["--invoke", "6", "--invoke", "31", "--invoke", "12", "--wait", "--invoke", "24",
                            "--expect-action", "nav.compose", "--expect-action", "nav.refresh", "--expect-action", "nav.reply"],
-    "FloorChanges": ["420", "300", "--set-property", "3", "padding", "40", "--set-property", "7", "padding", "40"],
-    "Fonts": ["480", "480"],
+    "FloorChanges": ["--set-property", "3", "padding", "40", "--set-property", "7", "padding", "40"],
+    "Fonts": [],
     "Scroll": ["360", "300", "--scroll", "3", "0", "50"],
-    "Shapes": ["420", "340"],
-    "GreedyRows": ["420", "220"],
-    "NestedStacks": ["420", "260"],
+    "Shapes": [],
+    "GreedyRows": [],
+    "NestedStacks": [],
     "ScrollShare": ["280", "260", "--scroll", "3", "0", "40"],
-    "Controls": ["240", "220", "--invoke", "3", "--expect-action", "button.pressed",
+    "Controls": ["--invoke", "3", "--expect-action", "button.pressed",
                  "--on-action", "button.pressed", "2", "Pressed through UI Automation"],
-    "Inputs": ["360", "260", "--toggle", "3", "--toggle", "4", "--set-text", "6", "typed through UI Automation",
+    "Inputs": ["--toggle", "3", "--toggle", "4", "--set-text", "6", "typed through UI Automation",
                "--expect-action", "checkbox.changed", "--expect-action", "switch.changed",
                "--expect-action", "field.changed",
                "--on-action", "checkbox.changed", "2", "The check box changed",
@@ -739,7 +741,7 @@ ADD_ON_PREVIEW_OPTIONS = {
     # refusal names that path. The share (actionui-canary, CANARY_SHARE) is the one check_share_reads shares and
     # watches; 904 and 905 (a relative path and the current drive's root) are judged there with the current folder
     # on the share.
-    "LessTrustedDiffShares": ["520", "360", "--delay", "4000"]
+    "LessTrustedDiffShares": ["--delay", "4000"]
                              + [option for element in [901, 902]
                                 for option in ["--expect-log", f"Not reading \\\\localhost\\actionui-canary\\old.txt "
                                                                f"for element {element}: less-trusted content reads no network"]]

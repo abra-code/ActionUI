@@ -1,7 +1,9 @@
 // ActionUIWinUI/Apps/PreviewSupport/Preview.swift - the preview tool: renders ActionUI JSON with
 // the WinUI renderer into a PNG of the window's whole content area (below the title bar), in a
-// window of the given content size, and prints where WinUI placed each element (its frame in its
-// parent), so a run can be compared with SwiftUI's and GTK's.
+// window of the given content size (or, without one, the size the content asks for, as an
+// application's window opens; larger in either case when the content needs more), and prints where
+// WinUI placed each element (its frame in its parent), so a run can be compared with SwiftUI's and
+// GTK's.
 //
 // Usage: ActionUIWinUIPreview UI.json PNG_PATH [WIDTH HEIGHT] [options]
 //   Relative image paths in the JSON are taken from the JSON file's folder.
@@ -99,7 +101,8 @@ final class Preview {
 
     var jsonPath = ""
     var pngPath = ""
-    var contentSize = ActionUIWinUISize(width: 480, height: 320)
+    /// The content size asked for; nil: the content's own (as an application's window opens).
+    var contentSize: ActionUIWinUISize?
     var window: WinUIObject?
     var tree: WinUIWindow?
     var rendered = false
@@ -194,7 +197,8 @@ final class Preview {
             }
             self.window = window
             guard actionUIWinUIWindowSetTitle(window.pointer, "ActionUI WinUI preview"),
-                  actionUIWinUIWindowSetContentSize(window.pointer, contentSize.width, contentSize.height),
+                  case let firstSize = contentSize ?? tree.openingSize(),
+                  actionUIWinUIWindowSetContentSize(window.pointer, firstSize.width, firstSize.height),
                   actionUIWinUIWindowSetContent(window.pointer, content.pointer) else {
                 say(WinUIError.last("setting up the window").description)
                 finish()
@@ -202,7 +206,7 @@ final class Preview {
             }
             // At the size asked for, or larger when the content needs more, once it has loaded (as a
             // window of WinUIApplication): the rendering then shows all of it, at a size that tells.
-            tree.fit(window, wanted: (Int(contentSize.width.rounded()), Int(contentSize.height.rounded())), cloaks: false)
+            tree.fit(window, wanted: contentSize.map { (Int($0.width.rounded()), Int($0.height.rounded())) }, cloaks: false)
             guard actionUIWinUIWindowActivate(window.pointer) else {
                 say(WinUIError.last("showing the window").description)
                 finish()
