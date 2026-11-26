@@ -4,11 +4,12 @@
 // Licensed under the PolyForm Small Business License 1.0.0
 // https://polyformproject.org/licenses/small-business/1.0.0
 
-// WinUIPlatform.swift - the windows on Windows, through ActionUI's WinUI application. A window's subtitle
-// (the provenance line) shows before its title in the title bar, which has one line and cuts a long one at
-// its end: the agent's title can neither push it out of view nor come first. A kept window opens again
-// in the keeper at its place and its content's size (KeptWindowKeeper+Windows.swift). Not yet
-// on Windows: notices, which answer that they are not available here.
+// WinUIPlatform.swift - the windows on Windows, through ActionUI's WinUI application. Who asked leads a
+// window's title ("claude-code: Build report", windowTitle), as on macOS and Linux: the title bar, the
+// taskbar and Alt+Tab show one line and cut a long one at its end. The yellow and black mark is under the
+// title bar, outside the content (WinUIPlatform+Mark.swift). A kept window opens again in the keeper at
+// its place and its content's size (KeptWindowKeeper+Windows.swift). Not yet on Windows: notices, which
+// answer that they are not available here.
 
 #if os(Windows)
 import FoundationEssentials
@@ -84,14 +85,16 @@ final class WinUIPlatform: WindowPlatform {
 
     func present(_ content: Content, windowID: String, title: String, subtitle: String, sizing: WindowHost.Sizing,
                  activate: Bool, mark: WindowMark, footer: ShowFooter?) {
-        var options = WinUIApplication.WindowOptions(subtitle: subtitle)
+        // Who asked leads the title ("claude-code: Build report"), as on macOS and Linux; the mark is under
+        // the title bar, outside the content (WinUIPlatform+Mark.swift).
+        var options = WinUIApplication.WindowOptions(mark: WinUIWindowMarks.mark(mark, footer: footer, windowID: windowID))
         switch sizing {
         case .fitting(let resizable):
             options.isResizable = resizable
         case .fixed(let size):
             options.contentSize = (Int(size.width), Int(size.height))
         }
-        application.presentWindow(prepared: content, title: title, options: options)
+        application.presentWindow(prepared: content, title: windowTitle(title, provenance: subtitle), options: options)
         shown[windowID] = (title, subtitle, options.isResizable)
     }
 

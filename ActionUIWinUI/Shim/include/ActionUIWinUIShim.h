@@ -117,6 +117,9 @@ ACTIONUI_WINUI_API bool actionUIWinUIWindowSetContentSize(ActionUIWinUIObject *w
                                                           double height);
 // Whether the user can resize (and maximize) the window; a window is resizable when made.
 ACTIONUI_WINUI_API bool actionUIWinUIWindowSetResizable(ActionUIWinUIObject *window, bool resizable);
+// The least width the user can resize the window's content area to (0: none), at the window's current
+// display scale and frame.
+ACTIONUI_WINUI_API bool actionUIWinUIWindowSetMinimumContentWidth(ActionUIWinUIObject *window, double width);
 // Makes `element` the window's content (NULL removes it). The window keeps its own reference. The
 // content sits on the theme's page background, filling the window's content area.
 ACTIONUI_WINUI_API bool actionUIWinUIWindowSetContent(ActionUIWinUIObject *window, ActionUIWinUIObject *element);
@@ -316,6 +319,28 @@ ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIMenuBarAppendMenu(ActionUIW
 ACTIONUI_WINUI_API bool actionUIWinUIWindowSetMenuBar(ActionUIWinUIObject *window, ActionUIWinUIObject *menuBar);
 // The height `window`'s menu bar takes (effective pixels), 0 with none; -1 on failure.
 ACTIONUI_WINUI_API double actionUIWinUIWindowMenuBarHeight(ActionUIWinUIObject *window);
+// Shows `topBar`, a host's own element, across `window` between its menu bar and its content, replacing
+// the one shown before; NULL removes it. The content keeps the rest of the window. It is outside the
+// content's tree, so nothing the content does reaches it.
+ACTIONUI_WINUI_API bool actionUIWinUIWindowSetTopBar(ActionUIWinUIObject *window, ActionUIWinUIObject *topBar);
+// The height of everything above `window`'s content (its menu bar and its top bar), in effective pixels,
+// 0 with neither; -1 on failure.
+ACTIONUI_WINUI_API double actionUIWinUIWindowHeightAboveContent(ActionUIWinUIObject *window);
+
+// MARK: - The mark a host puts above a window's content
+
+typedef enum ActionUIWinUIMarkKind {
+    // A yellow band with black notches along its top edge (a strip, or a taller bar holding a row).
+    ActionUIWinUIMarkStrip = 0,
+    // A thin yellow line with black stripes across its whole height.
+    ActionUIWinUIMarkLine = 1,
+} ActionUIWinUIMarkKind;
+// A new mark `height` effective pixels tall, as wide as it is given, drawn again for each width: a yellow
+// band, bright at the top and darker at the bottom, with black notches leaning like a backslash (the
+// sizes and colors of actionui-mcp's mark on macOS and Linux). NULL on failure.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIMarkCreate(ActionUIWinUIMarkKind kind, double height);
+// Puts `row` (NULL: none) in the mark's lower part, under its notches, in place of the one there.
+ACTIONUI_WINUI_API bool actionUIWinUIMarkSetRow(ActionUIWinUIObject *mark, ActionUIWinUIObject *row);
 
 // MARK: - HyperlinkButton (a Link)
 
@@ -1814,6 +1839,14 @@ ACTIONUI_WINUI_API bool actionUIWinUIWindowRenderToPNG(ActionUIWinUIObject *wind
 ACTIONUI_WINUI_API bool actionUIWinUIWindowRenderToPNGWithin(ActionUIWinUIObject *window, const char *path,
                                                              uint32_t maxPixels, ActionUIWinUICompletion completion,
                                                              void *context);
+// The window's content alone as a PNG at `path` (no menu bar or top bar, nothing open over it), as
+// actionUIWinUIWindowRenderToPNG renders the window.
+ACTIONUI_WINUI_API bool actionUIWinUIWindowRenderContentToPNG(ActionUIWinUIObject *window, const char *path,
+                                                              ActionUIWinUICompletion completion, void *context);
+// Puts `text` (UTF-8) on the clipboard as plain text.
+ACTIONUI_WINUI_API bool actionUIWinUIClipboardSetText(const char *text);
+// Opens File Explorer at the folder holding `path` with `path` selected; the file is not opened.
+ACTIONUI_WINUI_API bool actionUIWinUIRevealInFileExplorer(const char *path);
 
 #ifdef __cplusplus
 }

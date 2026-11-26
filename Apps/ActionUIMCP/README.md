@@ -100,8 +100,7 @@ The client setup below is the same on Linux with that path.
 
 The same server runs on Windows 11 with ActionUI's WinUI 3 renderer (`ActionUIWinUI`). What differs from macOS:
 
-- The "Requested by" line comes first in the title bar, before the window's title: `Requested by <client> - <title>`. The title bar has one line and cuts a long one at its end, so the agent's title can neither push the line out of view nor come first.
-- There is no yellow and black mark under the title bar yet, and `show` windows have no bottom bar.
+- The title and the mark are those of macOS: "<client>: <title>" in the title bar, and under it the yellow bar on `show` windows (its Save uses the Windows save dialog, and its Show in Folder button selects the file in File Explorer) or the striped line on the others. The window cannot be made narrower than the bar's row. Nothing in ActionUI JSON takes the title bar's place on Windows: a NavigationStack's header is inside the window's content and a sheet opens within the window, under the title bar, so no "Requested by" line is needed elsewhere.
 - Every new window takes the keyboard focus. `show` says so in its description.
 - `show` has no `pdf` kind, and kind `file` shows what ActionUI's own views can, as on Linux. Of the add-ons, RichText, CachedImage and Diff are there.
 - `notify` is not available yet: the call answers with an error.

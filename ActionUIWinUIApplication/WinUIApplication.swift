@@ -120,14 +120,17 @@ public final class WinUIApplication {
         /// Where the window's frame opens: its top-left corner in screen pixels, as position(windowUUID:)
         /// gives it. nil, or a place that would leave the title bar on no monitor: where Windows puts it.
         public var position: (x: Int32, y: Int32)?
+        /// The yellow and black mark above the window's content (WinUIApplication+Mark.swift); nil: none.
+        public var mark: WindowMark?
 
         public init(subtitle: String? = nil, contentSize: (width: Int, height: Int)? = nil, isResizable: Bool = true,
-                    activates: Bool = true, position: (x: Int32, y: Int32)? = nil) {
+                    activates: Bool = true, position: (x: Int32, y: Int32)? = nil, mark: WindowMark? = nil) {
             self.subtitle = subtitle
             self.contentSize = contentSize
             self.isResizable = isResizable
             self.activates = activates
             self.position = position
+            self.mark = mark
         }
     }
 
@@ -164,6 +167,8 @@ public final class WinUIApplication {
         /// The WindowGroup whose commands this window brought to the menu bar, if any: they go when the
         /// group's last window does.
         var commandsKey: String?
+        /// The mark above its content, kept with the window (its row's layout refers to it).
+        var mark: MarkView?
 
         init(window: WinUIObject, tree: WinUIWindow, showsContent: Bool, order: Int) {
             self.window = window
@@ -490,15 +495,17 @@ public final class WinUIApplication {
                 logger.log("WinUIApplication: \(WinUIError.last("placing the window for \(windowUUID)"))", .warning)
             }
         }
-        // The options' content size, side by side, else the content's own: a first size here, and the
-        // content's own once it has loaded in the window (WinUIWindow.fit), where WinUI's controls have
-        // their styles.
+        // The mark above the content, outside its tree (the window's own top bar). The window's first size:
+        // the options' content size, side by side, else the content's own; then the content's own once it
+        // has loaded in the window (WinUIWindow.fit), where WinUI's controls have their styles.
+        let markView = options?.mark.flatMap { MarkView($0) }
         guard actionUIWinUIWindowSetTitle(window.pointer, fullTitle),
               actionUIWinUIWindowSetContent(window.pointer, content.pointer),
               actionUIWinUIWindowSetMenuBar(window.pointer, bar?.pointer),
+              actionUIWinUIWindowSetTopBar(window.pointer, markView?.band.pointer),
               case let size = tree.openingSize(wanted: options?.contentSize),
-              case let barHeight = actionUIWinUIWindowMenuBarHeight(window.pointer), barHeight >= 0,
-              actionUIWinUIWindowSetContentSize(window.pointer, size.width, size.height + barHeight) else {
+              case let barHeight = actionUIWinUIWindowHeightAboveContent(window.pointer), barHeight >= 0,
+              actionUIWinUIWindowSetContentSize(window.pointer, max(size.width, markView?.minimumWidth ?? 0), size.height + barHeight) else {
             logger.log("WinUIApplication: \(WinUIError.last("setting up the window for \(windowUUID)"))", .error)
             tree.detach()
             ActionUIModel.shared.removeWindow(windowUUID)
@@ -512,6 +519,7 @@ public final class WinUIApplication {
         presentCount += 1
         let shown = Shown(window: window, tree: tree, showsContent: loaded, order: presentCount)
         shown.commandsKey = commandsKey
+        shown.mark = markView
         windows[windowUUID] = shown
         WinUIEvents.connect(window, actionUIWinUIWindowOnClosed, "a window's closing") { [weak self, weak shown] in
             guard let self, let shown else { return }
@@ -526,7 +534,8 @@ public final class WinUIApplication {
         }
         // Shown cloaked until sized to its loaded content: the user sees it at its size only.
         tree.fit(window, wanted: options?.contentSize, cloaks: true,
-                 extraHeight: { actionUIWinUIWindowMenuBarHeight($0.pointer) })
+                 extraHeight: { actionUIWinUIWindowHeightAboveContent($0.pointer) },
+                 minimumWidth: { [weak markView] _ in markView?.minimumWidth ?? 0 })
         let shows = options?.activates == false ? actionUIWinUIWindowShowInactive(window.pointer)
                                                 : actionUIWinUIWindowActivate(window.pointer)
         if !shows {
@@ -591,6 +600,21 @@ public final class WinUIApplication {
         let box = Unmanaged.passRetained(PNGCompletion(completion)).toOpaque()
         if !actionUIWinUIWindowRenderToPNGWithin(shown.window.pointer, path, UInt32(clamping: max(0, maxPixels)), pngRendered, box) {
             ActionUIModel.shared.logger.log("WinUIApplication: \(WinUIError.last("capturing \(path)"))", .error)
+            Unmanaged<PNGCompletion>.fromOpaque(box).release()
+            completion(false)
+        }
+    }
+
+    /// Saves the content of the window showing `windowUUID` alone (no menu bar, no mark, nothing open
+    /// over it) as a PNG at `path`. Asynchronous: `completion` says whether the file was written.
+    public func captureContentPNG(windowUUID: String, path: String, completion: @escaping @MainActor (Bool) -> Void) {
+        guard let shown = windows[windowUUID] else {
+            completion(false)
+            return
+        }
+        let box = Unmanaged.passRetained(PNGCompletion(completion)).toOpaque()
+        if !actionUIWinUIWindowRenderContentToPNG(shown.window.pointer, path, pngRendered, box) {
+            ActionUIModel.shared.logger.log("WinUIApplication: \(WinUIError.last("capturing the content to \(path)"))", .error)
             Unmanaged<PNGCompletion>.fromOpaque(box).release()
             completion(false)
         }

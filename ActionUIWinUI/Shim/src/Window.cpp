@@ -14,6 +14,7 @@
 
 #include <microsoft.ui.xaml.window.h>  // IWindowNative: the window's HWND
 #include <shobjidl_core.h>  // IDataTransferManagerInterop: the share sheet of a desktop app's window
+#include <shlobj_core.h>  // SHParseDisplayName, SHOpenFolderAndSelectItems
 #include <dwmapi.h>  // DWMWA_CLOAK
 
 #include <winrt/Microsoft.UI.h>
@@ -586,6 +587,30 @@ bool actionUIWinUIWindowSetResizable(ActionUIWinUIObject *window, bool resizable
     });
 }
 
+bool actionUIWinUIWindowSetMinimumContentWidth(ActionUIWinUIObject *window, double width) {
+    return guarded("window set minimum content width", [&]() {
+        if (!(width >= 0 && width < 1000000.0)) {
+            return fail("window set minimum content width", "the width must be 0 or more, and finite");
+        }
+        mux::Window typed = windowFrom(window);
+        winrt::Microsoft::UI::Windowing::AppWindow appWindow = typed.AppWindow();
+        winrt::Microsoft::UI::Windowing::OverlappedPresenter presenter =
+            appWindow.Presenter().try_as<winrt::Microsoft::UI::Windowing::OverlappedPresenter>();
+        if (presenter == nullptr) {
+            return fail("window set minimum content width", "the window has no overlapped presenter");
+        }
+        if (width == 0) {
+            presenter.PreferredMinimumWidth(nullptr);
+            return true;
+        }
+        // The presenter's minimum is the whole window's, in physical pixels: the content's width at the
+        // window's scale plus its frame.
+        int32_t frame = appWindow.Size().Width - appWindow.ClientSize().Width;
+        presenter.PreferredMinimumWidth(static_cast<int32_t>(width * windowScale(typed) + 0.5) + (frame > 0 ? frame : 0));
+        return true;
+    });
+}
+
 bool actionUIWinUIWindowSetContentSize(ActionUIWinUIObject *window, double width, double height) {
     return guarded("window set content size", [&]() {
         if (!(width > 0 && height > 0)) {
@@ -621,6 +646,52 @@ bool actionUIWinUIWindowSetContent(ActionUIWinUIObject *window, ActionUIWinUIObj
     });
 }
 
+namespace {
+
+// The host's rows, made the first time a bar is set: the menu bar (Auto), the top bar (Auto), the
+// content area (Star). The content area stays the host's first child (windowContentArea); a bar is
+// found by its row.
+void ensureBarRows(muxc::Grid const &host) {
+    if (host.RowDefinitions().Size() != 0) {
+        return;
+    }
+    for (int row = 0; row < 2; ++row) {
+        muxc::RowDefinition barRow;
+        barRow.Height(mux::GridLength{0, mux::GridUnitType::Auto});
+        host.RowDefinitions().Append(barRow);
+    }
+    muxc::RowDefinition contentRow;
+    contentRow.Height(mux::GridLength{1, mux::GridUnitType::Star});
+    host.RowDefinitions().Append(contentRow);
+    muxc::Grid::SetRow(host.Children().GetAt(0).as<mux::FrameworkElement>(), 2);
+}
+
+// Puts `bar` (nullptr: none) in the host's row `row`, in place of the one there.
+void setBar(muxc::Grid const &host, int32_t row, mux::FrameworkElement const &bar) {
+    if (bar == nullptr && host.RowDefinitions().Size() == 0) {
+        return;  // never had a bar: the window's layout stays as it was
+    }
+    ensureBarRows(host);
+    for (uint32_t index = host.Children().Size(); index > 1; --index) {
+        auto child = host.Children().GetAt(index - 1).try_as<mux::FrameworkElement>();
+        if (child != nullptr && muxc::Grid::GetRow(child) == row) {
+            host.Children().RemoveAt(index - 1);
+        }
+    }
+    if (bar != nullptr) {
+        muxc::Grid::SetRow(bar, row);
+        host.Children().Append(bar);
+    }
+}
+
+// The height `element` asks for with unbounded room.
+double desiredHeight(mux::UIElement const &element) {
+    element.Measure(wf::Size{std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity()});
+    return element.DesiredSize().Height;
+}
+
+} // namespace
+
 bool actionUIWinUIWindowSetMenuBar(ActionUIWinUIObject *window, ActionUIWinUIObject *menuBar) {
     return guarded("window set menu bar", [&]() {
         // Checked before anything changes: a refused object leaves the window as it was.
@@ -628,28 +699,18 @@ bool actionUIWinUIWindowSetMenuBar(ActionUIWinUIObject *window, ActionUIWinUIObj
         if (menuBar != nullptr) {
             bar = objectAs<muxc::MenuBar>(menuBar, L"MenuBar");
         }
-        muxc::Grid host = windowHost(windowFrom(window));
-        if (bar == nullptr && host.RowDefinitions().Size() == 0) {
-            return true;  // never had a bar: the window's layout stays as it was
+        setBar(windowHost(windowFrom(window)), 0, bar);
+        return true;
+    });
+}
+
+bool actionUIWinUIWindowSetTopBar(ActionUIWinUIObject *window, ActionUIWinUIObject *topBar) {
+    return guarded("window set top bar", [&]() {
+        mux::FrameworkElement bar{nullptr};
+        if (topBar != nullptr) {
+            bar = objectAs<mux::FrameworkElement>(topBar, L"FrameworkElement");
         }
-        // The content area stays the host's first child (windowContentArea), in the second row; the bar,
-        // when there is one, is the second child, in the first row, which takes only the bar's height.
-        if (host.RowDefinitions().Size() == 0) {
-            muxc::RowDefinition barRow;
-            barRow.Height(mux::GridLength{0, mux::GridUnitType::Auto});
-            muxc::RowDefinition contentRow;
-            contentRow.Height(mux::GridLength{1, mux::GridUnitType::Star});
-            host.RowDefinitions().Append(barRow);
-            host.RowDefinitions().Append(contentRow);
-            muxc::Grid::SetRow(host.Children().GetAt(0).as<mux::FrameworkElement>(), 1);
-        }
-        while (host.Children().Size() > 1) {
-            host.Children().RemoveAt(host.Children().Size() - 1);
-        }
-        if (bar != nullptr) {
-            muxc::Grid::SetRow(bar, 0);
-            host.Children().Append(bar);
-        }
+        setBar(windowHost(windowFrom(window)), 1, bar);
         return true;
     });
 }
@@ -657,14 +718,27 @@ bool actionUIWinUIWindowSetMenuBar(ActionUIWinUIObject *window, ActionUIWinUIObj
 double actionUIWinUIWindowMenuBarHeight(ActionUIWinUIObject *window) {
     double height = -1;
     guarded("window menu bar height", [&]() {
+        height = 0;
         muxc::Grid host = windowHost(windowFrom(window));
-        if (host.Children().Size() < 2) {
-            height = 0;
-            return true;
+        for (uint32_t index = 1; index < host.Children().Size(); ++index) {
+            auto child = host.Children().GetAt(index).as<mux::FrameworkElement>();
+            if (muxc::Grid::GetRow(child) == 0) {
+                height = desiredHeight(child);
+            }
         }
-        mux::UIElement bar = host.Children().GetAt(1);
-        bar.Measure(wf::Size{std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity()});
-        height = bar.DesiredSize().Height;
+        return true;
+    });
+    return height;
+}
+
+double actionUIWinUIWindowHeightAboveContent(ActionUIWinUIObject *window) {
+    double height = -1;
+    guarded("window height above content", [&]() {
+        height = 0;
+        muxc::Grid host = windowHost(windowFrom(window));
+        for (uint32_t index = 1; index < host.Children().Size(); ++index) {
+            height += desiredHeight(host.Children().GetAt(index));
+        }
         return true;
     });
     return height;
@@ -690,6 +764,49 @@ bool actionUIWinUIWindowRenderToPNGWithin(ActionUIWinUIObject *window, const cha
             return fail("window render to PNG within", "the window has no content");
         }
         return startRender("window render to PNG within", windowHost(typed), path, completion, context, true, maxPixels);
+    });
+}
+
+bool actionUIWinUIWindowRenderContentToPNG(ActionUIWinUIObject *window, const char *path, ActionUIWinUICompletion completion,
+                                           void *context) {
+    return guarded("window render content to PNG", [&]() {
+        mux::Window typed = windowFrom(window);
+        if (typed.Content() == nullptr) {
+            return fail("window render content to PNG", "the window has no content");
+        }
+        // The content area alone: no menu bar or top bar, and nothing open over it.
+        return startRender("window render content to PNG", windowContentArea(typed), path, completion, context);
+    });
+}
+
+bool actionUIWinUIClipboardSetText(const char *text) {
+    return guarded("clipboard set text", [&]() {
+        winrt::Windows::ApplicationModel::DataTransfer::DataPackage package;
+        package.SetText(toHString(text));
+        winrt::Windows::ApplicationModel::DataTransfer::Clipboard::SetContent(package);
+        winrt::Windows::ApplicationModel::DataTransfer::Clipboard::Flush();
+        return true;
+    });
+}
+
+bool actionUIWinUIRevealInFileExplorer(const char *path) {
+    return guarded("reveal in File Explorer", [&]() {
+        if (path == nullptr || path[0] == '\0') {
+            return fail("reveal in File Explorer", "the path is empty");
+        }
+        std::wstring wide(toHString(path));
+        // The file selected in its folder's window; the file itself is not opened.
+        PIDLIST_ABSOLUTE item = nullptr;
+        HRESULT parsed = SHParseDisplayName(wide.c_str(), nullptr, &item, 0, nullptr);
+        if (FAILED(parsed) || item == nullptr) {
+            return fail("reveal in File Explorer", "the path names nothing the shell knows");
+        }
+        HRESULT shown = SHOpenFolderAndSelectItems(item, 0, nullptr, 0);
+        CoTaskMemFree(item);
+        if (FAILED(shown)) {
+            return fail("reveal in File Explorer", "File Explorer did not show it");
+        }
+        return true;
     });
 }
 

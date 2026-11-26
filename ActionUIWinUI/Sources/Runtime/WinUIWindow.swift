@@ -333,13 +333,16 @@ package final class WinUIWindow {
     /// little as 1 effective pixel tall instead of 32, and a window sized from that is too small for its
     /// controls. With `cloaks`, the window is kept off the screen (cloaked) until it is sized, so the user
     /// never sees it at its first size; it shows after fittingTimeoutNanoseconds if its content has not
-    /// loaded by then. `extraHeight` is added to the content's height (a menu bar above it); `fitted`
+    /// loaded by then. `extraHeight` is added to the content's height (a menu bar, a host's mark above it);
+    /// the window is at least `minimumWidth` wide (what the mark's row needs), and the user cannot resize
+    /// it narrower; `fitted`
     /// runs once the window is sized. Call it with the content in the window, before the window shows.
     /// A window is never smaller than its content needs (fittingSize), even when `wanted` gives both
     /// sides, as on macOS, where a window is at least its content's minimum size; it keeps growing
     /// when its content comes to need more later.
     package func fit(_ window: WinUIObject, wanted: (width: Int, height: Int)?, cloaks: Bool,
                      extraHeight: @escaping @MainActor (WinUIObject) -> Double = { _ in 0 },
+                     minimumWidth: @escaping @MainActor (WinUIObject) -> Double = { _ in 0 },
                      fitted: @escaping @MainActor () -> Void = {}) {
         guard let view else {
             fitted()
@@ -359,9 +362,15 @@ package final class WinUIWindow {
         let connected = WinUIEvents.connect(view, actionUIWinUIElementOnLoaded, "a window's content loading") { [weak self, weak view] in
             guard let self, let view, !fitting.isSized, let window = fitting.window else { return }
             fitting.isSized = true
-            let size = self.fittingSize(wanted: wanted)
+            var size = self.fittingSize(wanted: wanted)
+            let leastWidth = minimumWidth(window).rounded(.up)
+            size.width = max(size.width, leastWidth)
             if !actionUIWinUIWindowSetContentSize(window.pointer, size.width, size.height + max(extraHeight(window), 0)) {
                 logger.log("WinUIWindow: \(WinUIError.last("sizing a window to its loaded content"))", .warning)
+            }
+            // The user cannot make it narrower either.
+            if leastWidth > 0, !actionUIWinUIWindowSetMinimumContentWidth(window.pointer, leastWidth) {
+                logger.log("WinUIWindow: \(WinUIError.last("setting a window's least width"))", .warning)
             }
             // Laid out at the new size now, and shown on the next turn of the loop: the first frame the
             // user sees has the content at its size, not at the first one.

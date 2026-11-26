@@ -222,7 +222,10 @@ final class KeptWindowKeeper {
         guard record.frame.count == 4, let data = try? Data(contentsOf: file) else { return }
         let prepared = application.prepareWindow(json: data, windowUUID: record.window)
         guard prepared.error == nil else { return }
-        var options = WinUIApplication.WindowOptions(subtitle: record.subtitle + KeptWindowSupport.subtitleSuffix)
+        // The mark and the bar as the server showed them, its buttons working and its time the first
+        // showing's; a manifest that predates the mark gets the line.
+        var options = WinUIApplication.WindowOptions(mark: WinUIWindowMarks.mark(record.mark ?? .line, footer: record.footer,
+                                                                                windowID: record.window))
         // The content's size (WinUIPlatform.keptWindowStates); 0 when it was not known.
         if record.frame[2] > 0, record.frame[3] > 0 {
             options.contentSize = (Int(record.frame[2].rounded()), Int(record.frame[3].rounded()))
@@ -237,7 +240,8 @@ final class KeptWindowKeeper {
         options.activates = false
         // Into the model, which the window's tree is built from when it shows.
         KeptWindowSupport.restore(record)
-        application.presentWindow(prepared: prepared, title: record.title, options: options)
+        application.presentWindow(prepared: prepared, title: windowTitle(record.title, provenance: record.subtitle, sessionEnded: true),
+                                  options: options)
         shown.append(record)
     }
 

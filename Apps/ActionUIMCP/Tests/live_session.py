@@ -747,16 +747,19 @@ if MACOS:
                   and len(name) <= 60 for name in menu), menu)
     s.close()
 
-# Save on a show window (macOS): the test hook saves each window as the Save button does, into a
-# folder, under the offered name: the text, a table as CSV with the rows as they are, a diff as a
+# Save on a show window (macOS and Windows): the test hook saves each window as the Save button does,
+# into a folder, under the offered name: the text, a table as CSV with the rows as they are, a diff as a
 # unified diff, a copy of a file, a chart as PNG. Content from the network has no Save.
-if MACOS:
+if MACOS or WINDOWS:
     import tempfile as _tempfile
     save_dir = _tempfile.mkdtemp(prefix="actionui-mcp-save-")
     # Elsewhere: saving a file onto itself writes nothing.
-    source = os.path.join(_tempfile.mkdtemp(prefix="actionui-mcp-save-source-"), "source.bin")
+    # A file each system shows: macOS shows any file (Quick Look), Windows has no previewer for a binary.
+    source_name = "source.txt" if WINDOWS else "source.bin"
+    source_bytes = b"line one\r\nline two, with \xc3\xa9\r\n" if WINDOWS else bytes(range(256))
+    source = os.path.join(_tempfile.mkdtemp(prefix="actionui-mcp-save-source-"), source_name)
     with open(source, "wb") as handle:
-        handle.write(bytes(range(256)))
+        handle.write(source_bytes)
     s = Session(binary, extra_env={"ACTIONUI_MCP_TEST_SAVE_DIR": save_dir})
     shows = [
         {"title": "Notes", "kind": "markdown", "text": "# Notes\n\nSaved as written."},
@@ -782,11 +785,11 @@ if MACOS:
     check("Save writes markdown text", saved("Notes.md") == "# Notes\n\nSaved as written.", saved("Notes.md"))
     check("Save writes a table as CSV", saved("People.csv") == "Name,Note\r\nAnn,\"a,b\"\r\nBo,plain\r\n", saved("People.csv"))
     check("Save writes a unified diff", saved("Change.diff") == "--- old\n+++ new\n@@ -1,3 +1,3 @@\n a\n-b\n+B\n c\n", saved("Change.diff"))
-    check("Save copies the file", saved("source.bin", "rb") == bytes(range(256)))
+    check("Save copies the file", saved(source_name, "rb") == source_bytes)
     png = saved("Plot.png", "rb") or b""
     check("Save draws a chart as PNG", png[:8] == b"\x89PNG\r\n\x1a\n" and len(png) > 1000, len(png))
     names = sorted(os.listdir(save_dir))
-    check("content from the network has no Save", names == ["Change.diff", "Notes.md", "People.csv", "Plot.png", "source.bin"], names)
+    check("content from the network has no Save", names == sorted(["Change.diff", "Notes.md", "People.csv", "Plot.png", source_name]), names)
     s.close()
 
 # The desktop entry that gives the windows their icon on Linux: written for this binary, hidden from
