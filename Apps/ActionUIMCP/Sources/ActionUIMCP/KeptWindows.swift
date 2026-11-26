@@ -68,7 +68,7 @@ struct KeptWindowManifest: Codable {
 /// report to the server. Each system's KeptWindowKeeper shows the windows.
 @MainActor
 enum KeptWindowSupport {
-    static let subtitleSuffix = " (session ended)"
+    nonisolated static let subtitleSuffix = " (session ended)"
 
     /// The manifest in `spool`, or why it cannot be used.
     static func manifest(in spool: URL) -> Result<KeptWindowManifest, MCPToolError> {

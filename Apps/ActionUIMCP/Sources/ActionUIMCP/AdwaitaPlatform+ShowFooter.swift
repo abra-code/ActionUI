@@ -4,12 +4,13 @@
 // Licensed under the PolyForm Small Business License 1.0.0
 // https://polyformproject.org/licenses/small-business/1.0.0
 
-// AdwaitaPlatform+ShowFooter.swift - the bottom bar of a `show` window on Linux, as on macOS
-// (AppKitPlatform+ShowFooter.swift): where the content came from (a file, with a button that shows
-// it in the file manager, or a web address), when the window was shown, and a Save button (Copy URL
-// for content from the network). It is one of the window's own bars
-// (AdwaitaApplication.WindowOptions.bottomBar), outside the ActionUI JSON, so the agent can neither
-// change it nor press its buttons; it keeps working in a kept window after the session ends.
+// AdwaitaPlatform+ShowFooter.swift - the row in the yellow bar of a `show` window on Linux, under
+// the bar's notches (AdwaitaPlatform+HazardStrip.swift), as on macOS (AppKitPlatform+ShowFooter.swift):
+// where the content came from (a file, with a button that shows it in the file manager, or a web
+// address), when the window was shown, and a Save button (Copy URL for content from the network). It
+// is in one of the window's own bars (AdwaitaApplication.WindowOptions.topBar), outside the ActionUI
+// JSON, so the agent can neither change it nor press its buttons; it keeps working in a kept window
+// after the session ends.
 
 #if os(Linux)
 import FoundationEssentials
@@ -20,20 +21,17 @@ import MCPStdio
 
 @MainActor
 enum LinuxShowFooter {
-    static let height: Int32 = 26
-    /// Dark text on the yellow, light or dark style alike, as macOS draws it.
+    /// Dark text on the yellow bar under it, light or dark style alike, as macOS draws it.
     private static let css = """
         .actionui-mcp-bar {
-          min-height: \(height)px;
           padding: 0 10px;
-          background-image: linear-gradient(to bottom, rgb(252, 240, 97), rgb(216, 185, 74));
           color: #262626;
         }
         .actionui-mcp-bar label { color: #262626; font-size: smaller; }
         .actionui-mcp-bar label selection { background-color: rgba(0, 0, 0, 0.2); color: #262626; }
         .actionui-mcp-bar button {
-          min-height: 18px;
-          margin: 3px 0;
+          min-height: 16px;
+          margin: 2px 0;
           padding: 0 8px;
           color: #262626;
           background: rgba(255, 255, 255, 0.6);
@@ -47,7 +45,7 @@ enum LinuxShowFooter {
         """
     private static var styled = false
 
-    /// A new bar for `footer` in the window `windowID`.
+    /// A new row for `footer` in the window `windowID`, transparent: the bar draws the yellow.
     static func widget(_ footer: ShowFooter, windowID: String) -> UnsafeMutableRawPointer {
         installStyle()
         let bar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6)!

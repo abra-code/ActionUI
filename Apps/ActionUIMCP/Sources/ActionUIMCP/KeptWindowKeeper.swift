@@ -68,7 +68,7 @@ final class KeptWindowKeeper: NSObject, NSWindowDelegate {
         // After the content view, which resets both (see WindowHost.openWindow). Who asked leads the
         // title, now with " (session ended)" (windowTitle); no subtitle, as on the server.
         let provenance = record.subtitle + KeptWindowSupport.subtitleSuffix
-        window.title = windowTitle(record.title, provenance: provenance)
+        window.title = windowTitle(record.title, provenance: record.subtitle, sessionEnded: true)
         window.subtitle = ""
         titleGuards[record.window] = WindowTitleGuard(window: window, title: window.title, subtitle: "",
                                                       agentTitle: record.title, provenance: provenance)

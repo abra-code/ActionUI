@@ -5,10 +5,11 @@
 // https://polyformproject.org/licenses/small-business/1.0.0
 
 // AdwaitaPlatform+HazardStrip.swift - the yellow and black mark under the header bar of every
-// actionui-mcp window on Linux, as on macOS (AppKitPlatform+HazardStrip.swift): a strip on `show`
-// windows, a thin striped line on the others. It is one of the window's own bars
+// actionui-mcp window on Linux, as on macOS (AppKitPlatform+HazardStrip.swift): on `show` windows a
+// bar holding where the content came from, when it was shown and Save (LinuxShowFooter), on the
+// others a thin striped line. It is one of the window's own bars
 // (AdwaitaApplication.WindowOptions.topBar), outside the widgets that show the ActionUI JSON, so
-// nothing the agent writes can remove or restyle it.
+// nothing the agent writes can remove or restyle it. Who asked leads the window's title (windowTitle).
 
 #if os(Linux)
 import FoundationEssentials
@@ -21,23 +22,39 @@ import CAdwaita
 enum LinuxWindowMark {
     static let stripHeight: Int32 = 12
     static let lineHeight: Int32 = 3
+    /// A `show` window's: the notches, then the row of LinuxShowFooter under them.
+    static let barHeight: Int32 = 26
     // The notches in proportion to the strip's height; the line's stripes have the same width and spacing.
     private static let notchDepth = Double(stripHeight) * 0.4
     private static let notchWidth = Double(stripHeight) * 0.8
     private static let notchSpacing = Double(stripHeight) * 2.1
-    // The yellow, shared with the bottom bar of `show` windows (LinuxShowFooter), in sRGB.
+    // The yellow, bright at the top and darker at the bottom, in sRGB.
     static let bright = (red: 252.0 / 255, green: 240.0 / 255, blue: 97.0 / 255)
     static let dark = (red: 216.0 / 255, green: 185.0 / 255, blue: 74.0 / 255)
 
-    /// A new mark widget, drawn for its current width so it follows the window as it resizes.
+    /// A new mark widget, drawn for its current width so it follows the window as it resizes. A
+    /// strip with a `show` window's `footer` is the taller bar, with the footer's row over its
+    /// lower part, under the notches.
     @MainActor
-    static func widget(_ mark: WindowMark) -> UnsafeMutableRawPointer {
+    static func widget(_ mark: WindowMark, footer: ShowFooter?, windowID: String) -> UnsafeMutableRawPointer {
         let area = gtk_drawing_area_new()!
         let drawingArea = UnsafeMutableRawPointer(area).assumingMemoryBound(to: GtkDrawingArea.self)
-        gtk_drawing_area_set_content_height(drawingArea, mark == .strip ? stripHeight : lineHeight)
+        let height = mark == .line ? lineHeight : footer == nil ? stripHeight : barHeight
+        gtk_drawing_area_set_content_height(drawingArea, height)
         gtk_widget_set_hexpand(area, 1)
         gtk_drawing_area_set_draw_func(drawingArea, mark == .strip ? drawStrip : drawLine, nil, nil)
-        return UnsafeMutableRawPointer(area)
+        guard mark == .strip, let footer else { return UnsafeMutableRawPointer(area) }
+        let overlay = gtk_overlay_new()!
+        let overlayView = OpaquePointer(overlay)
+        gtk_overlay_set_child(overlayView, area)
+        let row = LinuxShowFooter.widget(footer, windowID: windowID).assumingMemoryBound(to: GtkWidget.self)
+        gtk_widget_set_valign(row, GTK_ALIGN_END)
+        gtk_widget_set_size_request(row, -1, barHeight - Int32(notchDepth.rounded()))
+        gtk_overlay_add_overlay(overlayView, row)
+        // Measured with the bar, as the bottom bar was: the window cannot get narrower than the
+        // row, which GtkOverlay would otherwise give its minimum width past the window's edge.
+        gtk_overlay_set_measure_overlay(overlayView, row, 1)
+        return UnsafeMutableRawPointer(overlay)
     }
 
     private static let drawStrip: GtkDrawingAreaDrawFunc = { _, cairo, width, height, _ in
