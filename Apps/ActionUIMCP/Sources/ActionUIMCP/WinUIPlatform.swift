@@ -7,7 +7,7 @@
 // WinUIPlatform.swift - the windows on Windows, through ActionUI's WinUI application. A window's subtitle
 // (the provenance line) shows before its title in the title bar, which has one line and cuts a long one at
 // its end: the agent's title can neither push it out of view nor come first. A kept window opens again
-// in the keeper at its content's size, where Windows puts it (KeptWindowKeeper+Windows.swift). Not yet
+// in the keeper at its place and its content's size (KeptWindowKeeper+Windows.swift). Not yet
 // on Windows: notices, which answer that they are not available here.
 
 #if os(Windows)

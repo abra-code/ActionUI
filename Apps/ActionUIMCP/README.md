@@ -1,6 +1,6 @@
 # actionui-mcp
 
-A local MCP (Model Context Protocol) server that lets an AI agent open native windows through ActionUI, on macOS and on Linux (GTK 4 and libadwaita; see Linux for what differs there). The client starts it and talks JSON-RPC over stdin and stdout; windows live as long as the client session, except those opened with `keep: true` (see Kept windows). On macOS it installs from an installer package into `/usr/local/libexec/actionui-mcp/` (see Build), on Linux from a tarball (see Install on Linux); Configure a client shows how to add it to Claude Code, Codex, opencode and others.
+A local MCP (Model Context Protocol) server that lets an AI agent open native windows through ActionUI, on macOS, on Linux (GTK 4 and libadwaita; see Linux for what differs there) and on Windows (WinUI 3; see Windows). The client starts it and talks JSON-RPC over stdin and stdout; windows live as long as the client session, except those opened with `keep: true` (see Kept windows). On macOS it installs from an installer package into `/usr/local/libexec/actionui-mcp/` (see Build), on Linux from a tarball (see Install on Linux), on Windows from a zip (see Install on Windows); Configure a client shows how to add it to Claude Code, Codex, opencode and others.
 
 Tools:
 
@@ -96,6 +96,44 @@ claude mcp add --scope user actionui -- ~/.local/opt/actionui-mcp-<version>-linu
 `--install-desktop-entry` gives the windows the ActionUI icon and the name "ActionUI MCP" in the dock, the window switcher and the overview, and on the desktop notifications. GNOME takes a window's icon and name from the desktop entry named by its application ID (`com.abracode.actionui.mcp`), not from the program or its file name, so without one the windows show a generic icon and the raw ID. An entry written by an older version names the server "ActionUI": run the option again to rename it. The option writes `~/.local/share/applications/com.abracode.actionui.mcp.desktop` (under `$XDG_DATA_HOME` when that is set), hidden from the app list, naming this copy of the server and its icon; run it again after moving the folder, and `--uninstall-desktop-entry` removes it. A window that opens before the entry is written keeps the generic icon.
 
 The client setup below is the same on Linux with that path.
+
+## Windows
+
+The same server runs on Windows 11 with ActionUI's WinUI 3 renderer (`ActionUIWinUI`). What differs from macOS:
+
+- The "Requested by" line comes first in the title bar, before the window's title: `Requested by <client> - <title>`. The title bar has one line and cuts a long one at its end, so the agent's title can neither push the line out of view nor come first.
+- There is no yellow and black mark under the title bar yet, and `show` windows have no bottom bar.
+- Every new window takes the keyboard focus. `show` says so in its description.
+- `show` has no `pdf` kind, and kind `file` shows what ActionUI's own views can, as on Linux. Of the add-ons, RichText, CachedImage and Diff are there.
+- `notify` is not available yet: the call answers with an error.
+- `pick_path` uses the Windows file dialogs.
+- `screenshot` of ActionUI JSON draws it in a window placed past the edge of every monitor and left out of the taskbar and Alt+Tab, so nothing shows and the focus stays where it is. A WebView's page is drawn from WebView2's own capture, in both kinds of screenshot.
+- Windows has no SIGTERM, SIGHUP or SIGINT for a program a client starts with pipes: the session ends when the client closes the server's input. A client that ends the process without closing the input first leaves no kept windows.
+- Kept windows come back at their places and sizes when the place is still on a monitor, else where Windows puts them. A window that was minimized comes back where Windows puts it, and one that was maximized comes back as a normal window that covers the screen. The kept windows' process is a second `actionui-mcp.exe`, with no console and in a process group of its own; while it runs, its folder's files are in use and cannot be replaced (see Install on Windows).
+- Without a desktop session (over SSH), the server still starts and answers: `validate_ui` and the resources work, and the tools that show a window, and `screenshot`, say there is no graphical session.
+
+### Install on Windows
+
+The Windows package is a folder and a zip: `bin\actionui-mcp.exe` with its manifest and the DLLs it needs (the WinUI shim, the Windows App SDK bootstrapper, the Swift runtime and WebView2's component), the element schemas in `share\actionui\schemas\` and the element reference in `share\actionui\docs\`, which the server finds from its own place, and the licenses. Build it on Windows from the repository root, with the tools that `ActionUIWinUI/README.md` lists (Requirements):
+
+```bat
+python Scripts\ci-windows.py winui --install-runtime --quick --mcp-package --results ci-results
+```
+
+It builds and tests the renderer and the server, builds the server for release, checks the package by starting its server from an empty folder, and writes `.build\ci-windows-package\actionui-mcp-<version>-windows-<arch>.zip` with its `.zip.sha256`. `--install-runtime` is needed once per user.
+
+The machine needs Windows 11 (x64 or Arm64) and the Windows App SDK runtime 2.7 (Microsoft's Windows App SDK runtime installer, or `--install-runtime` above); web pages need the WebView2 runtime, which Windows 11 has. Install per user, with no administrator rights: unpack the zip into `%LOCALAPPDATA%\Programs\ActionUI MCP` and register the server with its full path. In PowerShell:
+
+```powershell
+$zip = ".build\ci-windows-package\actionui-mcp-<version>-windows-<arch>.zip"
+(Get-FileHash -Algorithm SHA256 $zip).Hash.ToLower()    # compare with the .zip.sha256 file
+Expand-Archive $zip -DestinationPath "$env:LOCALAPPDATA\Programs\ActionUI MCP"
+claude mcp add --scope user actionui -- "$env:LOCALAPPDATA\Programs\ActionUI MCP\actionui-mcp-<version>-windows-<arch>\bin\actionui-mcp.exe"
+```
+
+Each version unpacks into a folder of its own. To update, unpack the new version beside the old one, register the new path (`claude mcp remove --scope user actionui`, then the add command above), and remove the old folder once no kept window of the old version is open: Windows does not let a program's files be deleted while it runs.
+
+The client setup below is the same on Windows with that path.
 
 ## Build
 
@@ -211,7 +249,7 @@ Most clients take a JSON entry of this shape, in a file of their own:
 
 - `Info.plist` - linked into the macOS executable as its `__TEXT,__info_plist` section, so the menu bar names the server "ActionUI MCP" instead of its file name (the Dock still shows the file name).
 - `Sources/MCPStdio/MCPStdio.swift` - the protocol layer in one file: newline-delimited JSON-RPC in both protocol eras (the stateless 2026-07-28 revision with `server/discover` and per-request `_meta`, and the `initialize` handshake of 2025-11-25, 2025-06-18 and 2024-11-05), tools, concurrent calls, cancellation, progress heartbeats, and a stdout guard that points descriptor 1 at stderr so stray prints cannot corrupt the protocol. Foundation only, no ActionUI code.
-- `Sources/ActionUIMCP/` - the executable: `main.swift` (setup), `HostLogger.swift` (stderr log with load capture), `DocsResources.swift` (element reference as MCP resources), `WindowHost.swift` (open windows, action routing, event queue, values), `WindowHost+Dialogs.swift` (dialog sessions), `WindowHost+Panels.swift` (`pick_path`), `WindowHost+Capture.swift` (saved screenshots), `WindowPlatform.swift` (what the host needs from the windowing system), `AppKitPlatform.swift` and its extensions (that layer on macOS: windows, the mark under their title bar and the bottom bar of `show` windows with its buttons, capture, the panels, and `notify`), `AdwaitaPlatform.swift` (that layer on Linux), `KeptWindows.swift` (the hand-off of kept windows), `KeeperLauncher.swift`, `KeptWindowKeeper.swift` and `KeptWindowKeeperLinux.swift` (the `--rehost` process), `CannedUI.swift` (the ActionUI JSON the canned tools generate), `ShowSaving.swift` (what a `show` window's Save writes), `AgentUI.swift` (checks and dialog chrome for agent-written ActionUI JSON), `Verifier.swift` (the ActionUIVerifier setup), `Tools.swift` and `ToolsUI.swift` (tool definitions and handlers).
+- `Sources/ActionUIMCP/` - the executable: `main.swift` (setup), `HostLogger.swift` (stderr log with load capture), `DocsResources.swift` (element reference as MCP resources), `WindowHost.swift` (open windows, action routing, event queue, values), `WindowHost+Dialogs.swift` (dialog sessions), `WindowHost+Panels.swift` (`pick_path`), `WindowHost+Capture.swift` (saved screenshots), `WindowPlatform.swift` (what the host needs from the windowing system), `AppKitPlatform.swift` and its extensions (that layer on macOS: windows, the mark under their title bar and the bottom bar of `show` windows with its buttons, capture, the panels, and `notify`), `AdwaitaPlatform.swift` (that layer on Linux), `WinUIPlatform.swift` (that layer on Windows), `KeptWindows.swift` (the hand-off of kept windows), `KeeperLauncher.swift`, `KeptWindowKeeper.swift`, `KeptWindowKeeperLinux.swift` and `KeptWindowKeeper+Windows.swift` (the `--rehost` process; on Windows its launcher too), `CannedUI.swift` (the ActionUI JSON the canned tools generate), `ShowSaving.swift` (what a `show` window's Save writes), `AgentUI.swift` (checks and dialog chrome for agent-written ActionUI JSON), `Verifier.swift` (the ActionUIVerifier setup), `Tools.swift` and `ToolsUI.swift` (tool definitions and handlers).
 
 ## Tests
 
