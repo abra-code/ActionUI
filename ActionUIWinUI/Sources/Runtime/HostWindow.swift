@@ -4,7 +4,8 @@
  actionUILoadIntoHostWindowFromURL and FromJSON), as Linux's HostWindow fills a host's GTK window and
  Apple's hosting controller goes into a host's AppKit window: its root element becomes the window's content
  and the window's size is set from it (WinUIWindow.openingSize), again once the content has loaded,
- grown to what the content needs (WinUIWindow.fit and fittingSize; the window is cloaked until then). The host shows the window and owns its title,
+ grown to what the content needs (WinUIWindow.fit and fittingSize; the window is cloaked until then),
+ and again when the content comes to need more. The host shows the window and owns its title,
  closing and focus. When the window closes, the UI's nodes leave the tree; its model
  stays until the host removes it (actionUIRemoveWindow), as on Linux. ActionUI JSON that cannot be loaded
  is logged and shown as its error text in the window.

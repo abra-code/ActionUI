@@ -16,6 +16,7 @@
 */
 
 import CWinUI
+import Dispatch
 
 #if canImport(FoundationEssentials)
 import FoundationEssentials
@@ -335,7 +336,8 @@ package final class WinUIWindow {
     /// loaded by then. `extraHeight` is added to the content's height (a menu bar above it); `fitted`
     /// runs once the window is sized. Call it with the content in the window, before the window shows.
     /// A window is never smaller than its content needs (fittingSize), even when `wanted` gives both
-    /// sides, as on macOS, where a window is at least its content's minimum size.
+    /// sides, as on macOS, where a window is at least its content's minimum size; it keeps growing
+    /// when its content comes to need more later.
     package func fit(_ window: WinUIObject, wanted: (width: Int, height: Int)?, cloaks: Bool,
                      extraHeight: @escaping @MainActor (WinUIObject) -> Double = { _ in 0 },
                      fitted: @escaping @MainActor () -> Void = {}) {
@@ -370,6 +372,30 @@ package final class WinUIWindow {
             Task { @MainActor in
                 fitting.reveal()
             }
+            // From now on the window grows when its content comes to need more than the window gives it
+            // (a LoadableView's ActionUI JSON arriving, rows added), as a macOS window grows to its
+            // content's minimum. Only a side whose answer grew for the same size counts: a window the
+            // user made smaller neither grows back as they resize it nor at a later change that does
+            // not need more on that side (a label's text changing).
+            view.layoutPanel?.requestedChangedAtRoot = { [weak self] offered, before, requested in
+                // Only from a window's size: not from an unbounded offer (openingSize measures one, and
+                // Int() of infinity in grow traps) or an empty one (nothing to grow from).
+                guard offered.width.isFinite, offered.height.isFinite, offered.width >= 1, offered.height >= 1 else { return }
+                let wider = requested.width - before.width >= 1 && requested.width - offered.width >= 1
+                let taller = requested.height - before.height >= 1 && requested.height - offered.height >= 1
+                guard wider || taller else { return }
+                fitting.growsWidth = fitting.growsWidth || wider
+                fitting.growsHeight = fitting.growsHeight || taller
+                guard !fitting.isGrowing else { return }
+                fitting.isGrowing = true
+                // After the layout pass: measuring and resizing inside it would change what WinUI walks.
+                DispatchQueue.main.async {
+                    MainActor.assumeIsolated {
+                        fitting.isGrowing = false
+                        self?.grow(fitting, from: offered, extraHeight: extraHeight)
+                    }
+                }
+            }
         }
         // Refused, the handler (and with it the fitting the timeout holds weakly) is gone: the window keeps
         // its first size and shows now, rather than staying cloaked.
@@ -383,6 +409,28 @@ package final class WinUIWindow {
                 try? await Task.sleep(nanoseconds: Self.fittingTimeoutNanoseconds)
                 fitting?.reveal()
             }
+        }
+    }
+
+    /// Grows the window of `fitting` from content size `offered` to what its content asks for now
+    /// (fittingSize, `offered` kept as the least), on the sides whose answer grew (growsWidth,
+    /// growsHeight), when that is larger. Nothing when the window's size changed since `offered` (the
+    /// user resized it meanwhile).
+    private func grow(_ fitting: WindowFitting, from offered: ActionUIWinUISize,
+                      extraHeight: @MainActor (WinUIObject) -> Double) {
+        let growsWidth = fitting.growsWidth, growsHeight = fitting.growsHeight
+        fitting.growsWidth = false
+        fitting.growsHeight = false
+        guard let window = fitting.window else { return }
+        var now = (width: 0.0, height: 0.0)
+        guard actionUIWinUIWindowContentSize(window.pointer, &now.width, &now.height),
+              abs(now.width - offered.width) < 1, abs(now.height - offered.height) < 1 else { return }
+        var size = fittingSize(wanted: (Int(offered.width.rounded(.up)), Int(offered.height.rounded(.up))))
+        if !growsWidth { size.width = offered.width }
+        if !growsHeight { size.height = offered.height }
+        guard size.width - offered.width >= 1 || size.height - offered.height >= 1 else { return }
+        if !actionUIWinUIWindowSetContentSize(window.pointer, size.width, size.height + max(extraHeight(window), 0)) {
+            ActionUIModel.shared.logger.log("WinUIWindow: \(WinUIError.last("growing a window to its content"))", .warning)
         }
     }
 
@@ -406,6 +454,11 @@ package final class WinUIWindow {
 private final class WindowFitting {
     weak var window: WinUIObject?
     var isSized = false
+    /// Whether a growth to the content is asked for, after the current layout pass, and on which
+    /// sides (those whose answer grew).
+    var isGrowing = false
+    var growsWidth = false
+    var growsHeight = false
     private var isCloaked: Bool
 
     init(window: WinUIObject, isCloaked: Bool) {

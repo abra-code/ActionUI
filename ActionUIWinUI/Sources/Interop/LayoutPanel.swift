@@ -14,7 +14,8 @@
  while running (a bound minWidth or padding, a nested stack gaining a child) keeps the same
  desired size, and its parent would keep the old floor. So a panel measured again for the size
  it was last offered whose answer (requested) changed asks its ActionUI parent for a new layout,
- after the current one.
+ after the current one. A panel with no ActionUI parent (a window's root) tells
+ requestedChangedAtRoot instead, so the window can grow to content that needs more than it had.
 */
 
 import CWinUI
@@ -38,7 +39,11 @@ private let measurePanel: ActionUIWinUIMeasureCallback = { context, _, available
         let size = panel.measure(available)
         let sameOffer = available.width == panel.lastOffer.width && available.height == panel.lastOffer.height
         if sameOffer && (size.width != panel.requested.width || size.height != panel.requested.height) {
-            panel.parentPanel?.invalidateLayoutLater()
+            if let parent = panel.parentPanel {
+                parent.invalidateLayoutLater()
+            } else {
+                panel.requestedChangedAtRoot?(available, panel.requested, size)
+            }
         }
         panel.lastOffer = available
         panel.requested = size
@@ -85,6 +90,11 @@ private let releaseBox: ActionUIWinUICallback = { context in
     fileprivate weak var parentPanel: LayoutPanel?
     /// Whether a new layout is already asked for after the current one (invalidateLayoutLater).
     private var layoutPending = false
+    /// Called, inside the measure pass, when this panel has no ActionUI parent and its answer
+    /// (requested) changed for the size it was offered before: the size offered, the answer before
+    /// and the new answer. Its window's content (WinUIWindow.fit) grows the window from it, after
+    /// the pass.
+    package var requestedChangedAtRoot: ((ActionUIWinUISize, ActionUIWinUISize, ActionUIWinUISize) -> Void)?
     /// Places every child inside the final size.
     package var arrange: (ActionUIWinUISize) -> Void = { _ in }
 
