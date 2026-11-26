@@ -8,8 +8,8 @@
 // window's title ("claude-code: Build report", windowTitle), as on macOS and Linux: the title bar, the
 // taskbar and Alt+Tab show one line and cut a long one at its end. The yellow and black mark is under the
 // title bar, outside the content (WinUIPlatform+Mark.swift). A kept window opens again in the keeper at
-// its place and its content's size (KeptWindowKeeper+Windows.swift). Not yet on Windows: notices, which
-// answer that they are not available here.
+// its place and its content's size (KeptWindowKeeper+Windows.swift). Notices are in
+// WinUIPlatform+Notices.swift.
 
 #if os(Windows)
 import FoundationEssentials
@@ -28,8 +28,10 @@ final class WinUIPlatform: WindowPlatform {
     nonisolated static let systemName = "Windows"
     nonisolated static let shownContent = "report, file, image, video, web page, diff, table, or chart"
     nonisolated static let noticeDescription = """
-        Show a short notice, for example that a long job finished. Not available on Windows yet: the call \
-        answers with an error. Nothing comes back from it.
+        Show a short notice in the bottom right corner of the user's screen, for example that a long \
+        job finished. Returns {shown} at once. The notice does not take focus and disappears after \
+        duration_s or when clicked; nothing comes back from it. Markdown is not formatted on Windows yet: \
+        its marks show as written, so write the message as plain text.
         """
     nonisolated static let verifierPlatform = "windows"
     nonisolated static let keepsWindows = true
@@ -44,6 +46,8 @@ final class WinUIPlatform: WindowPlatform {
     private let application = WinUIApplication.shared
     /// Each open window's title, provenance line and whether it is resizable, for keptWindowStates.
     private var shown: [String: (title: String, subtitle: String, isResizable: Bool)] = [:]
+    /// Notices on screen, oldest first (WinUIPlatform+Notices.swift).
+    var notices: [WinUINotice] = []
 
     init() {
         application.handlers.windowWillClose = { [weak self] windowID in
@@ -174,10 +178,6 @@ final class WinUIPlatform: WindowPlatform {
             try await Task.sleep(nanoseconds: 50_000_000)
         }
         throw MCPToolError("the ActionUI JSON was not drawn in time to be captured")
-    }
-
-    func showNotice(title: String?, message: String, subtitle: String, duration: Double) async throws {
-        throw MCPToolError("notices are not available on Windows yet")
     }
 
     nonisolated static func fileType(named name: String) -> String? {

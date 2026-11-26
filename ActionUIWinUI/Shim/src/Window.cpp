@@ -25,6 +25,7 @@
 #include <winrt/Windows.UI.h>
 #include <winrt/Windows.Graphics.h>
 #include <winrt/Microsoft.UI.Xaml.Controls.Primitives.h>  // Popup
+#include <winrt/Microsoft.UI.Xaml.Input.h>  // Tapped
 #include <winrt/Microsoft.UI.Xaml.Media.h>
 #include <winrt/Windows.Graphics.Imaging.h>
 #include <winrt/Windows.Storage.Streams.h>
@@ -624,8 +625,22 @@ bool actionUIWinUIWindowSetContentSize(ActionUIWinUIObject *window, double width
         if (!(physicalWidth < 2147483647.0 && physicalHeight < 2147483647.0)) {
             return fail("window set content size", "the width or height is too large");
         }
-        typed.AppWindow().ResizeClient(winrt::Windows::Graphics::SizeInt32{static_cast<int32_t>(physicalWidth),
-                                                                           static_cast<int32_t>(physicalHeight)});
+        winrt::Microsoft::UI::Windowing::AppWindow appWindow = typed.AppWindow();
+        winrt::Windows::Graphics::SizeInt32 wanted{static_cast<int32_t>(physicalWidth), static_cast<int32_t>(physicalHeight)};
+        appWindow.ResizeClient(wanted);
+        // ResizeClient counts a title bar a window without one (a notice) does not have: its content area
+        // came out that much taller. Corrected from what the window reports, for a restored window still at
+        // the scale it was sized at: a minimized one reports no content area, and one the resize took to a
+        // monitor of another scale was sized again by Windows for that scale.
+        auto presenter = appWindow.Presenter().try_as<winrt::Microsoft::UI::Windowing::OverlappedPresenter>();
+        bool restored = presenter != nullptr &&
+                        presenter.State() == winrt::Microsoft::UI::Windowing::OverlappedPresenterState::Restored;
+        winrt::Windows::Graphics::SizeInt32 got = appWindow.ClientSize();
+        if (restored && windowScale(typed) == scale && (got.Width != wanted.Width || got.Height != wanted.Height)) {
+            winrt::Windows::Graphics::SizeInt32 outer = appWindow.Size();
+            appWindow.Resize(winrt::Windows::Graphics::SizeInt32{outer.Width + wanted.Width - got.Width,
+                                                                 outer.Height + wanted.Height - got.Height});
+        }
         return true;
     });
 }
@@ -839,6 +854,67 @@ bool actionUIWinUIWindowSetCloaked(ActionUIWinUIObject *window, bool cloaked) {
     });
 }
 
+bool actionUIWinUIWindowMakeNotice(ActionUIWinUIObject *window) {
+    return guarded("window make notice", [&]() {
+        mux::Window typed = windowFrom(window);
+        winrt::Microsoft::UI::Windowing::AppWindow appWindow = typed.AppWindow();
+        auto presenter = appWindow.Presenter().as<winrt::Microsoft::UI::Windowing::OverlappedPresenter>();
+        // The thin border keeps Windows 11's rounded corners and shadow; no title bar, no resizing.
+        presenter.SetBorderAndTitleBar(true, false);
+        presenter.IsResizable(false);
+        presenter.IsMaximizable(false);
+        presenter.IsMinimizable(false);
+        presenter.IsAlwaysOnTop(true);
+        appWindow.IsShownInSwitchers(false);
+        // Acrylic, as Windows' own notifications: the host's page background would hide it.
+        typed.SystemBackdrop(mux::Media::DesktopAcrylicBackdrop());
+        windowHost(typed).Background(mux::Media::SolidColorBrush(winrt::Windows::UI::Color{0, 0, 0, 0}));
+        return true;
+    });
+}
+
+bool actionUIWinUIWindowFrame(ActionUIWinUIObject *window, int32_t *x, int32_t *y, int32_t *width, int32_t *height) {
+    return guarded("window frame", [&]() {
+        if (x == nullptr || y == nullptr || width == nullptr || height == nullptr) {
+            return fail("window frame", "a pointer is NULL");
+        }
+        winrt::Microsoft::UI::Windowing::AppWindow appWindow = windowFrom(window).AppWindow();
+        auto position = appWindow.Position();
+        auto size = appWindow.Size();
+        *x = position.X;
+        *y = position.Y;
+        *width = size.Width;
+        *height = size.Height;
+        return true;
+    });
+}
+
+bool actionUIWinUIWindowWorkArea(ActionUIWinUIObject *window, int32_t *x, int32_t *y, int32_t *width, int32_t *height) {
+    return guarded("window work area", [&]() {
+        if (x == nullptr || y == nullptr || width == nullptr || height == nullptr) {
+            return fail("window work area", "a pointer is NULL");
+        }
+        auto area = winrt::Microsoft::UI::Windowing::DisplayArea::GetFromWindowId(
+            windowFrom(window).AppWindow().Id(), winrt::Microsoft::UI::Windowing::DisplayAreaFallback::Primary);
+        if (area == nullptr) {
+            return fail("window work area", "no display");
+        }
+        auto work = area.WorkArea();
+        *x = work.X;
+        *y = work.Y;
+        *width = work.Width;
+        *height = work.Height;
+        return true;
+    });
+}
+
+bool actionUIWinUIWindowMove(ActionUIWinUIObject *window, int32_t x, int32_t y) {
+    return guarded("window move", [&]() {
+        windowFrom(window).AppWindow().Move(winrt::Windows::Graphics::PointInt32{x, y});
+        return true;
+    });
+}
+
 bool actionUIWinUIWindowShowInactive(ActionUIWinUIObject *window) {
     return guarded("window show inactive", [&]() {
         windowFrom(window).AppWindow().Show(false);
@@ -1033,6 +1109,13 @@ bool actionUIWinUIWindowOnClosed(ActionUIWinUIObject *window, ActionUIWinUICallb
                                  ActionUIWinUICallback destroyContext) {
     return registerHandler("window on closed", handler, context, destroyContext, [&](std::shared_ptr<EventHandler> const &holder) {
         windowFrom(window).Closed([holder](auto &&, auto &&) { holder->fire(); });
+    });
+}
+
+bool actionUIWinUIWindowOnTapped(ActionUIWinUIObject *window, ActionUIWinUICallback handler, void *context,
+                                 ActionUIWinUICallback destroyContext) {
+    return registerHandler("window on tapped", handler, context, destroyContext, [&](std::shared_ptr<EventHandler> const &holder) {
+        windowHost(windowFrom(window)).Tapped([holder](auto &&, auto &&) { holder->fire(); });
     });
 }
 

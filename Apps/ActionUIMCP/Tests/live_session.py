@@ -8,8 +8,8 @@ Run with the sandbox off:
     /usr/bin/python3 Tests/live_session.py "$(swift build --show-bin-path)/actionui-mcp"
 
 On Linux it needs a desktop session, and what the server has no way to do there is reported as skip.
-On Windows it runs in the user's desktop session (not over SSH), with python.exe; what the server does
-not do there yet (notices, kept windows) is reported as skip.
+On Windows it runs in the user's desktop session (not over SSH), with python.exe; what the server has
+no way to do there is reported as skip.
 """
 import json
 import os
@@ -29,8 +29,8 @@ ROOT = "C:\\tmp\\" if WINDOWS else "/tmp/"
 # Checks skipped on Linux: those whose labels start with one of these (none). A kept window's frame
 # is its content's size there, as Wayland does not tell where a window is.
 NOT_ON_LINUX = ()
-# Checks skipped on Windows: the server has no notices there yet.
-NOT_ON_WINDOWS = ("notify", "a notice is not a window")
+# Checks skipped on Windows (none).
+NOT_ON_WINDOWS = ()
 
 
 class Session:

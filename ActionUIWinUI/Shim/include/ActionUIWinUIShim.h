@@ -132,6 +132,19 @@ ACTIONUI_WINUI_API bool actionUIWinUIWindowPlaceOffscreen(ActionUIWinUIObject *w
 // Hides the window from the screen while it stays shown, active and drawn (cloaked by the desktop window
 // manager), or shows it again: a window can lay its content out and take its size before the user sees it.
 ACTIONUI_WINUI_API bool actionUIWinUIWindowSetCloaked(ActionUIWinUIObject *window, bool cloaked);
+// Makes a window not shown yet a notice: a thin border with no title bar (Windows' rounded corners and
+// shadow), not resizable, always on top, out of the taskbar and Alt+Tab, on an acrylic background (the
+// content's own background is left clear). Before its content size is set.
+ACTIONUI_WINUI_API bool actionUIWinUIWindowMakeNotice(ActionUIWinUIObject *window);
+// The window's frame in screen pixels: its top-left corner and its outer size.
+ACTIONUI_WINUI_API bool actionUIWinUIWindowFrame(ActionUIWinUIObject *window, int32_t *x, int32_t *y, int32_t *width,
+                                                 int32_t *height);
+// The work area (the monitor without the taskbar) of the monitor the window is on, else the primary
+// one's, in screen pixels.
+ACTIONUI_WINUI_API bool actionUIWinUIWindowWorkArea(ActionUIWinUIObject *window, int32_t *x, int32_t *y, int32_t *width,
+                                                    int32_t *height);
+// Moves the window's frame so its top-left corner is at x, y (screen pixels), wherever that is.
+ACTIONUI_WINUI_API bool actionUIWinUIWindowMove(ActionUIWinUIObject *window, int32_t x, int32_t y);
 // Shows the window without activating it: the focus stays where it is.
 ACTIONUI_WINUI_API bool actionUIWinUIWindowShowInactive(ActionUIWinUIObject *window);
 // The size of the window's content area (below its menu bar, if any) in effective pixels, as laid out
@@ -149,6 +162,10 @@ ACTIONUI_WINUI_API bool actionUIWinUIWindowMoveOnScreen(ActionUIWinUIObject *win
 // is in front). Sets no error; false on failure.
 ACTIONUI_WINUI_API bool actionUIWinUIWindowIsActive(ActionUIWinUIObject *window);
 ACTIONUI_WINUI_API bool actionUIWinUIWindowClose(ActionUIWinUIObject *window);
+// `handler` runs on the UI thread when the user taps or clicks anywhere in the window's content area where no
+// control takes the input (a notice's whole area: actionUIWinUIWindowMakeNotice).
+ACTIONUI_WINUI_API bool actionUIWinUIWindowOnTapped(ActionUIWinUIObject *window, ActionUIWinUICallback handler, void *context,
+                                                    ActionUIWinUICallback destroyContext);
 // `handler` runs on the UI thread when the window has closed (by the user, or actionUIWinUIWindowClose).
 ACTIONUI_WINUI_API bool actionUIWinUIWindowOnClosed(ActionUIWinUIObject *window, ActionUIWinUICallback handler, void *context,
                                                     ActionUIWinUICallback destroyContext);
