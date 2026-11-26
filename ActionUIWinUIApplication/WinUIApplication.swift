@@ -11,8 +11,10 @@
    willFinishLaunching handler and before didFinishLaunching, as on Linux.
  - A window holds a UI from ActionUI JSON, its root element's box as the window's content. It opens at
    the UI's size (WinUIWindow.openingSize: its measured size, no wider than 900 unless its
-   minimum needs more, at least 418 tall when it grows vertically, 480 x 320 when too small to say).
-   Its title is the one given, else the application's name.
+   minimum needs more, at least 418 tall when it grows vertically, 480 x 320 when too small to say),
+   or the size given, measured again once the content has loaded and grown to what the content needs
+   (WinUIWindow.fit and fittingSize); it is cloaked until then. Its title is the one given, else the
+   application's name.
  - A file's ActionUI JSON is loaded as from that file, so it is the app's own only inside the app's
    resources (JSONContentOrigin); JSON the host passes is the host's own. ActionUI JSON at an http or https
    address loads first (RemoteFetch: the cap on ActionUI JSON, 120 seconds, redirects only to http and

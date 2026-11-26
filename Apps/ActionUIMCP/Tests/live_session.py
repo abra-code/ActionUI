@@ -882,12 +882,16 @@ table = shown.get("Kept table", {})
 live_copy = shown.get("Kept live", {})
 check("keeper marks the session as ended", all(w.get("subtitle", "").startswith("Requested by live-test")
       and w.get("subtitle", "").endswith(" (session ended)") for w in shown.values()), result)
-# A window not laid out yet when the session ends (it closes right after the windows open) is kept at size 0,
-# and the keeper sizes it to fit, at its place: the frame then differs in size only.
-check("keeper keeps the frames", all(w.get("frame") == w.get("manifest_frame")
-                                     or (w.get("manifest_frame", [0] * 4)[2:] == [0, 0]
-                                         and w.get("frame", [])[:2] == w.get("manifest_frame", [])[:2])
-                                     for w in shown.values()), result)
+# The keeper opens each window at its place and at least at its kept size: larger when its content needs more
+# (on Windows, a window kept before it was sized to its loaded content), or sized to fit when it was kept at
+# size 0 (not laid out yet: the session closes right after its windows open).
+def keeps_frame(window):
+    frame, kept = window.get("frame") or [], window.get("manifest_frame") or []
+    return (len(frame) == 4 and len(kept) == 4 and frame[:2] == kept[:2]
+            and frame[2] >= kept[2] and frame[3] >= kept[3])
+
+
+check("keeper keeps the frames", all(keeps_frame(w) for w in shown.values()), result)
 check("keeper restores table rows set after loading", 3 in table.get("row_counts", {}).values(), table)
 check("keeper restores values and rows from update_window", live_copy.get("values", {}).get("1") == "Status: kept"
       and live_copy.get("values", {}).get("2") == "Grace" and live_copy.get("row_counts", {}).get("5") == 2, live_copy)

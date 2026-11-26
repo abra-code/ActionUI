@@ -271,6 +271,32 @@ package final class WinUIWindow {
     /// SwiftUI's WindowGroup gives its content 418 points (macOS 27), as on Linux.
     package static let openingHeight = 418.0
 
+    /// The size a window takes for this content once it has loaded: openingSize, `wanted`'s positive
+    /// sides in its place, grown to what the content asks for at that size when it needs more (its
+    /// padding, its frame's minimum, a stack's children at their smallest: WinUIObject.measureRequested,
+    /// read past WinUI's cap at the size offered). Smaller, the content is cut at both ends, as the root
+    /// is centered in the window.
+    package func fittingSize(wanted: (width: Int, height: Int)?) -> ActionUIWinUISize {
+        var size: ActionUIWinUISize
+        if let wanted, wanted.width > 0, wanted.height > 0 {
+            size = ActionUIWinUISize(width: Double(wanted.width), height: Double(wanted.height))
+        } else {
+            size = openingSize(wanted: wanted)
+        }
+        guard let view else { return size }
+        // Less than a pixel more is rounding (a header's fractional height beside a stack's whole
+        // pixels: NavigationStack, WindowCommandBar), not content: growing for it would make a kept
+        // window a pixel larger each time it reopens.
+        var needed = view.measureRequested(size)
+        if needed.width.isFinite, needed.width - size.width >= 1 {
+            size.width = needed.width.rounded(.up)
+            // Text wraps less at the wider width: what the height needs is measured there.
+            needed = view.measureRequested(size)
+        }
+        if needed.height.isFinite, needed.height - size.height >= 1 { size.height = needed.height.rounded(.up) }
+        return size
+    }
+
     /// openingSize with `wanted`'s positive sides in place of the content's own.
     package func openingSize(wanted: (width: Int, height: Int)?) -> ActionUIWinUISize {
         var size = openingSize()
@@ -301,21 +327,18 @@ package final class WinUIWindow {
     /// has: a window whose content never loads is not left invisible.
     package static let fittingTimeoutNanoseconds: UInt64 = 2_000_000_000
 
-    /// Sizes `window` to this content (openingSize, `wanted`'s positive sides kept) once the content has
+    /// Sizes `window` to this content (fittingSize, `wanted`'s positive sides kept) once the content has
     /// loaded in it. Only then do WinUI's controls have their styles: measured before, a TextField is as
     /// little as 1 effective pixel tall instead of 32, and a window sized from that is too small for its
     /// controls. With `cloaks`, the window is kept off the screen (cloaked) until it is sized, so the user
     /// never sees it at its first size; it shows after fittingTimeoutNanoseconds if its content has not
     /// loaded by then. `extraHeight` is added to the content's height (a menu bar above it); `fitted`
     /// runs once the window is sized. Call it with the content in the window, before the window shows.
-    /// Nothing to do when `wanted` gives both sides.
+    /// A window is never smaller than its content needs (fittingSize), even when `wanted` gives both
+    /// sides, as on macOS, where a window is at least its content's minimum size.
     package func fit(_ window: WinUIObject, wanted: (width: Int, height: Int)?, cloaks: Bool,
                      extraHeight: @escaping @MainActor (WinUIObject) -> Double = { _ in 0 },
                      fitted: @escaping @MainActor () -> Void = {}) {
-        if let wanted, wanted.width > 0, wanted.height > 0 {
-            fitted()
-            return
-        }
         guard let view else {
             fitted()
             return
@@ -334,7 +357,7 @@ package final class WinUIWindow {
         let connected = WinUIEvents.connect(view, actionUIWinUIElementOnLoaded, "a window's content loading") { [weak self, weak view] in
             guard let self, let view, !fitting.isSized, let window = fitting.window else { return }
             fitting.isSized = true
-            let size = self.openingSize(wanted: wanted)
+            let size = self.fittingSize(wanted: wanted)
             if !actionUIWinUIWindowSetContentSize(window.pointer, size.width, size.height + max(extraHeight(window), 0)) {
                 logger.log("WinUIWindow: \(WinUIError.last("sizing a window to its loaded content"))", .warning)
             }

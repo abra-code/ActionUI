@@ -193,9 +193,16 @@ final class Preview {
             self.window = window
             guard actionUIWinUIWindowSetTitle(window.pointer, "ActionUI WinUI preview"),
                   actionUIWinUIWindowSetContentSize(window.pointer, contentSize.width, contentSize.height),
-                  actionUIWinUIWindowSetContent(window.pointer, content.pointer),
-                  actionUIWinUIWindowActivate(window.pointer) else {
+                  actionUIWinUIWindowSetContent(window.pointer, content.pointer) else {
                 say(WinUIError.last("setting up the window").description)
+                finish()
+                return
+            }
+            // At the size asked for, or larger when the content needs more, once it has loaded (as a
+            // window of WinUIApplication): the rendering then shows all of it, at a size that tells.
+            tree.fit(window, wanted: (Int(contentSize.width.rounded()), Int(contentSize.height.rounded())), cloaks: false)
+            guard actionUIWinUIWindowActivate(window.pointer) else {
+                say(WinUIError.last("showing the window").description)
                 finish()
                 return
             }
