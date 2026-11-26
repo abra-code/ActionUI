@@ -10,7 +10,10 @@
    dimmed behind it), as large as its content, with no title or buttons, as a macOS sheet shows its
    view alone. fullScreenCover is a dialog too, as macOS makes it a sheet. WinUI shows one dialog at
    a time in a window: a second one, or one asked for while another is still closing, is not shown
-   (logged). The dialog keeps WinUI's minimum size (320 by 184) and padding (24). Closing it (Escape) sets the state
+   (logged). The dialog keeps WinUI's minimum size (320 by 184) and padding (24). WinUI draws it within its
+   window, where a macOS sheet can reach past the window: a window fit sized (WinUIWindow.fit) smaller
+   than the dialog grows to its size once the sheet's content has loaded, and gets its size back when
+   the sheet goes (unless the user resized it meanwhile). Closing it (Escape) sets the state
    false; any dismissal, by the user or by the host's state, fires sheetOnDismissActionID or
    fullScreenCoverOnDismissActionID.
  - popover: a Flyout on the element's box, in a window of its own that can reach past the window's
@@ -81,6 +84,8 @@ package final class NodePresentations {
     private final class Shown {
         let host: WinUIObject
         let root: RenderNode
+        /// The window's content size before a sheet grew it, and the size it grew to.
+        var grown: (before: ActionUIWinUISize, after: ActionUIWinUISize)?
 
         init(host: WinUIObject, root: RenderNode) {
             self.host = host
@@ -193,10 +198,51 @@ package final class NodePresentations {
                 guard let root else { return }
                 self?.closedByUser(kind, root: root)
             }
-            shown[kind] = Shown(host: dialog, root: root)
+            let presented = Shown(host: dialog, root: root)
+            shown[kind] = presented
             if !actionUIWinUIDialogShow(dialog.pointer, anchor.pointer) {
                 ActionUIModel.shared.logger.log("NodePresentations: \(WinUIError.last("showing a \(kind.subviewKey)")); it is not shown", .warning)
                 takeDown(kind)
+                return
+            }
+            growWindow(for: presented, content: content, windowUUID: node.windowModel.windowUUID)
+        }
+    }
+
+    /// WinUI's dialog around a sheet's content (ContentDialog's template): its padding (24) and its border
+    /// (1) on each side, a separator line (1) below the content, and its least size.
+    static let dialogPadding = 24.0
+    static let dialogBorder = 1.0
+    static let dialogSeparator = 1.0
+    static let dialogMinimum = ActionUIWinUISize(width: 320, height: 184)
+    /// Room left around a dialog that grew its window: a dimmed edge, the dialog's shadow, and high
+    /// contrast's border of 2.
+    static let dialogMargin = 8.0
+
+    /// Grows the window to the dialog's size once the sheet's content has loaded (its controls have their
+    /// styles then): WinUI draws the dialog within its window, so a window smaller than it cut it at both
+    /// ends, where a macOS sheet can reach past its window. After the layout pass, as WinUIWindow grows.
+    private func growWindow(for presented: Shown, content: WinUIObject, windowUUID: String) {
+        var once = false
+        WinUIEvents.connect(content, actionUIWinUIElementOnLoaded, "a sheet's content loading") { [weak presented, weak content] in
+            guard !once else { return }
+            once = true
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    guard let presented, let content, presented.grown == nil else { return }
+                    let around = 2 * (Self.dialogPadding + Self.dialogBorder)
+                    // Within the window's width, or the width a window opens at when that is more, as a window
+                    // measures its own content: unbounded, a long Text would ask for one line and grow the
+                    // window past the screen.
+                    let windowWidth = WinUIWindow.presentedContentSize(windowUUID: windowUUID)?.width ?? 0
+                    let room = max(windowWidth, WinUIWindow.openingWidth) - around - 2 * Self.dialogMargin
+                    let needed = content.measureRequested(ActionUIWinUISize(width: max(room, 0), height: .infinity))
+                    guard needed.width.isFinite, needed.height.isFinite else { return }
+                    let size = ActionUIWinUISize(width: max(needed.width + around, Self.dialogMinimum.width) + 2 * Self.dialogMargin,
+                                                 height: max(needed.height + around + Self.dialogSeparator, Self.dialogMinimum.height)
+                                                     + 2 * Self.dialogMargin)
+                    presented.grown = WinUIWindow.growForPresentation(windowUUID: windowUUID, to: size)
+                }
             }
         }
     }
@@ -252,10 +298,14 @@ package final class NodePresentations {
         }
     }
 
-    /// Forgets the presentation (so its Closed changes nothing) and detaches its tree.
+    /// Forgets the presentation (so its Closed changes nothing) and detaches its tree; a window a sheet
+    /// grew gets its size back.
     private func takeDown(_ kind: Kind) {
         guard let current = shown.removeValue(forKey: kind) else { return }
         current.root.detach()
+        if let grown = current.grown, let node {
+            WinUIWindow.shrinkAfterPresentation(windowUUID: node.windowModel.windowUUID, from: grown)
+        }
     }
 
     private func fireDismiss(_ kind: Kind, _ node: RenderNode) {

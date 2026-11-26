@@ -410,6 +410,53 @@ package final class WinUIWindow {
                 fitting?.reveal()
             }
         }
+        // A presentation shown inside it (a sheet) can grow it too (growForPresentation).
+        Self.growers[windowModel.windowUUID] = WindowGrower(owner: self, window: window, extraHeight: extraHeight)
+    }
+
+    /// The windows fit sized, by window UUID: their window and menu bar height, for growForPresentation.
+    private static var growers: [String: WindowGrower] = [:]
+
+    /// Makes the content of the window showing `windowUUID` at least `size`, for a presentation shown
+    /// inside it that needs that room (a sheet: WinUI's dialog is drawn within its window, where a macOS
+    /// sheet can reach past it). Returns the content size the window had and the size it got, for
+    /// shrinkAfterPresentation; nil when it was large enough, or it is no window fit sized.
+    package static func growForPresentation(windowUUID: String, to size: ActionUIWinUISize)
+        -> (before: ActionUIWinUISize, after: ActionUIWinUISize)? {
+        guard let grower = growers[windowUUID], let window = grower.window else { return nil }
+        var width = 0.0
+        var height = 0.0
+        guard actionUIWinUIWindowContentSize(window.pointer, &width, &height) else { return nil }
+        let before = ActionUIWinUISize(width: width, height: height)
+        let after = ActionUIWinUISize(width: max(width, size.width.rounded(.up)), height: max(height, size.height.rounded(.up)))
+        guard after.width - width >= 1 || after.height - height >= 1 else { return nil }
+        if !actionUIWinUIWindowSetContentSize(window.pointer, after.width, after.height + max(grower.extraHeight(window), 0)) {
+            ActionUIModel.shared.logger.log("WinUIWindow: \(WinUIError.last("growing a window for a sheet"))", .warning)
+            return nil
+        }
+        return (before, after)
+    }
+
+    /// The content size of the window showing `windowUUID` as last laid out, if it is fit sized.
+    package static func presentedContentSize(windowUUID: String) -> ActionUIWinUISize? {
+        guard let grower = growers[windowUUID], let window = grower.window else { return nil }
+        var width = 0.0
+        var height = 0.0
+        guard actionUIWinUIWindowContentSize(window.pointer, &width, &height) else { return nil }
+        return ActionUIWinUISize(width: width, height: height)
+    }
+
+    /// Gives the window showing `windowUUID` back the content size it had before growForPresentation,
+    /// when it still has the size that gave it (the user did not resize it meanwhile).
+    package static func shrinkAfterPresentation(windowUUID: String, from grown: (before: ActionUIWinUISize, after: ActionUIWinUISize)) {
+        guard let grower = growers[windowUUID], let window = grower.window else { return }
+        var width = 0.0
+        var height = 0.0
+        guard actionUIWinUIWindowContentSize(window.pointer, &width, &height),
+              abs(width - grown.after.width) < 1, abs(height - grown.after.height) < 1 else { return }
+        if !actionUIWinUIWindowSetContentSize(window.pointer, grown.before.width, grown.before.height + max(grower.extraHeight(window), 0)) {
+            ActionUIModel.shared.logger.log("WinUIWindow: \(WinUIError.last("giving a window back its size after a sheet"))", .warning)
+        }
     }
 
     /// Grows the window of `fitting` from content size `offered` to what its content asks for now
@@ -436,6 +483,12 @@ package final class WinUIWindow {
 
     /// The window is going away: its nodes leave the tree.
     package func detach() {
+        // Before the nodes leave: a sheet coming down with them does not resize a window that is closing
+        // or taking other content. Only its own: another window may have taken the id since (a
+        // windowWillClose handler presenting the UUID again).
+        if Self.growers[windowModel.windowUUID]?.owner === self {
+            Self.growers[windowModel.windowUUID] = nil
+        }
         root?.detach()
         // Only its own: another window may have taken the id since.
         if let commandBar, WindowCommandBar.of(windowUUID: windowModel.windowUUID) === commandBar {
@@ -474,4 +527,13 @@ private final class WindowFitting {
             ActionUIModel.shared.logger.log("WinUIWindow: \(WinUIError.last("showing a cloaked window"))", .error)
         }
     }
+}
+
+/// A window fit sized, held weakly, and the height above its content (a menu bar); `owner` is the
+/// WinUIWindow that fit it.
+@MainActor
+private struct WindowGrower {
+    weak var owner: WinUIWindow?
+    weak var window: WinUIObject?
+    let extraHeight: @MainActor (WinUIObject) -> Double
 }
