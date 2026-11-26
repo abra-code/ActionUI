@@ -458,7 +458,7 @@ ACTIONUI_WINUI_API bool actionUIWinUIGaugeDrawingSetFraction(ActionUIWinUIObject
 typedef enum ActionUIWinUIDateKind {
     // A field showing the day, which opens a calendar (CalendarDatePicker).
     ActionUIWinUIDateField = 0,
-    // A month's calendar shown inline (CalendarView), one day selectable.
+    // A month's calendar shown inline (CalendarView), one day selectable, at least 296 wide (its day columns).
     ActionUIWinUIDateCalendar = 1,
     // Hour and minute fields (TimePicker).
     ActionUIWinUIDateTime = 2,

@@ -73,6 +73,30 @@ ActionUIWinUIObject *actionUIWinUIDateControlCreate(ActionUIWinUIDateKind kind) 
         case ActionUIWinUIDateCalendar: {
             muxc::CalendarView calendar;
             calendar.SelectionMode(muxc::CalendarViewSelectionMode::Single);
+            // Its seven day columns need 296 (measured on Windows 11 with the Windows App SDK 2.7, at the default
+            // text size; larger text needs more), where its desired width is 188 even with unbounded room:
+            // arranged at that width, its day numbers were cut. Narrower room makes it overflow, as SwiftUI's
+            // graphical picker keeps its size.
+            calendar.MinWidth(296);
+            // It builds its row of weekday names once: laid out again at another size (a window sized to its
+            // content once that has loaded), the row stayed blank. Setting the names' format to another value
+            // and back rebuilds it (the empty default as unset again). Nothing may leave the handler (an
+            // exception in an event handler ends the process).
+            calendar.SizeChanged([](wf::IInspectable const &sender, auto &&) {
+                try {
+                    muxc::CalendarView view = sender.as<muxc::CalendarView>();
+                    winrt::hstring format = view.DayOfWeekFormat();
+                    winrt::hstring other = format == L"{dayofweek.abbreviated(3)}" ? L"{dayofweek.abbreviated(2)}"
+                                                                                  : L"{dayofweek.abbreviated(3)}";
+                    view.DayOfWeekFormat(other);
+                    if (format.empty()) {
+                        view.ClearValue(muxc::CalendarView::DayOfWeekFormatProperty());
+                    } else {
+                        view.DayOfWeekFormat(format);
+                    }
+                } catch (...) {
+                }
+            });
             return toObject(calendar);
         }
         case ActionUIWinUIDateTime: {

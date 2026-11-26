@@ -3,7 +3,8 @@
  DatePicker on WinUI: its title, 8, then Windows' own date and time controls (TitledControlLayout, as a
  Picker), as macOS and Linux put the title before the control:
  - a date (displayedComponents date, the default): a CalendarDatePicker, a field showing the day that
-   opens a calendar; with the graphical style, a CalendarView, the month's calendar inline;
+   opens a calendar; with the graphical style, a CalendarView, the month's calendar inline, at least 296
+   wide (its seven day columns; WinUI's calendar asks for less, and its day numbers were cut);
  - a time (hourAndMinute): a TimePicker, its hour and minute (and AM/PM as the locale has it) fields;
  - both (dateAndTime): the day's control, then the TimePicker, 8 apart.
 
