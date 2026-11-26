@@ -28,6 +28,8 @@ extension WinUIApplication {
         private let window: WinUIObject
         private let tree: WinUIWindow
         private var isClosed = false
+        /// Whether the window has its size: its content's, measured once loaded (WinUIWindow.fit).
+        fileprivate var isFitted = false
 
         fileprivate init(window: WinUIObject, tree: WinUIWindow) {
             self.window = window
@@ -36,9 +38,9 @@ extension WinUIApplication {
 
         /// Saves what the window draws as a PNG file at `path`, scaled down so that neither side is larger
         /// than `maxPixels`. Asynchronous: `completion` says whether the file was written; false when the
-        /// window is closed, or not drawn yet (a window shown a moment ago).
+        /// window is closed, or not drawn yet (a window shown a moment ago, or not sized to its content yet).
         public func capturePNG(path: String, maxPixels: Int, completion: @escaping @MainActor (Bool) -> Void) {
-            guard !isClosed else {
+            guard !isClosed, isFitted else {
                 completion(false)
                 return
             }
@@ -101,19 +103,24 @@ extension WinUIApplication {
         let offscreen = OffscreenWindow(window: window, tree: tree)
         let shownTitle = title ?? tree.groupTitle ?? name ?? "ActionUI"
         let fullTitle = options.subtitle.flatMap { $0.isEmpty ? nil : "\($0) - \(shownTitle)" } ?? shownTitle
-        // The options' content size, side by side, else the content's own, as presentWindow sizes it.
-        var size = tree.openingSize()
-        if let wanted = options.contentSize {
-            if wanted.width > 0 { size.width = Double(wanted.width) }
-            if wanted.height > 0 { size.height = Double(wanted.height) }
-        }
-        // Placed before it is sized: the size is in the pixels of the monitor nearest its place.
+        // Placed before it is sized: the size is in the pixels of the monitor nearest its place. Sized as
+        // presentWindow sizes a window: a first size here, its content's once loaded (no one sees it
+        // meanwhile, so it is not cloaked); captures wait for that.
         guard actionUIWinUIWindowPlaceOffscreen(window.pointer),
               actionUIWinUIWindowSetTitle(window.pointer, fullTitle),
               actionUIWinUIWindowSetContent(window.pointer, content.pointer),
-              actionUIWinUIWindowSetContentSize(window.pointer, size.width, size.height),
-              actionUIWinUIWindowShowInactive(window.pointer) else {
+              case let size = tree.openingSize(wanted: options.contentSize),
+              actionUIWinUIWindowSetContentSize(window.pointer, size.width, size.height) else {
             logger.log("WinUIApplication: \(WinUIError.last("setting up the offscreen window for \(windowUUID)"))", .error)
+            offscreen.close()
+            return nil
+        }
+        let fitted: @MainActor () -> Void = { [weak offscreen] in
+            offscreen?.isFitted = true
+        }
+        tree.fit(window, wanted: options.contentSize, cloaks: false, fitted: fitted)
+        guard actionUIWinUIWindowShowInactive(window.pointer) else {
+            logger.log("WinUIApplication: \(WinUIError.last("showing the offscreen window for \(windowUUID)"))", .error)
             offscreen.close()
             return nil
         }

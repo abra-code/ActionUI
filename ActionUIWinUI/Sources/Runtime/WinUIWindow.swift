@@ -271,6 +271,16 @@ package final class WinUIWindow {
     /// SwiftUI's WindowGroup gives its content 418 points (macOS 27), as on Linux.
     package static let openingHeight = 418.0
 
+    /// openingSize with `wanted`'s positive sides in place of the content's own.
+    package func openingSize(wanted: (width: Int, height: Int)?) -> ActionUIWinUISize {
+        var size = openingSize()
+        if let wanted {
+            if wanted.width > 0 { size.width = Double(wanted.width) }
+            if wanted.height > 0 { size.height = Double(wanted.height) }
+        }
+        return size
+    }
+
     /// The content size the window opens at, as on Linux: the content's size measured in the opening
     /// width (wider only when its minimum needs it), at least openingHeight tall when it grows
     /// vertically; fallbackSize when it measures under 10 by 10.
@@ -287,6 +297,72 @@ package final class WinUIWindow {
         return ActionUIWinUISize(width: max(measured.width.rounded(.up), 1), height: max(height, 1))
     }
 
+    /// How long a cloaked window waits for its content to load before it shows anyway, at the size it
+    /// has: a window whose content never loads is not left invisible.
+    package static let fittingTimeoutNanoseconds: UInt64 = 2_000_000_000
+
+    /// Sizes `window` to this content (openingSize, `wanted`'s positive sides kept) once the content has
+    /// loaded in it. Only then do WinUI's controls have their styles: measured before, a TextField is as
+    /// little as 1 effective pixel tall instead of 32, and a window sized from that is too small for its
+    /// controls. With `cloaks`, the window is kept off the screen (cloaked) until it is sized, so the user
+    /// never sees it at its first size; it shows after fittingTimeoutNanoseconds if its content has not
+    /// loaded by then. `extraHeight` is added to the content's height (a menu bar above it); `fitted`
+    /// runs once the window is sized. Call it with the content in the window, before the window shows.
+    /// Nothing to do when `wanted` gives both sides.
+    package func fit(_ window: WinUIObject, wanted: (width: Int, height: Int)?, cloaks: Bool,
+                     extraHeight: @escaping @MainActor (WinUIObject) -> Double = { _ in 0 },
+                     fitted: @escaping @MainActor () -> Void = {}) {
+        if let wanted, wanted.width > 0, wanted.height > 0 {
+            fitted()
+            return
+        }
+        guard let view else {
+            fitted()
+            return
+        }
+        let logger = ActionUIModel.shared.logger
+        var cloaked = false
+        if cloaks {
+            cloaked = actionUIWinUIWindowSetCloaked(window.pointer, true)
+            if !cloaked {
+                logger.log("WinUIWindow: \(WinUIError.last("cloaking a window until it is sized")); it may show at its first size", .warning)
+            }
+        }
+        let fitting = WindowFitting(window: window, isCloaked: cloaked)
+        // The content's Loaded comes again each time it is taken out and put back: only the first sizes.
+        // The handler keeps the fitting (it holds the window weakly) as long as the content lives.
+        let connected = WinUIEvents.connect(view, actionUIWinUIElementOnLoaded, "a window's content loading") { [weak self, weak view] in
+            guard let self, let view, !fitting.isSized, let window = fitting.window else { return }
+            fitting.isSized = true
+            let size = self.openingSize(wanted: wanted)
+            if !actionUIWinUIWindowSetContentSize(window.pointer, size.width, size.height + max(extraHeight(window), 0)) {
+                logger.log("WinUIWindow: \(WinUIError.last("sizing a window to its loaded content"))", .warning)
+            }
+            // Laid out at the new size now, and shown on the next turn of the loop: the first frame the
+            // user sees has the content at its size, not at the first one.
+            if !actionUIWinUIElementUpdateLayout(view.pointer) {
+                logger.log("WinUIWindow: \(WinUIError.last("laying out a window's content at its size"))", .warning)
+            }
+            fitted()
+            Task { @MainActor in
+                fitting.reveal()
+            }
+        }
+        // Refused, the handler (and with it the fitting the timeout holds weakly) is gone: the window keeps
+        // its first size and shows now, rather than staying cloaked.
+        guard connected else {
+            fitting.reveal()
+            fitted()
+            return
+        }
+        if cloaked {
+            Task { @MainActor [weak fitting] in
+                try? await Task.sleep(nanoseconds: Self.fittingTimeoutNanoseconds)
+                fitting?.reveal()
+            }
+        }
+    }
+
     /// The window is going away: its nodes leave the tree.
     package func detach() {
         root?.detach()
@@ -298,5 +374,28 @@ package final class WinUIWindow {
 
     isolated deinit {
         root?.detach()
+    }
+}
+
+/// A window waiting to be sized to its loaded content (WinUIWindow.fit): whether it is sized, and
+/// whether it is still cloaked.
+@MainActor
+private final class WindowFitting {
+    weak var window: WinUIObject?
+    var isSized = false
+    private var isCloaked: Bool
+
+    init(window: WinUIObject, isCloaked: Bool) {
+        self.window = window
+        self.isCloaked = isCloaked
+    }
+
+    /// Shows the window again, if it is cloaked; once.
+    func reveal() {
+        guard isCloaked, let window else { return }
+        isCloaked = false
+        if !actionUIWinUIWindowSetCloaked(window.pointer, false) {
+            ActionUIModel.shared.logger.log("WinUIWindow: \(WinUIError.last("showing a cloaked window"))", .error)
+        }
     }
 }

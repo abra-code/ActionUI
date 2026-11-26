@@ -570,6 +570,26 @@ check("screenshot renders a WebView's ActionUI JSON and says what it leaves out"
       and (abs(info.get("height", 0) - info.get("width", 0) * 260 / 400) <= 2 if WINDOWS
            else info.get("height", 0) > info.get("width", 0) * 260 / 400)
       and web_warned == LINUX, info)
+# A window opens at its content's size, measured once the content has loaded in the window. Before that,
+# WinUI's controls have no styles, and a TextField (32 effective pixels tall) measured 19 or less, below a
+# Text's height, so windows opened too small for their controls. Windows only: elsewhere the capture holds
+# the title bar.
+if WINDOWS:
+    SIZED_FIELD = {"type": "TextField", "properties": {"text": "2.3.1", "frame": {"width": 300}}}
+    s.call(1480, "screenshot", {"ui": {"type": "Text", "properties": {"text": "Release"}}})
+    text_height = (structured(s.response(1480)) or {}).get("height", 0)
+    s.call(1481, "screenshot", {"ui": SIZED_FIELD})
+    info = structured(s.response(1481)) or {}
+    check("screenshot sizes ActionUI JSON to its controls as styled",
+          text_height > 0 and info.get("height", 0) >= 1.4 * text_height, (text_height, info))
+    s.call(1482, "show_ui", {"title": "Sized", "ui": SIZED_FIELD})
+    sized_window = (structured(s.response(1482)) or {}).get("window", "")
+    s.call(1483, "screenshot", {"window": sized_window})
+    info = structured(s.response(1483)) or {}
+    check("show_ui opens a window at its controls' styled size",
+          text_height > 0 and info.get("height", 0) >= 1.4 * text_height, (text_height, info))
+    s.call(1484, "close_window", {"window": sized_window})
+    s.response(1484)
 
 # pick_path: a bad folder is an error; an unanswered panel times out.
 s.call(42, "pick_path", {"directory": ROOT + "no-such-folder" if WINDOWS else "/no/such/folder"})
@@ -862,7 +882,12 @@ table = shown.get("Kept table", {})
 live_copy = shown.get("Kept live", {})
 check("keeper marks the session as ended", all(w.get("subtitle", "").startswith("Requested by live-test")
       and w.get("subtitle", "").endswith(" (session ended)") for w in shown.values()), result)
-check("keeper keeps the frames", all(w.get("frame") == w.get("manifest_frame") for w in shown.values()), result)
+# A window not laid out yet when the session ends (it closes right after the windows open) is kept at size 0,
+# and the keeper sizes it to fit, at its place: the frame then differs in size only.
+check("keeper keeps the frames", all(w.get("frame") == w.get("manifest_frame")
+                                     or (w.get("manifest_frame", [0] * 4)[2:] == [0, 0]
+                                         and w.get("frame", [])[:2] == w.get("manifest_frame", [])[:2])
+                                     for w in shown.values()), result)
 check("keeper restores table rows set after loading", 3 in table.get("row_counts", {}).values(), table)
 check("keeper restores values and rows from update_window", live_copy.get("values", {}).get("1") == "Status: kept"
       and live_copy.get("values", {}).get("2") == "Grace" and live_copy.get("row_counts", {}).get("5") == 2, live_copy)

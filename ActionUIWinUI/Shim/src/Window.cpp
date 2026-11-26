@@ -2,6 +2,8 @@
 
 #include "ShimInternal.h"
 
+#pragma comment(lib, "dwmapi.lib")
+
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -12,6 +14,7 @@
 
 #include <microsoft.ui.xaml.window.h>  // IWindowNative: the window's HWND
 #include <shobjidl_core.h>  // IDataTransferManagerInterop: the share sheet of a desktop app's window
+#include <dwmapi.h>  // DWMWA_CLOAK
 
 #include <winrt/Microsoft.UI.h>
 #include <winrt/Microsoft.UI.Content.h>
@@ -705,6 +708,16 @@ bool actionUIWinUIWindowPlaceOffscreen(ActionUIWinUIObject *window) {
         int32_t right = GetSystemMetrics(SM_XVIRTUALSCREEN) + GetSystemMetrics(SM_CXVIRTUALSCREEN);
         int32_t bottom = GetSystemMetrics(SM_YVIRTUALSCREEN) + GetSystemMetrics(SM_CYVIRTUALSCREEN);
         appWindow.Move(winrt::Windows::Graphics::PointInt32{right + 100, bottom + 100});
+        return true;
+    });
+}
+
+bool actionUIWinUIWindowSetCloaked(ActionUIWinUIObject *window, bool cloaked) {
+    return guarded("window set cloaked", [&]() {
+        HWND hwnd = nullptr;
+        winrt::check_hresult(windowFrom(window).as<::IWindowNative>()->get_WindowHandle(&hwnd));
+        BOOL value = cloaked ? TRUE : FALSE;
+        winrt::check_hresult(DwmSetWindowAttribute(hwnd, DWMWA_CLOAK, &value, static_cast<DWORD>(sizeof(value))));
         return true;
     });
 }

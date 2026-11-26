@@ -3,8 +3,9 @@
  ActionUI JSON in a window a host made in its own WinUI application (the C adapter's
  actionUILoadIntoHostWindowFromURL and FromJSON), as Linux's HostWindow fills a host's GTK window and
  Apple's hosting controller goes into a host's AppKit window: its root element becomes the window's content
- and the window's size is set from it (WinUIWindow.openingSize). The host shows the window and owns
- its title, closing and focus. When the window closes, the UI's nodes leave the tree; its model
+ and the window's size is set from it (WinUIWindow.openingSize), again once the content has loaded
+ (WinUIWindow.fit; the window is cloaked until then). The host shows the window and owns its title,
+ closing and focus. When the window closes, the UI's nodes leave the tree; its model
  stays until the host removes it (actionUIRemoveWindow), as on Linux. ActionUI JSON that cannot be loaded
  is logged and shown as its error text in the window.
 
@@ -95,6 +96,9 @@ package enum HostWindow {
             tree.detach()
             return false
         }
+        // Cloaked until sized to its content once loaded (WinUIWindow.fit): the size above is measured before
+        // the controls have their styles.
+        tree.fit(window, wanted: nil, cloaks: true)
         let entry = Filled(window: window, tree: tree)
         filled[windowUUID] = entry
         WinUIEvents.connect(window, actionUIWinUIWindowOnClosed, "a host window's closing") { [weak entry] in

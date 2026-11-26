@@ -126,6 +126,9 @@ ACTIONUI_WINUI_API bool actionUIWinUIWindowActivate(ActionUIWinUIObject *window)
 // for a window drawn where the user never sees it. Before its content size is set: that is in the
 // pixels of the monitor nearest the window's place.
 ACTIONUI_WINUI_API bool actionUIWinUIWindowPlaceOffscreen(ActionUIWinUIObject *window);
+// Hides the window from the screen while it stays shown, active and drawn (cloaked by the desktop window
+// manager), or shows it again: a window can lay its content out and take its size before the user sees it.
+ACTIONUI_WINUI_API bool actionUIWinUIWindowSetCloaked(ActionUIWinUIObject *window, bool cloaked);
 // Shows the window without activating it: the focus stays where it is.
 ACTIONUI_WINUI_API bool actionUIWinUIWindowShowInactive(ActionUIWinUIObject *window);
 // The size of the window's content area (below its menu bar, if any) in effective pixels, as laid out

@@ -477,7 +477,6 @@ public final class WinUIApplication {
         // The menu bar, when there are commands, above the content: the window opens that much taller, so
         // the content keeps its size.
         let bar = AppCommands.shared.makeMenuBar(windowUUID: windowUUID)
-        // Measured once the content is in the window, where the controls have their styles.
         // A subtitle (a prepared window's) shows before the title: Windows' title bar has one line and cuts
         // a long one at its end, so a long title cannot push the subtitle out of view or come first.
         let shownTitle = title ?? tree.groupTitle ?? defaultTitle ?? name ?? "ActionUI"
@@ -489,15 +488,13 @@ public final class WinUIApplication {
                 logger.log("WinUIApplication: \(WinUIError.last("placing the window for \(windowUUID)"))", .warning)
             }
         }
-        // The options' content size, side by side, else the content's own.
-        var size = tree.openingSize()
-        if let wanted = options?.contentSize {
-            if wanted.width > 0 { size.width = Double(wanted.width) }
-            if wanted.height > 0 { size.height = Double(wanted.height) }
-        }
+        // The options' content size, side by side, else the content's own: a first size here, and the
+        // content's own once it has loaded in the window (WinUIWindow.fit), where WinUI's controls have
+        // their styles.
         guard actionUIWinUIWindowSetTitle(window.pointer, fullTitle),
               actionUIWinUIWindowSetContent(window.pointer, content.pointer),
               actionUIWinUIWindowSetMenuBar(window.pointer, bar?.pointer),
+              case let size = tree.openingSize(wanted: options?.contentSize),
               case let barHeight = actionUIWinUIWindowMenuBarHeight(window.pointer), barHeight >= 0,
               actionUIWinUIWindowSetContentSize(window.pointer, size.width, size.height + barHeight) else {
             logger.log("WinUIApplication: \(WinUIError.last("setting up the window for \(windowUUID)"))", .error)
@@ -525,6 +522,9 @@ public final class WinUIApplication {
         if !actionUIWinUIWindowOnClosing(window.pointer, decideClose, decider, releaseClose) {
             logger.log("WinUIApplication: \(WinUIError.last("watching the user's closing of \(windowUUID)"))", .error)
         }
+        // Shown cloaked until sized to its loaded content: the user sees it at its size only.
+        tree.fit(window, wanted: options?.contentSize, cloaks: true,
+                 extraHeight: { actionUIWinUIWindowMenuBarHeight($0.pointer) })
         let shows = options?.activates == false ? actionUIWinUIWindowShowInactive(window.pointer)
                                                 : actionUIWinUIWindowActivate(window.pointer)
         if !shows {
