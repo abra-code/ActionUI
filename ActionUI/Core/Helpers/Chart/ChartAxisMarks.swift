@@ -405,7 +405,10 @@ extension ChartDescription {
             let numbers = items.compactMap { JSONNumber.plain($0) }
             return numbers.count == items.count ? .numbers(numbers) : nil
         case .date:
-            let dates = items.compactMap { ($0 as? String).flatMap { DateHelper.parseDate(from: $0) } }
+            // A calendar day's tick is at the start of that day, as in SwiftUI (ChartDescription.axisDate).
+            let dates = items.compactMap { item in
+                (item as? String).flatMap { text in DateHelper.parseDate(from: text).map { ChartDescription.axisDate($0, writtenAs: text) } }
+            }
             return dates.count == items.count ? .dates(dates) : nil
         case .string:
             let strings = items.compactMap { $0 as? String }

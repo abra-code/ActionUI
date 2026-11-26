@@ -174,3 +174,18 @@ import Testing
     #expect(oneLine("a\u{202E}b\u{2066}c", limit: 80) == "a b c", "bidirectional controls become spaces")
     #expect(oneLine("\n \t", limit: 80) == "")
 }
+
+@MainActor @Test func aWindowTitleLeadsWithWhoAsked() {
+    let asked = provenance(clientName: "claude-code", label: nil)
+    #expect(windowTitle("Build report", provenance: asked) == "claude-code: Build report")
+    #expect(windowTitle("", provenance: asked) == "claude-code", "no title: who asked alone")
+    #expect(windowTitle("Report", provenance: provenance(clientName: "claude-code", label: "nightly")) == "claude-code - nightly: Report")
+    #expect(windowTitle("Report", provenance: provenance(clientName: nil, label: nil)) == "an AI agent: Report")
+    #expect(windowTitle("Report", provenance: asked, sessionEnded: true) == "claude-code (session ended): Report")
+    #expect(windowTitle("Report", provenance: "someone") == "someone: Report", "a line without the prefix is kept whole")
+    // A long client name is shortened in the title, its "(session ended)" kept; the line keeps it whole.
+    let long = provenance(clientName: "Visual Studio Code Insiders - Agent Mode", label: nil)
+    #expect(windowTitle("Report", provenance: long) == "Visual Studio Code In...: Report")
+    #expect(windowTitle("Report", provenance: long, sessionEnded: true) == "Visual Studio Code In... (session ended): Report")
+    #expect(long == "Requested by Visual Studio Code Insiders - Agent Mode")
+}

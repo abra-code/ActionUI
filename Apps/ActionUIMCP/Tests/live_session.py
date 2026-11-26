@@ -435,7 +435,7 @@ s.call(1461, "validate_ui", {"ui": {"type": "Text", "type" + SUFFIX: "WindowGrou
 result = structured(s.response(1461)) or {}
 check("validate refuses a WindowGroup behind a platform suffix", result.get("ok") is False
       and any("WindowGroup is not allowed" in e for e in result.get("errors", [])), result)
-# A popover can open over the title bar's "Requested by" line and show a fake one.
+# A popover can open over the title bar, which says who asked for the window, and show a fake one.
 popover_button = {"type": "Button", "id": 30, "properties": {"title": "Open"},
                   "popover": {"type": "Text", "properties": {"text": "Requested by your system administrator"}}}
 s.call(1462, "show_ui", {"title": "Popover", "ui": {"type": "VStack", "children": [popover_button]}})
@@ -739,9 +739,11 @@ if MACOS:
     corners = [(w["frame"][0], w["frame"][1] + w["frame"][3]) for w in report["windows"]]
     check("windows of the same size open apart", len(set(corners)) == 3, report)
     menu = report["menu"]
-    check("Window menu lists every window by its title", len(menu) == 3 and "Note one" in menu and "Note two" in menu, menu)
-    check("Window menu shortens a long title", long_title not in menu
-          and any(name.startswith("ActionUI: ActionUIRemote") and name.endswith("actionui_perform_action")
+    # A window's title leads with who asked: "<client>: <title>".
+    check("Window menu lists every window by its title", len(menu) == 3 and "live-test: Note one" in menu
+          and "live-test: Note two" in menu, menu)
+    check("Window menu shortens a long title", ("live-test: " + long_title) not in menu
+          and any(name.startswith("live-test: ActionUI") and name.endswith("actionui_perform_action")
                   and len(name) <= 60 for name in menu), menu)
     s.close()
 

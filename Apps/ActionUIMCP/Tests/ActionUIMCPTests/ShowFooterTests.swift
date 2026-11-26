@@ -12,7 +12,7 @@ import MCPStdio
 import Testing
 @testable import ActionUIMCP
 
-/// The bottom bar of a `show` window: the file or web address the content came from.
+/// The bar of a `show` window: the file or web address the content came from.
 
 private func footer(_ arguments: [String: JSONValue]) throws -> ShowFooter {
     try ViewerSpec(arguments: arguments.merging(["title": "Shown"]) { given, _ in given }).footer()

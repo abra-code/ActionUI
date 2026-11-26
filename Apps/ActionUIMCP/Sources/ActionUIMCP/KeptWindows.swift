@@ -12,7 +12,7 @@
 // the client sends to the server does not reach it. The keeper shows the same windows at the
 // same places (on Linux at the same size, where the compositor puts them), deletes the spool
 // directory, and quits when its last window closes. Its windows are no longer connected to any
-// agent: actions go nowhere, and the subtitle says so.
+// agent: actions go nowhere, and the title (on Linux the subtitle) says so.
 //
 // SIGKILL sent to the server with no earlier stdin EOF or SIGTERM leaves no chance to hand off.
 // Clients close stdin first (the TypeScript SDK waits 2 s before SIGTERM, 2 s more before
@@ -51,7 +51,7 @@ struct KeptWindowRecord: Codable {
     let properties: [String: [String: String]]?
     /// The window's mark; absent in manifests that predate it (then a line).
     let mark: WindowMark?
-    /// A `show` window's bottom bar, with the time the window was first shown.
+    /// A `show` window's bar, with the time the window was first shown.
     let footer: ShowFooter?
 }
 
@@ -70,7 +70,7 @@ struct KeptWindowManifest: Codable {
 /// report to the server. Each system's KeptWindowKeeper shows the windows.
 @MainActor
 enum KeptWindowSupport {
-    static let subtitleSuffix = " (session ended)"
+    nonisolated static let subtitleSuffix = " (session ended)"
 
     /// The manifest in `spool`, or why it cannot be used.
     static func manifest(in spool: URL) -> Result<KeptWindowManifest, MCPToolError> {

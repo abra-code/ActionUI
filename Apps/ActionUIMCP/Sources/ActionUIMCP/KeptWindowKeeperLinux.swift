@@ -65,9 +65,13 @@ final class KeptWindowKeeper {
             options.contentSize = (Int(record.frame[2]), Int(record.frame[3]))
         }
         options.isResizable = record.styleMask & AdwaitaPlatform.resizableStyle != 0
+        // The mark and the bar as the server showed them, its buttons working and its time the
+        // first showing's; a manifest that predates the mark gets the line.
+        AdwaitaPlatform.addChrome(to: &options, mark: record.mark ?? .line, footer: record.footer, windowID: record.window)
         // Into the model, which the window's widgets are built from when it shows.
         KeptWindowSupport.restore(record)
-        application.presentWindow(prepared: prepared, title: record.title, options: options)
+        application.presentWindow(prepared: prepared, title: windowTitle(record.title, provenance: record.subtitle, sessionEnded: true),
+                                  options: options)
         shown.append(record)
     }
 

@@ -340,7 +340,7 @@ enum ContentKind: String, CaseIterable {
     }
 }
 
-/// What the bottom bar of a `show` window says: when the window was shown, and where its content
+/// What the bar of a `show` window says: when the window was shown, and where its content
 /// came from.
 struct ShowFooter: Codable, Sendable {
     let shownAt: Date
@@ -350,6 +350,20 @@ struct ShowFooter: Codable, Sendable {
     let url: String?
     /// What the Save button writes; nil when there is none (content from the network).
     let save: ShowSave?
+
+    /// The source as the bar shows it. A line break in a file name would make the label taller
+    /// than the bar and draw it over the content, and a direction override (U+202A-202E,
+    /// U+2066-2069) could make "x<RLO>txt.app" read as a text file: these show as "?", as ls
+    /// shows control characters.
+    static func shownSource(_ source: String) -> String {
+        String(String.UnicodeScalarView(source.unicodeScalars.map { scalar in
+            if (0x202A...0x202E).contains(scalar.value) || (0x2066...0x2069).contains(scalar.value) { return "?" }
+            switch scalar.properties.generalCategory {
+            case .control, .lineSeparator, .paragraphSeparator: return "?"
+            default: return scalar
+            }
+        }))
+    }
 }
 
 struct ViewerSpec {
@@ -365,7 +379,7 @@ struct ViewerSpec {
     let warnings: [String]
     /// For `file`: the view the file is shown with, returned with the result.
     let shownAs: FileView?
-    /// Where the content came from, for the bottom bar: a local file, or an http(s) address.
+    /// Where the content came from, for the bar: a local file, or an http(s) address.
     let sourcePath: String?
     let sourceURL: String?
     let save: ShowSave?
@@ -536,7 +550,7 @@ struct ViewerSpec {
         save = ShowSave.forViewer(kind: kind, title: self.title, arguments: arguments, sourcePath: sourcePath)
     }
 
-    /// The bottom bar of a window showing this, opened now.
+    /// The bar of a window showing this, opened now.
     func footer() -> ShowFooter {
         ShowFooter(shownAt: Date(), path: sourcePath, url: sourceURL, save: save)
     }

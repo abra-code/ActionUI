@@ -4,20 +4,17 @@
 // Licensed under the PolyForm Small Business License 1.0.0
 // https://polyformproject.org/licenses/small-business/1.0.0
 
-// AppKitPlatform+ShowFooter.swift - the bottom bar of a `show` window: where the content came from
-// (a file, with a button that shows it in the Finder, or a web address), when the window was shown,
-// and a Save button (Copy URL for content from the network). It is AppKit, outside the ActionUI
-// JSON, so the agent can neither change it nor press its buttons; it keeps working in a kept window
-// after the session ends.
+// AppKitPlatform+ShowFooter.swift - the row in the yellow bar of a `show` window, under the bar's
+// notches (AppKitPlatform+HazardStrip.swift): where the content came from (a file, with a button
+// that shows it in the Finder, or a web address), when the window was shown, and a Save button (Copy
+// URL for content from the network). It is AppKit, outside the ActionUI JSON, so the agent can
+// neither change it nor press its buttons; it keeps working in a kept window after the session ends.
 
 #if canImport(AppKit)
 import AppKit
-import ActionUISwiftAdapter
 import MCPStdio
 
 final class ShowFooterView: NSView {
-    static let height: CGFloat = 26
-
     private let path: String?
     private let url: String?
     private let save: ShowSave?
@@ -37,17 +34,7 @@ final class ShowFooterView: NSView {
 
         var items: [NSView] = []
         if let source = footer.path ?? footer.url {
-            // A line break in a file name would make the label taller than the bar and draw it over
-            // the content, and a direction override (U+202A-202E, U+2066-2069) could make
-            // "x<RLO>txt.app" read as a text file: these show as "?", as ls shows control characters.
-            let shownSource = String(String.UnicodeScalarView(source.unicodeScalars.map { scalar in
-                if (0x202A...0x202E).contains(scalar.value) || (0x2066...0x2069).contains(scalar.value) { return "?" }
-                switch scalar.properties.generalCategory {
-                case .control, .lineSeparator, .paragraphSeparator: return "?"
-                default: return scalar
-                }
-            }))
-            let label = Self.label(shownSource)
+            let label = Self.label(ShowFooter.shownSource(source))
             label.lineBreakMode = .byTruncatingMiddle
             label.isSelectable = true
             label.toolTip = source
@@ -98,14 +85,6 @@ final class ShowFooterView: NSView {
     required init?(coder: NSCoder) { fatalError("not used") }
 
     override var isFlipped: Bool { true }
-
-    /// The strip's yellow, bright at the top and darker at the bottom, with no notches.
-    override func draw(_ dirtyRect: NSRect) {
-        // Views do not clip to their bounds, and the rectangle asked for can be the whole window.
-        bounds.clip()
-        // The view is flipped, so angle 90 runs from the top (starting color) to the bottom.
-        NSGradient(starting: HazardStripView.bright, ending: HazardStripView.dark)?.draw(in: bounds, angle: 90)
-    }
 
     private static func button(_ title: String, help: String, target: AnyObject, action: Selector) -> NSButton {
         let button = NSButton(title: title, target: target, action: action)
@@ -183,18 +162,8 @@ final class ShowFooterView: NSView {
                 try? FileManager.default.removeItem(at: staged)
                 throw error
             }
-        case .text(let text):
-            try Data(text.utf8).write(to: destination, options: .atomic)
-        case .table(let columns):
-            let rows = ActionUISwift.getElementRows(windowUUID: windowID, viewID: ViewerSpec.tableViewID) ?? []
-            try Data(ShowSave.csv(columns: columns, rows: rows).utf8).write(to: destination, options: .atomic)
-        case .chart:
-            try chartPNG().write(to: destination, options: .atomic)
-        case .diff(let old, let new):
-            let oldText = try Self.text(of: old), newText = try Self.text(of: new)
-            let diff = try ShowSave.unifiedDiff(oldText: oldText, newText: newText,
-                                                oldName: old.path ?? "old", newName: new.path ?? "new")
-            try Data(diff.utf8).write(to: destination, options: .atomic)
+        default:
+            try ShowSave.bytes(of: content, windowID: windowID, chartPNG: chartPNG)?.write(to: destination, options: .atomic)
         }
     }
 
@@ -213,12 +182,6 @@ final class ShowFooterView: NSView {
         }
     }
     #endif
-
-    private static func text(of side: DiffSideSource) throws -> String {
-        if let text = side.text { return text }
-        guard let path = side.path else { return "" }
-        return try String(contentsOfFile: path, encoding: .utf8)
-    }
 
     /// The content view drawn into a bitmap at the screen's scale, as a PNG.
     private func chartPNG() throws -> Data {

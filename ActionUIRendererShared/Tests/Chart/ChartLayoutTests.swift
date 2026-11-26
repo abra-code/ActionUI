@@ -3831,19 +3831,28 @@ final class ChartLayoutTests: XCTestCase {
     }
 
     func testListedDatesAreLabeledByTheirTimeOfDay() {
-        // A date without a time is noon: Swift Charts writes "12 PM" for Dec 1 and Jan 1, and "Nov 15
-        // at 12 PM" ... for Nov 15, Dec 1 and Jan 1 (measured on macOS 27).
+        // Measured on macOS 27. At noon Swift Charts writes "12 PM" for Dec 1 and Jan 1, and "Nov 15
+        // at 12 PM" ... for Nov 15, Dec 1 and Jan 1. At midnight (a date written without a time) it
+        // writes "Dec" and "Jan", "Nov 15", "Dec 1" and "Jan 1", and "2026" ... for the starts of years.
         let columns: [Any] = [["name": "when", "type": "date"], ["name": "high", "type": "number"]]
         let mark: [String: Any] = ["type": "PointMark", "x": value("When", "$when"), "y": value("High", "$high")]
-        func labels(_ values: [String]) -> [String] {
-            let description: [String: Any] = ["columns": columns, "content": [["type": "ForEach", "content": [mark]]],
+        func labels(_ values: [String], from: String = "2026-11-10", to: String = "2027-01-20", domain: [String]? = nil) -> [String] {
+            var description: [String: Any] = ["columns": columns, "content": [["type": "ForEach", "content": [mark]]],
                                               "chartXAxis": [["type": "AxisMarks", "values": values]]]
-            return layout(description, rows: [["2026-11-10", "1"], ["2027-01-20", "2"]], width: 600).compactMap { primitive -> String? in
+            if let domain { description["chartXScale"] = ["domain": domain] }
+            return layout(description, rows: [[from, "1"], [to, "2"]], width: 600).compactMap { primitive -> String? in
                 if case .text(let text, _, let alignment, _) = primitive, alignment.y == 0 { return text } else { return nil }
             }
         }
-        XCTAssertEqual(labels(["2026-12-01", "2027-01-01"]), ["j", "j"])
-        XCTAssertEqual(labels(["2026-11-15", "2026-12-01", "2027-01-01"]), ["MMMdj", "MMMdj", "MMMdj"])
+        XCTAssertEqual(labels(["2026-12-01T12:00", "2027-01-01T12:00"]), ["j", "j"])
+        XCTAssertEqual(labels(["2026-11-15T12:00", "2026-12-01T12:00", "2027-01-01T12:00"]), ["MMMdj", "MMMdj", "MMMdj"])
+        XCTAssertEqual(labels(["2026-12-01", "2027-01-01"]), ["MMM", "MMM"])
+        XCTAssertEqual(labels(["2026-11-15", "2026-12-01", "2027-01-01"]), ["MMMd", "MMMd", "MMMd"])
+        // A listed date outside an explicit domain is not drawn but still sets the unit: "Dec 1", "Jan 1".
+        // (With the automatic domain Swift Charts widens the axis to the listed dates and draws all three;
+        // the shared layout's automatic domain is the data's alone.)
+        XCTAssertEqual(labels(["2026-10-15", "2026-12-01", "2027-01-01"], domain: ["2026-11-10", "2027-01-20"]), ["MMMd", "MMMd"])
+        XCTAssertEqual(labels(["2026-01-01", "2027-01-01", "2028-01-01"], from: "2025-06-01", to: "2028-06-01"), ["y", "y", "y"])
     }
 
     func testADateBarNamesTheYearWhenItsEndsDiffer() throws {

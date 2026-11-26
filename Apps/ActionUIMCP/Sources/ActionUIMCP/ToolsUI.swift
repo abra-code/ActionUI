@@ -58,8 +58,8 @@ func showUITool(host: WindowHost, label: String?) -> MCPTool {
             its current value. mode "window" returns {window} at once; collect the user's actions with \
             wait, change values with update_window. Not allowed: SecureField (everything the user \
             enters is sent to you), LoadableView (the ActionUI JSON it loads would skip the checks; put \
-            its content inline) and popover (it can cover the window's "Requested by" line; use a \
-            sheet). WebView userScripts are removed. Files (an Image's or QuickLook's filePath, a \
+            its content inline) and popover (it can cover the window's title bar, which says who asked \
+            for the window; use a sheet). WebView userScripts are removed. Files (an Image's or QuickLook's filePath, a \
             Diff's oldFile and newFile, a Canvas image's filePath) are named by absolute path.
             """,
         inputSchema: input,

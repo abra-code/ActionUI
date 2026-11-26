@@ -162,10 +162,12 @@ final class AppKitPlatform: NSObject, NSWindowDelegate, WindowPlatform {
         window.isReleasedWhenClosed = false
         window.contentView = Self.markedContainer(around: content.controller.view, mark: mark, footer: footer, windowID: windowID)
         // After the content view: installing the SwiftUI hosting view resets the window's title
-        // and subtitle, and the subtitle carries the provenance line.
-        window.title = title
-        window.subtitle = subtitle
-        titleGuards[windowID] = WindowTitleGuard(window: window, title: title, subtitle: subtitle)
+        // and subtitle. Who asked leads the title (windowTitle); the subtitle stays empty, so the
+        // title bar is one line.
+        let shownTitle = windowTitle(title, provenance: subtitle)
+        window.title = shownTitle
+        window.subtitle = ""
+        titleGuards[windowID] = WindowTitleGuard(window: window, title: shownTitle, subtitle: "", agentTitle: title, provenance: subtitle)
         switch sizing {
         case .fixed(let size):
             window.setContentSize(Self.withChrome(NSSize(width: size.width, height: size.height), mark, footer))
@@ -244,7 +246,10 @@ final class AppKitPlatform: NSObject, NSWindowDelegate, WindowPlatform {
             .sorted { (order.firstIndex(of: $0.window) ?? Int.max) > (order.firstIndex(of: $1.window) ?? Int.max) }
             .map { entry in
                 let frame = entry.window.frame
-                return KeptWindowState(id: entry.id, title: entry.window.title, subtitle: entry.window.subtitle,
+                // The agent's title and the provenance, which the keeper puts together again.
+                let guarded = titleGuards[entry.id]
+                return KeptWindowState(id: entry.id, title: guarded?.agentTitle ?? entry.window.title,
+                                       subtitle: guarded?.provenance ?? entry.window.subtitle,
                                        frame: [frame.origin.x, frame.origin.y, frame.size.width, frame.size.height],
                                        styleMask: entry.window.styleMask.rawValue)
             }
@@ -270,15 +275,20 @@ final class AboutPanel: NSObject {
 
 /// Keeps a window's title and subtitle as the host set them. SwiftUI's hosting controller copies a
 /// navigationTitle set after the window opened (through update_window, or a screen a NavigationStack
-/// pushes) onto the window: the agent's title, any length, in place of the host's, and the subtitle,
-/// which carries the "Requested by" line, cleared. The guard puts both back whenever they change.
+/// pushes) onto the window: the agent's title, any length, in place of the host's, which leads with
+/// who asked (windowTitle), and a subtitle. The guard puts both back whenever they change. It also
+/// keeps the agent's own title and the provenance line the window was shown with, for a keeper.
 /// Each change also makes AppKit list the window in the Window menu as "<title> (<subtitle>)"
 /// again, so the guard lists it by its title alone once more (AppKitPlatform.listInWindowsMenu).
 @MainActor
 final class WindowTitleGuard {
     private var observations: [NSKeyValueObservation] = []
+    let agentTitle: String
+    let provenance: String
 
-    init(window: NSWindow, title: String, subtitle: String) {
+    init(window: NSWindow, title: String, subtitle: String, agentTitle: String? = nil, provenance: String? = nil) {
+        self.agentTitle = agentTitle ?? title
+        self.provenance = provenance ?? subtitle
         observations = [
             window.observe(\.title, options: [.new]) { window, _ in
                 MainActor.assumeIsolated {

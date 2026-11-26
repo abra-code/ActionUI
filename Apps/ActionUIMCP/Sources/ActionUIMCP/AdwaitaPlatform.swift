@@ -5,7 +5,9 @@
 // https://polyformproject.org/licenses/small-business/1.0.0
 
 // AdwaitaPlatform.swift - the windows on Linux, through ActionUI's GTK application. The runtime sizes
-// each window and shows the provenance line in it. A window takes the keyboard focus when it opens,
+// each window; this layer starts each window's title with who asked (windowTitle), the provenance
+// line then showing only where the title is out of sight and in sheets, and adds the mark under the
+// header bar, a bar with the source, time and Save on `show` windows. A window takes the keyboard focus when it opens,
 // whatever `activate` says: Wayland has no request to leave the focus where it was.
 
 #if os(Linux)
@@ -110,8 +112,19 @@ final class AdwaitaPlatform: WindowPlatform {
         case .fixed(let size):
             options.contentSize = (Int(size.width), Int(size.height))
         }
+        Self.addChrome(to: &options, mark: mark, footer: footer, windowID: windowID)
+        // The agent's own title, for a keeper, which puts the window's title together again.
         titles[windowID] = title
-        application.presentWindow(prepared: content, title: title, options: options)
+        application.presentWindow(prepared: content, title: windowTitle(title, provenance: subtitle), options: options)
+    }
+
+    /// The yellow and black mark under the header bar, for a `show` window the bar with its source,
+    /// time and Save (AdwaitaPlatform+HazardStrip.swift, AdwaitaPlatform+ShowFooter.swift), as on
+    /// macOS; it adds its height to the window's, not to its content's. The title starts with who
+    /// asked, so the provenance line shows only where the title is out of sight, and in sheets.
+    static func addChrome(to options: inout AdwaitaApplication.WindowOptions, mark: WindowMark, footer: ShowFooter?, windowID: String) {
+        options.topBar = { LinuxWindowMark.widget(mark, footer: footer, windowID: windowID) }
+        options.titleCarriesSubtitle = true
     }
 
     func close(_ windowID: String) {

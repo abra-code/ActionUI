@@ -279,10 +279,22 @@ final class ChartTests: XCTestCase {
         chart["chartYScale"] = ["domain": [0, 2000]]
         let spec = ChartDescription.parse(chart, logger: logger).spec
         XCTAssertEqual(logger.warnings, [])
-        guard case .dates = spec.x.domain, case .numbers(let range) = spec.y.domain else {
+        guard case .dates(let days) = spec.x.domain, case .numbers(let range) = spec.y.domain else {
             return XCTFail("expected a date x domain and a number y domain")
         }
         XCTAssertEqual(range, 0...2000)
+        // Calendar days are the starts of those days, as Dates made from the days' components
+        // are in SwiftUI (DateHelper alone reads them as noon).
+        let calendar = Calendar.current
+        XCTAssertEqual(days.lowerBound, calendar.date(from: DateComponents(year: 2026, month: 8, day: 1)))
+        XCTAssertEqual(days.upperBound, calendar.date(from: DateComponents(year: 2026, month: 9, day: 30)))
+        // A time of day is kept.
+        chart["chartXScale"] = ["domain": ["2026-08-01T06:00", "2026-09-30T18:00"]]
+        guard case .dates(let times) = ChartDescription.parse(chart, logger: logger).spec.x.domain else {
+            return XCTFail("expected a date x domain")
+        }
+        XCTAssertEqual(calendar.component(.hour, from: times.lowerBound), 6)
+        XCTAssertEqual(calendar.component(.hour, from: times.upperBound), 18)
 
         chart["chartYScale"] = ["domain": ["a", "b"]]   // strings on a number axis
         _ = ChartDescription.parse(chart, logger: logger)

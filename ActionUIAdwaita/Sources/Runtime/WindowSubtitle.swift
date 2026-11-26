@@ -17,6 +17,11 @@
 
  One line, however narrow its window or sheet, and it never sets their width: what does not fit is
  in its tooltip. It moves the window when dragged, as a header bar does.
+
+ A host whose window titles start with the subtitle's words (WindowOptions.titleCarriesSubtitle)
+ needs the line only where the title is out of sight: TitleSlot keeps it hidden while the header
+ bar shows the window's title, and shows it while the JSON's principal items take the title's place.
+ A window whose JSON brings its own header bars shows the line, and sheets always do.
 */
 
 import CAdwaita
@@ -45,6 +50,29 @@ package enum WindowSubtitle {
         guard let root = gtk_widget_get_root(widget),
               let text = attached(on: UnsafeMutableRawPointer(root), key: key) else { return nil }
         return line(text.value)
+    }
+
+    /// The window header bar's title spot, for a window whose title carries the subtitle: the
+    /// window's title, or while the JSON has principal toolbar items, those, with the subtitle's own
+    /// line shown then. Owned by the header bar's ScreenBar, through its principalChanged.
+    @MainActor package final class TitleSlot {
+        private let header: OwnedObject
+        private let line: OwnedObject
+        weak var screenBar: ScreenBar?
+
+        package init(header: WidgetPointer, line: WidgetPointer) {
+            self.header = OwnedObject(retaining: header)
+            self.line = OwnedObject(retaining: line)
+        }
+
+        /// The principal items in the title's place with the line shown, or the window's title alone.
+        package func update() {
+            let principal = screenBar?.principalWidget
+            if adw_header_bar_get_title_widget(header.opaquePointer) != principal {
+                adw_header_bar_set_title_widget(header.opaquePointer, principal)
+            }
+            Gtk.Widget(line.widget).isVisible = principal != nil
+        }
     }
 
     /// The line showing `subtitle`.

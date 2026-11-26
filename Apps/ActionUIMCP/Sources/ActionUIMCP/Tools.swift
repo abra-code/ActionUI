@@ -27,15 +27,34 @@ func makeTools(host: WindowHost, label: String?) -> [MCPTool] {
      closeWindowTool(host: host)]
 }
 
-/// "Requested by <client> - <label>": shown in every window's title bar, not settable by a tool.
+/// "Requested by <client> - <label>": who asked for a window, not settable by a tool. It leads every
+/// window's title (windowTitle) and shows with a panel's message and in a notice.
 func provenance(clientName: String?, label: String?) -> String {
-    var text = "Requested by " + (clientName.map { oneLine($0, limit: maxClientNameLength) } ?? "an AI agent")
+    var text = provenancePrefix + (clientName.map { oneLine($0, limit: maxClientNameLength) } ?? "an AI agent")
     if let label, !label.isEmpty { text += " - " + oneLine(label, limit: maxClientNameLength) }
     return text
 }
 
+private let provenancePrefix = "Requested by "
+
+/// A window's title as the system shows it: who asked, then the agent's title ("claude-code: Report"),
+/// or who asked alone when the agent gave no title. Window switchers, the Dock and the taskbar show
+/// only a window's title, and cut a long one at its end: who asked comes first so it always shows,
+/// and an agent's title cannot pass for another application's window. Who asked is shortened to
+/// maxTitleClientLength characters there (provenance()'s line keeps the full name), and a kept
+/// window's `sessionEnded` follows it. `provenance` is provenance()'s line.
+func windowTitle(_ title: String, provenance: String, sessionEnded: Bool = false) -> String {
+    let full = provenance.hasPrefix(provenancePrefix) ? String(provenance.dropFirst(provenancePrefix.count)) : provenance
+    let who = oneLine(full, limit: maxTitleClientLength) + (sessionEnded ? KeptWindowSupport.subtitleSuffix : "")
+    return title.isEmpty ? who : who + ": " + title
+}
+
+/// The longest who-asked part of a window's title ("claude-code", "claude-code - nightly"): a
+/// title bar or a window switcher has room for it and the start of the agent's title.
+let maxTitleClientLength = 24
+
 /// The longest window or panel title an agent may set, and the longest client name or label in the
-/// provenance line: a long title would push the "Requested by" line out of the title bar.
+/// provenance line: a window's title and a panel's heading carry both, who asked first.
 let maxAgentTitleLength = 80
 let maxClientNameLength = 60
 
