@@ -41,7 +41,7 @@ let arguments = CommandLine.arguments.dropFirst()
 if arguments.contains("-h") || arguments.contains("--help") {
     print("""
         actionui-mcp \(serverVersion) - MCP server (stdio) that shows native ActionUI dialogs and windows.
-        Started by an MCP client; speaks JSON-RPC on stdin/stdout. Tools: ask_user, pick_path, show, notify, show_ui, validate_ui, wait, update_window, get_values, screenshot, close_window.
+        Started by an MCP client; speaks JSON-RPC on stdin/stdout. Tools: ask_user, pick_path, show, notify, show_ui, validate_ui, wait, update_window, get_values, screenshot, close_window, actionui_docs.
         Environment: ACTIONUI_MCP_LABEL, ACTIONUI_MCP_LOG_LEVEL (error|warning|info|debug).
         """)
     #if os(Linux)
@@ -122,13 +122,13 @@ let server = MCPServer(
         Shows native \(HostPlatform.systemName) windows on the user's screen. ask_user asks a question with optional \
         fields and waits for the answer; pick_path shows the system file panels; show presents a \
         \(HostPlatform.shownContent) without waiting; notify shows a short notice \
-        that goes away by itself. For anything the canned \
-        tools cannot express, write ActionUI JSON (see the actionui skill if available), check \
-        it with validate_ui, and open it with show_ui: as a dialog that returns every \
-        value, or as a live window whose actions you collect with wait and whose values you change \
-        with update_window. screenshot renders ActionUI JSON (or captures a window) so you can check \
-        the layout before the user sees it. Element reference, for writing ActionUI JSON: resources \
-        actionui://docs/guide, actionui://docs/elements, and actionui://docs/elements/<Type>. Prefer \
+        that goes away by itself. For anything the canned tools cannot express, write ActionUI JSON: \
+        before writing it, read the actionui skill if you have it, else call actionui_docs (topic \
+        guide first, then each element you use; the same pages are resources actionui://docs/guide, \
+        actionui://docs/elements and actionui://docs/elements/<Type>). Check it with validate_ui, and \
+        open it with show_ui: as a dialog that returns every value, or as a live window whose actions \
+        you collect with wait and whose values you change with update_window. screenshot renders \
+        ActionUI JSON (or captures a window) so you can check the layout before the user sees it. Prefer \
         ask_user over asking in chat when you need structured input or an explicit approval.
         """,
     tools: makeTools(host: host, label: environment["ACTIONUI_MCP_LABEL"]),

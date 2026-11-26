@@ -679,6 +679,34 @@ contents = ((s.response(4) or {}).get("result", {}).get("contents") or [{}])[0]
 check("resources/read returns a template", contents.get("mimeType") == "application/json"
       and '"TextField"' in contents.get("text", ""), contents)
 
+# The same reference as a tool, for clients that show the model tools but not resources. Core
+# elements only: the add-ons differ by system.
+s.send({"jsonrpc": "2.0", "id": 7, "method": "tools/list", "params": {"_meta": s.meta}})
+tools = {t["name"]: t for t in (s.response(7) or {}).get("result", {}).get("tools", [])}
+docs_tool = tools.get("actionui_docs", {})
+check("tools/list has actionui_docs, read-only", docs_tool.get("annotations", {}).get("readOnlyHint") is True, docs_tool)
+check("show_ui's description points to actionui_docs", "actionui_docs" in tools.get("show_ui", {}).get("description", ""))
+
+
+def docs_text(request_id, arguments):
+    s.call(request_id, "actionui_docs", arguments)
+    message = s.response(request_id) or {}
+    return message, ((message.get("result", {}).get("content") or [{}])[0]).get("text", "")
+
+
+message, text = docs_text(8, {"topic": "guide"})
+check("actionui_docs guide has Window Content", not is_error(message) and "Window Content" in text, message)
+message, text = docs_text(9, {"topic": "element", "type": "Form"})
+check("actionui_docs element Form", not is_error(message) and "Form" in text, message)
+message, text = docs_text(10, {"topic": "template", "type": "TextField"})
+try:
+    template_type = json.loads(text).get("type")
+except ValueError:
+    template_type = None
+check("actionui_docs template TextField is JSON", template_type == "TextField", message)
+message, text = docs_text(11, {"topic": "element", "type": "Nope"})
+check("actionui_docs element Nope is a tool error", is_error(message) and "no element named Nope" in text, message)
+
 # Shutdown with a dialog pending must fit the client's 2 s grace period.
 s.call(6, "ask_user", {"title": "Pending at shutdown"})
 time.sleep(1)
