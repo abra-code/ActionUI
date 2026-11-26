@@ -340,7 +340,7 @@ enum ContentKind: String, CaseIterable {
     }
 }
 
-/// What the bottom bar of a `show` window says: when the window was shown, and where its content
+/// What the bar of a `show` window says: when the window was shown, and where its content
 /// came from.
 struct ShowFooter: Codable, Sendable {
     let shownAt: Date
@@ -379,7 +379,7 @@ struct ViewerSpec {
     let warnings: [String]
     /// For `file`: the view the file is shown with, returned with the result.
     let shownAs: FileView?
-    /// Where the content came from, for the bottom bar: a local file, or an http(s) address.
+    /// Where the content came from, for the bar: a local file, or an http(s) address.
     let sourcePath: String?
     let sourceURL: String?
     let save: ShowSave?
@@ -550,7 +550,7 @@ struct ViewerSpec {
         save = ShowSave.forViewer(kind: kind, title: self.title, arguments: arguments, sourcePath: sourcePath)
     }
 
-    /// The bottom bar of a window showing this, opened now.
+    /// The bar of a window showing this, opened now.
     func footer() -> ShowFooter {
         ShowFooter(shownAt: Date(), path: sourcePath, url: sourceURL, save: save)
     }

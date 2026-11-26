@@ -22,8 +22,9 @@ typealias HostPlatform = AppKitPlatform
 typealias HostPlatform = AdwaitaPlatform
 #endif
 
-/// How a window shows that an agent asked for it, besides the "Requested by" line: `show`
-/// windows have a yellow and black strip under the title bar, the others a thin striped line there.
+/// How a window shows that an agent asked for it, besides who asked at the start of its title:
+/// `show` windows have a yellow and black strip under the title bar (on macOS a bar holding the
+/// window's source, time and Save), the others a thin striped line there.
 enum WindowMark: String, Codable, Sendable {
     case strip, line
 }

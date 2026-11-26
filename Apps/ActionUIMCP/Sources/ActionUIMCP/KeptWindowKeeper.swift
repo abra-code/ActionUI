@@ -65,10 +65,13 @@ final class KeptWindowKeeper: NSObject, NSWindowDelegate {
         window.isReleasedWhenClosed = false
         window.contentView = AppKitPlatform.markedContainer(around: controller.view, mark: record.mark ?? .line,
                                                             footer: record.footer, windowID: record.window)
-        // After the content view, which resets both (see WindowHost.openWindow).
-        window.title = record.title
-        window.subtitle = record.subtitle + KeptWindowSupport.subtitleSuffix
-        titleGuards[record.window] = WindowTitleGuard(window: window, title: window.title, subtitle: window.subtitle)
+        // After the content view, which resets both (see WindowHost.openWindow). Who asked leads the
+        // title, now with " (session ended)" (windowTitle); no subtitle, as on the server.
+        let provenance = record.subtitle + KeptWindowSupport.subtitleSuffix
+        window.title = windowTitle(record.title, provenance: provenance)
+        window.subtitle = ""
+        titleGuards[record.window] = WindowTitleGuard(window: window, title: window.title, subtitle: "",
+                                                      agentTitle: record.title, provenance: provenance)
         window.setFrame(frame, display: false)
         // Once the view is installed, as openViewer sets a table's rows.
         KeptWindowSupport.restore(record)
@@ -101,9 +104,9 @@ final class KeptWindowKeeper: NSObject, NSWindowDelegate {
     private func writeTestReport(_ manifest: KeptWindowManifest) {
         guard let path = ProcessInfo.processInfo.environment["ACTIONUI_MCP_TEST_REHOST_REPORT"] else { return }
         let shown: [[String: Any]] = manifest.windows.compactMap { record in
-            guard let window = windows[record.window] else { return nil }
+            guard let window = windows[record.window], let guarded = titleGuards[record.window] else { return nil }
             let frame = window.frame
-            return KeptWindowSupport.testReportEntry(record, title: window.title, subtitle: window.subtitle,
+            return KeptWindowSupport.testReportEntry(record, title: guarded.agentTitle, subtitle: guarded.provenance,
                                                      frame: [frame.origin.x, frame.origin.y, frame.size.width, frame.size.height])
         }
         KeptWindowSupport.writeTestReport(shown, to: path)

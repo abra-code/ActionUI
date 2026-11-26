@@ -74,7 +74,7 @@ final class WindowHost {
     /// Properties update_window set, per window and element id, so a kept window's keeper sets
     /// them again over its staged JSON file (KeptWindows.swift).
     var agentProperties: [String: [Int: [String: JSONValue]]] = [:]
-    /// Each open window's mark and, for a `show` window, its bottom bar, for its keeper.
+    /// Each open window's mark and, for a `show` window, its bar, for its keeper.
     var marks: [String: WindowMark] = [:]
     var footers: [String: ShowFooter] = [:]
     private let jsonFolder: URL

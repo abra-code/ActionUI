@@ -4,19 +4,17 @@
 // Licensed under the PolyForm Small Business License 1.0.0
 // https://polyformproject.org/licenses/small-business/1.0.0
 
-// AppKitPlatform+ShowFooter.swift - the bottom bar of a `show` window: where the content came from
-// (a file, with a button that shows it in the Finder, or a web address), when the window was shown,
-// and a Save button (Copy URL for content from the network). It is AppKit, outside the ActionUI
-// JSON, so the agent can neither change it nor press its buttons; it keeps working in a kept window
-// after the session ends.
+// AppKitPlatform+ShowFooter.swift - the row in the yellow bar of a `show` window, under the bar's
+// notches (AppKitPlatform+HazardStrip.swift): where the content came from (a file, with a button
+// that shows it in the Finder, or a web address), when the window was shown, and a Save button (Copy
+// URL for content from the network). It is AppKit, outside the ActionUI JSON, so the agent can
+// neither change it nor press its buttons; it keeps working in a kept window after the session ends.
 
 #if canImport(AppKit)
 import AppKit
 import MCPStdio
 
 final class ShowFooterView: NSView {
-    static let height: CGFloat = 26
-
     private let path: String?
     private let url: String?
     private let save: ShowSave?
@@ -87,14 +85,6 @@ final class ShowFooterView: NSView {
     required init?(coder: NSCoder) { fatalError("not used") }
 
     override var isFlipped: Bool { true }
-
-    /// The strip's yellow, bright at the top and darker at the bottom, with no notches.
-    override func draw(_ dirtyRect: NSRect) {
-        // Views do not clip to their bounds, and the rectangle asked for can be the whole window.
-        bounds.clip()
-        // The view is flipped, so angle 90 runs from the top (starting color) to the bottom.
-        NSGradient(starting: HazardStripView.bright, ending: HazardStripView.dark)?.draw(in: bounds, angle: 90)
-    }
 
     private static func button(_ title: String, help: String, target: AnyObject, action: Selector) -> NSButton {
         let button = NSButton(title: title, target: target, action: action)

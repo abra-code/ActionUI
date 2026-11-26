@@ -5,9 +5,10 @@
 // https://polyformproject.org/licenses/small-business/1.0.0
 
 // AppKitPlatform+HazardStrip.swift - the yellow and black mark under the title bar of every
-// actionui-mcp window, which shows it is a window an agent asked for: a strip on `show` windows, a
-// thin striped line on the others. It is AppKit, outside the SwiftUI view that shows the ActionUI
-// JSON, so nothing the agent writes can remove or restyle it.
+// actionui-mcp window, which shows it is a window an agent asked for: on `show` windows a bar
+// holding where the content came from, when it was shown and Save (ShowFooterView), on the others a
+// thin striped line. It is AppKit, outside the SwiftUI view that shows the ActionUI JSON, so
+// nothing the agent writes can remove or restyle it. Who asked leads the window's title (windowTitle).
 
 #if canImport(AppKit)
 import AppKit
@@ -20,18 +21,21 @@ import SwiftUI
 final class HazardStripView: NSView {
     static let stripHeight: CGFloat = 12
     static let lineHeight: CGFloat = 3
+    /// A `show` window's: the notches, then the row of ShowFooterView under them.
+    static let barHeight: CGFloat = 26
     // The notches in proportion to the strip's height; the line's stripes have the same width and spacing.
-    private static let notchDepth = stripHeight * 0.4
+    static let notchDepth = stripHeight * 0.4
     private static let notchWidth = stripHeight * 0.8
     private static let notchSpacing = stripHeight * 2.1
-    // The yellow, shared with the bottom bar of `show` windows.
+    // The yellow, bright at the top and darker at the bottom.
     static let bright = NSColor(srgbRed: 252 / 255, green: 240 / 255, blue: 97 / 255, alpha: 1)
     static let dark = NSColor(srgbRed: 216 / 255, green: 185 / 255, blue: 74 / 255, alpha: 1)
     private static let notchColor = NSColor(srgbRed: 0.03, green: 0.03, blue: 0.035, alpha: 1)
 
-    static func height(of mark: WindowMark) -> CGFloat {
+    /// The mark's height; a strip with a `show` window's row is the taller bar.
+    static func height(of mark: WindowMark, footer: ShowFooter?) -> CGFloat {
         switch mark {
-        case .strip: stripHeight
+        case .strip: footer == nil ? stripHeight : barHeight
         case .line: lineHeight
         }
     }
@@ -77,16 +81,15 @@ final class HazardStripView: NSView {
 }
 
 extension AppKitPlatform {
-    /// The window's content view: the mark on top, `content` below it, and for a `show` window its
-    /// bottom bar under that.
+    /// The window's content view: the mark on top, for a `show` window with its row in it, and
+    /// `content` below it, down to the window's bottom edge.
     static func markedContainer(around content: NSView, mark: WindowMark, footer: ShowFooter?, windowID: String) -> NSView {
         // A hosting view that is not the window's content view does not pass its toolbar items and
         // navigation title on to the window unless asked: without this, an ActionUI toolbar is lost.
         (content as? NSHostingView<AnyView>)?.sceneBridgingOptions = [.toolbars, .title]
         let strip = HazardStripView(mark: mark)
-        let bar = footer.map { ShowFooterView(footer: $0, windowID: windowID, content: content) }
         let container = NSView()
-        for view in [strip, content] + (bar.map { [$0] } ?? []) {
+        for view in [strip, content] {
             view.translatesAutoresizingMaskIntoConstraints = false
             container.addSubview(view)
         }
@@ -94,30 +97,31 @@ extension AppKitPlatform {
             strip.topAnchor.constraint(equalTo: container.topAnchor),
             strip.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             strip.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            strip.heightAnchor.constraint(equalToConstant: HazardStripView.height(of: mark)),
+            strip.heightAnchor.constraint(equalToConstant: HazardStripView.height(of: mark, footer: footer)),
             content.topAnchor.constraint(equalTo: strip.bottomAnchor),
             content.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             content.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            content.bottomAnchor.constraint(equalTo: container.bottomAnchor),
         ]
-        if let bar {
+        if let footer {
+            // The row under the notches.
+            let row = ShowFooterView(footer: footer, windowID: windowID, content: content)
+            row.translatesAutoresizingMaskIntoConstraints = false
+            strip.addSubview(row)
             constraints += [
-                content.bottomAnchor.constraint(equalTo: bar.topAnchor),
-                bar.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-                bar.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-                bar.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-                bar.heightAnchor.constraint(equalToConstant: ShowFooterView.height),
+                row.leadingAnchor.constraint(equalTo: strip.leadingAnchor),
+                row.trailingAnchor.constraint(equalTo: strip.trailingAnchor),
+                row.bottomAnchor.constraint(equalTo: strip.bottomAnchor),
+                row.topAnchor.constraint(equalTo: strip.topAnchor, constant: HazardStripView.notchDepth),
             ]
-        } else {
-            constraints.append(content.bottomAnchor.constraint(equalTo: container.bottomAnchor))
         }
         NSLayoutConstraint.activate(constraints)
         return container
     }
 
-    /// A content size for the ActionUI content, grown by the mark and the bottom bar.
+    /// A content size for the ActionUI content, grown by the mark.
     static func withChrome(_ size: NSSize, _ mark: WindowMark, _ footer: ShowFooter?) -> NSSize {
-        let bar = footer == nil ? 0 : ShowFooterView.height
-        return NSSize(width: size.width, height: size.height + HazardStripView.height(of: mark) + bar)
+        NSSize(width: size.width, height: size.height + HazardStripView.height(of: mark, footer: footer))
     }
 }
 #endif

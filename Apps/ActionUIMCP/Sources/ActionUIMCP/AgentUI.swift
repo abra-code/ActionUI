@@ -11,7 +11,7 @@
 // design: no SecureField (every answer reaches the model), no LoadableView (the JSON it loads
 // would skip these checks), no WindowGroup (its commands would stay in the application's menu after
 // its window closes), no popover and no secondaryAction toolbar items (each can open over the
-// window's "Requested by" line), no WebView user scripts.
+// title bar, which says who asked for the window, or the yellow and black mark), no WebView user scripts.
 
 #if canImport(FoundationEssentials)
 import FoundationEssentials
@@ -45,9 +45,9 @@ struct AgentUI {
     /// of its sources (`url`, `filePath`, `name`) or a new value.
     static let loadableViewRefusal = "LoadableView is not allowed; the ActionUI JSON it loads would skip these checks, so put its content inline"
     /// On Linux a toolbar's secondaryAction items show in the header bar's "More" popover, which,
-    /// like an ActionUI popover, opens over the "Requested by" line when it does not fit below
-    /// the bar (measured: a window moved low on the screen).
-    static let secondaryActionRefusal = "placement \"secondaryAction\" is not allowed; its items open in a popover that can cover the window's \"Requested by\" line, so use another placement"
+    /// like an ActionUI popover, opens over the window's bars when it does not fit below the header
+    /// bar (measured: a window moved low on the screen).
+    static let secondaryActionRefusal = "placement \"secondaryAction\" is not allowed; its items open in a popover that can cover the window's title bar, which says who asked for the window, so use another placement"
     static func isSecondaryActionItem(type: String, placement: JSONValue?) -> Bool {
         ["ToolbarItem", "ToolbarItemGroup"].contains(type) && placement?.string == "secondaryAction"
     }
@@ -296,10 +296,10 @@ struct AgentUI {
             errors.append("\(here): WindowGroup is not allowed; it is an application's scene, and its commands would stay in the menu after its window closes, so give its content as the root element")
         }
         // A popover is a surface of its own, placed by the system: on macOS and on Linux, one of
-        // any size, from an element anywhere, can open over the title bar's "Requested by" line
-        // (both flip a popover that does not fit), and show a line of its own there.
+        // any size, from an element anywhere, can open over the title bar, which says who asked for
+        // the window (both flip a popover that does not fit), and show a fake one there.
         if object["popover"] != nil {
-            errors.append("\(here): \"popover\" is not allowed; it can open over the window's \"Requested by\" line, so show its content in the window or in a sheet")
+            errors.append("\(here): \"popover\" is not allowed; it can open over the window's title bar, which says who asked for the window, so show its content in the window or in a sheet")
         }
         if isSecondaryActionItem(type: type, placement: object["properties"]?.object?["placement"]) {
             errors.append("\(here): \(secondaryActionRefusal)")

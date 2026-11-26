@@ -174,3 +174,13 @@ import Testing
     #expect(oneLine("a\u{202E}b\u{2066}c", limit: 80) == "a b c", "bidirectional controls become spaces")
     #expect(oneLine("\n \t", limit: 80) == "")
 }
+
+@MainActor @Test func aWindowTitleLeadsWithWhoAsked() {
+    let asked = provenance(clientName: "claude-code", label: nil)
+    #expect(windowTitle("Build report", provenance: asked) == "claude-code: Build report")
+    #expect(windowTitle("", provenance: asked) == "claude-code", "no title: who asked alone")
+    #expect(windowTitle("Report", provenance: provenance(clientName: "claude-code", label: "nightly")) == "claude-code - nightly: Report")
+    #expect(windowTitle("Report", provenance: provenance(clientName: nil, label: nil)) == "an AI agent: Report")
+    #expect(windowTitle("Report", provenance: asked + KeptWindowSupport.subtitleSuffix) == "claude-code (session ended): Report")
+    #expect(windowTitle("Report", provenance: "someone") == "someone: Report", "a line without the prefix is kept whole")
+}

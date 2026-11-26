@@ -83,10 +83,10 @@ extension AppKitPlatform {
     }
 
     /// Lists the window in the Window menu by its title alone, shortened for the menu. AppKit lists
-    /// "<title> (<subtitle>)": the subtitle is the provenance line, the same for every window an
-    /// agent opens, and agents give long titles ("<repo>: <commit note title>"), so the menu could
-    /// grow as wide as the screen. The title bar keeps both in full. Call once the window is on
-    /// screen, which is when AppKit adds it to the menu.
+    /// "<title> (<subtitle>)" when a window has a subtitle (SwiftUI can set one; WindowTitleGuard
+    /// clears it), and the title is who asked followed by the agent's title, often long ("<repo>:
+    /// <commit note title>"), so the menu could grow as wide as the screen. The title bar keeps the
+    /// title in full. Call once the window is on screen, which is when AppKit adds it to the menu.
     static func listInWindowsMenu(_ window: NSWindow) {
         guard !window.title.isEmpty else { return }
         NSApp.changeWindowsItem(window, title: menuTitle(window.title), filename: false)
