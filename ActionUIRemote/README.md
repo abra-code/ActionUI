@@ -212,7 +212,7 @@ client's identity is read before anything it sent is used. The default endpoint 
 - The Python client needs `Python/actionui_remote_windows.py` beside `actionui_remote.py`. Before it
   sends a token it checks that the endpoint is a local pipe name (never another computer's), opens
   the pipe for identification only, and checks that the pipe's owner is its own user.
-- `actionui.contentSizeLimits` answers null on Windows.
+- `actionui.contentSizeLimits` measures a window on screen, as on Linux, and answers null for one that is not (or whose content has not loaded yet).
 
 ## Security model
 

@@ -289,8 +289,9 @@ enum ActionUIRemoteMethods {
         table["actionui.contentSizeLimits"] = { raw in
             let p = Params(raw)
             // SwiftUI's measurement on macOS (ActionUI/Common/ContentSizeLimits.swift), the GTK
-            // renderer's on Linux (ActionUIAdwaita/Sources/Runtime/ContentSizeLimits+Adwaita.swift),
-            // which measures a window on screen and is null for one that is not.
+            // renderer's on Linux (ActionUIAdwaita/Sources/Runtime/ContentSizeLimits+Adwaita.swift)
+            // and the WinUI renderer's on Windows (ActionUIWinUI/Sources/Runtime/ContentSizeLimits+WinUI.swift),
+            // which measure a window on screen and are null for one that is not.
             guard let limits = model.contentSizeLimits(windowUUID: try p.window()) else { return nil }
             return [
                 "minWidth": limits.minSize.width, "minHeight": limits.minSize.height,

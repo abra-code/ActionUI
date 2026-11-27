@@ -910,14 +910,14 @@ public func actionUIGetContentSizeLimits(
 ) -> CBool {
     clearError()
 
-    #if canImport(AppKit) || os(Linux)
+    #if canImport(AppKit) || os(Linux) || os(Windows)
     let swiftWindowUUID = String(cString: windowUUID)
 
     let limits = runOnMainActorSync {
         ActionUIModel.shared.contentSizeLimits(windowUUID: swiftWindowUUID)
     }
     guard let limits else {
-        #if os(Linux)
+        #if os(Linux) || os(Windows)
         setError("Unknown windowUUID, or the window is not on screen: \(swiftWindowUUID)")
         #else
         setError("Unknown windowUUID or no root element loaded: \(swiftWindowUUID)")
@@ -936,7 +936,7 @@ public func actionUIGetContentSizeLimits(
     if !known {
         setError("Unknown windowUUID: \(swiftWindowUUID)")
     } else {
-        setError("Content size limits are only available on macOS and Linux")
+        setError("Content size limits are only available on macOS, Linux and Windows")
     }
     return false
     #endif

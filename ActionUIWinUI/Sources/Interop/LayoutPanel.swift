@@ -95,6 +95,21 @@ private let releaseBox: ActionUIWinUICallback = { context in
     /// and the new answer. Its window's content (WinUIWindow.fit) grows the window from it, after
     /// the pass.
     package var requestedChangedAtRoot: ((ActionUIWinUISize, ActionUIWinUISize, ActionUIWinUISize) -> Void)?
+
+    /// Runs `body`, which measures this panel outside WinUI's layout pass for other sizes than its own
+    /// (ContentSizeLimits.measured), then gives the panel back the offer and answer of its last measure
+    /// before: the next pass, offered the panel's own size again, still finds a changed answer for it
+    /// (requestedChangedAtRoot, a parent's new layout).
+    package func measuringOutsideLayout<Result>(_ body: () -> Result) -> Result {
+        let offer = lastOffer
+        let answer = requested
+        defer {
+            lastOffer = offer
+            requested = answer
+        }
+        return body()
+    }
+
     /// Places every child inside the final size.
     package var arrange: (ActionUIWinUISize) -> Void = { _ in }
 

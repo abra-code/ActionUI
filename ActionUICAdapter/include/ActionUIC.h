@@ -172,7 +172,7 @@ char *actionUIGetElementInfoJSON(const char *windowUUID) ACTIONUI_NOEXCEPT;
 
 // Windows
 void actionUIRemoveWindow(const char *windowUUID) ACTIONUI_NOEXCEPT;  // forgets a closed window's model
-bool actionUIGetContentSizeLimits(const char *windowUUID, double *outMinWidth, double *outMinHeight, double *outMaxWidth, double *outMaxHeight) ACTIONUI_NOEXCEPT;  // macOS and Linux; any out pointer may be NULL
+bool actionUIGetContentSizeLimits(const char *windowUUID, double *outMinWidth, double *outMinHeight, double *outMaxWidth, double *outMaxHeight) ACTIONUI_NOEXCEPT;  // macOS, Linux and Windows; any out pointer may be NULL
 
 // Rows and selection (Table, List)
 bool actionUISetElementRowsJSON(const char *windowUUID, int64_t viewID, const char *rowsJSON) ACTIONUI_NOEXCEPT;

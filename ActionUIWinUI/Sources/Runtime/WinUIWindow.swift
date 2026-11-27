@@ -420,7 +420,7 @@ package final class WinUIWindow {
             }
         }
         // A presentation shown inside it (a sheet) can grow it too (growForPresentation).
-        Self.growers[windowModel.windowUUID] = WindowGrower(owner: self, window: window, extraHeight: extraHeight)
+        Self.growers[windowModel.windowUUID] = WindowGrower(owner: self, window: window, extraHeight: extraHeight, fitting: fitting)
     }
 
     /// The windows fit sized, by window UUID: their window and menu bar height, for growForPresentation.
@@ -444,6 +444,14 @@ package final class WinUIWindow {
             return nil
         }
         return (before, after)
+    }
+
+    /// The root element of the window showing `windowUUID`, while that window is open and fit sized (an
+    /// application's or a host's) and sized to its loaded content, whose controls then have their styles: for
+    /// contentSizeLimits.
+    package static func shownRoot(windowUUID: String) -> RenderNode? {
+        guard let grower = growers[windowUUID], grower.window != nil, grower.fitting.isSized else { return nil }
+        return grower.owner?.root
     }
 
     /// The content size of the window showing `windowUUID` as last laid out, if it is fit sized.
@@ -539,10 +547,11 @@ private final class WindowFitting {
 }
 
 /// A window fit sized, held weakly, and the height above its content (a menu bar); `owner` is the
-/// WinUIWindow that fit it.
+/// WinUIWindow that fit it, and `fitting` its sizing (whether it is sized to its loaded content yet).
 @MainActor
 private struct WindowGrower {
     weak var owner: WinUIWindow?
     weak var window: WinUIObject?
     let extraHeight: @MainActor (WinUIObject) -> Double
+    let fitting: WindowFitting
 }

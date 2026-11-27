@@ -9,11 +9,13 @@
 // run, with no window, over a window and with four buttons; and file panels (actionUIAppRunOpenPanel,
 // actionUIAppRunSavePanel): open, save, cancel, a folder. Each is answered as an accessibility tool does (UI
 // Automation's Invoke on a button, its Value on the name field, from a thread of its own while the call waits).
+// Measures the size limits of five windows' contents (actionUIGetContentSizeLimits).
 // Reads a TextField and a SecureField of the first window as a screen reader does: the TextField gives its
 // text, the SecureField says it is a password and gives none of its text.
 // Usage: ActionUIAppCheck WINDOW.json URL.
 // Prints "c-app:" lines; exit status 0 when every check passed. Built and run by Scripts/ci-windows.py.
 
+#include <float.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
@@ -891,6 +893,70 @@ static void checkWindowGroups(void) {
     }
 }
 
+// Waits `milliseconds` on a thread of its own, so the caller can pump messages meanwhile (waitPumping).
+static DWORD WINAPI pause(void *parameter) {
+    Sleep((DWORD)(UINT_PTR)parameter);
+    return 0;
+}
+
+// The size limits of windows' contents (actionUIGetContentSizeLimits), as a host reads them to size its windows, the
+// cases Linux's ContentSizeLimitsTests check: a fixed frame (the minimum is the maximum), a flexible frame, a Color
+// and a frame to maxWidth infinity (unbounded where they expand, DBL_MAX, Apple's value), a Text (bounded by its
+// natural size, its minimum not above its maximum); an unknown window has none.
+static const char *const limitsWindows[] = {"csl-fixed", "csl-flexible", "csl-color", "csl-text", "csl-wide"};
+static const char *const limitsJSON[] = {
+    "{\"type\": \"Text\", \"id\": 1, \"properties\": {\"text\": \"Fixed\", \"frame\": {\"width\": 300, \"height\": 200}}}",
+    "{\"type\": \"Color\", \"id\": 1, \"properties\": {\"color\": \"red\", \"frame\": {\"minWidth\": 100, \"maxWidth\": 400, "
+    "\"minHeight\": 50, \"maxHeight\": 300}}}",
+    "{\"type\": \"Color\", \"id\": 1, \"properties\": {\"color\": \"blue\"}}",
+    "{\"type\": \"Text\", \"id\": 1, \"properties\": {\"text\": \"Hello world\"}}",
+    "{\"type\": \"VStack\", \"id\": 1, \"children\": [{\"type\": \"Text\", \"id\": 2, \"properties\": {\"text\": \"Wide\", "
+    "\"frame\": {\"maxWidth\": \"infinity\"}}}]}",
+};
+
+static void checkContentSizeLimits(void) {
+    size_t count = sizeof limitsWindows / sizeof limitsWindows[0];
+    for (size_t index = 0; index < count; index++) {
+        actionUIAppLoadAndPresentWindowFromJSON(limitsJSON[index], limitsWindows[index], NULL);
+    }
+    // The windows load their content and are sized to it (WinUI's controls have their styles only then).
+    HANDLE thread = CreateThread(NULL, 0, pause, (void *)(UINT_PTR)1500, 0, NULL);
+    if (thread == NULL || !waitPumping(thread, 10000)) {
+        check(false, "the size limits windows loaded");
+    }
+    if (thread != NULL) {
+        CloseHandle(thread);
+    }
+    double minimum[5][2] = {{0}};
+    double maximum[5][2] = {{0}};
+    bool measured[5] = {false};
+    for (size_t index = 0; index < count; index++) {
+        measured[index] = actionUIGetContentSizeLimits(limitsWindows[index], &minimum[index][0], &minimum[index][1],
+                                                       &maximum[index][0], &maximum[index][1]);
+        printf("c-app: limits %s: %s, min %.1f x %.1f, max %g x %g\n", limitsWindows[index], measured[index] ? "measured" : "none",
+               minimum[index][0], minimum[index][1], maximum[index][0], maximum[index][1]);
+        fflush(stdout);
+    }
+    for (size_t index = 0; index < count; index++) {
+        check(measured[index], "a window on screen has size limits");
+        check(minimum[index][0] <= maximum[index][0] && minimum[index][1] <= maximum[index][1],
+              "a window's minimum size is not above its maximum");
+    }
+    check(minimum[0][0] == 300 && minimum[0][1] == 200 && maximum[0][0] == 300 && maximum[0][1] == 200,
+          "a fixed frame: its size is the minimum and the maximum");
+    check(minimum[1][0] == 100 && minimum[1][1] == 50 && maximum[1][0] == 400 && maximum[1][1] == 300,
+          "a flexible frame: its minimum and maximum");
+    check(maximum[2][0] == DBL_MAX && maximum[2][1] == DBL_MAX, "a Color fills any space");
+    check(maximum[3][0] > 0 && maximum[3][0] < 1000 && maximum[3][1] < 100 && minimum[3][1] > 0,
+          "a Text is bounded by its natural size and keeps a height");
+    check(maximum[4][0] == DBL_MAX && maximum[4][1] < 100, "a frame to maxWidth infinity: unbounded across, bounded by its text down");
+    double ignored = 0;
+    check(!actionUIGetContentSizeLimits("csl-unknown", &ignored, NULL, NULL, NULL), "an unknown window has no size limits");
+    for (size_t index = 0; index < count; index++) {
+        actionUIAppCloseWindow(limitsWindows[index]);
+    }
+}
+
 static void onWillFinishLaunching(void) {
     willFinish += 1;
 }
@@ -1004,6 +1070,7 @@ static void onDidFinishLaunching(void) {
     checkSecureField();
     checkMenuBar();
     checkWindowGroups();
+    checkContentSizeLimits();
     // Over the window just presented (shown once it has loaded); Cancel is the close button.
     checkAlert("{\"title\": \"Save changes?\", \"buttons\": [\"Save\", \"Don't Save\", \"Cancel\"]}",
                L"Cancel", "Cancel", "Save", "an alert over a window answers Cancel");
@@ -1048,8 +1115,9 @@ int main(int argc, char **argv) {
     actionUIAppRun();
     printf("c-app: the run returned\n");
     check(willFinish == 1 && didFinish == 1, "the launch handlers fired once");
-    check(presented == 5, "the five windows were presented");
-    check(closedCount == 5, "the five windows closed");
+    // And the five windows checkContentSizeLimits measures.
+    check(presented == 10, "the ten windows were presented");
+    check(closedCount == 10, "the ten windows closed");
     check(strcmp(valueAtClose, "set from C") == 0, "the value was readable as its window closed");
     check(remoteChecked, "the window from a server was shown");
     check(shouldTerminateAsked == 2, "shouldTerminate was asked at each of the user's closings of the last window");
