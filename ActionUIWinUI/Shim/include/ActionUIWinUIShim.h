@@ -840,6 +840,9 @@ ACTIONUI_WINUI_API void actionUIWinUIDoubleClickLimits(uint32_t *milliseconds, d
 // Whether `element` takes keyboard focus (IsTabStop): Tab and Shift-Tab stop at it, and actionUIWinUIElementFocus
 // focuses it.
 ACTIONUI_WINUI_API bool actionUIWinUIElementSetFocusable(ActionUIWinUIObject *element, bool focusable);
+// Whether the system draws its focus rectangle around `element` while it has keyboard focus from the keyboard
+// (UseSystemFocusVisuals): for an element that is no control (a panel made focusable), which draws none of its own.
+ACTIONUI_WINUI_API bool actionUIWinUIElementSetSystemFocusVisuals(ActionUIWinUIObject *element, bool visible);
 // Gives `element` keyboard focus as a pointer press does (no focus rectangle). False when it cannot take it.
 ACTIONUI_WINUI_API bool actionUIWinUIElementFocus(ActionUIWinUIObject *element);
 // Whether `element` itself has keyboard focus. False on failure.

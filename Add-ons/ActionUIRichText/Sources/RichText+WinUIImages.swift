@@ -9,7 +9,10 @@
    placeholder ("on-click"), or never ("never"); data: and local file: images always load (a file: image the trust
    policy refused has lost its address and shows as an image that cannot load, RichText+LocalImages.swift), and an
    image whose scheme is not allowed (javascript:, a relative path) never does (RichTextURLPolicy).
- - The placeholder's text is the package's (RichTextImagePlaceholder), the same on every renderer.
+ - The placeholder's text is the package's (RichTextImagePlaceholder), the same on every renderer. While it waits for
+   a click it also takes keyboard focus (Tab, with the system's focus rectangle), and Enter or Space loads it as a click
+   does; the GTK view's placeholder takes no keys. Not yet: the placeholder is the shim's panel, which has no UI
+   Automation peer, so a screen reader reads its text but may announce nothing while the panel itself has focus.
  - An image copies as nothing, as an inline element of the text.
 */
 
@@ -75,6 +78,10 @@ final class RichTextWinUIImageSlot {
         }
         let tapContext = Unmanaged.passRetained(WeakImageSlot(self)).toOpaque()
         _ = actionUIWinUIElementOnTapped(panel.pointer, imageSlotTapped, tapContext, releaseWeakImageSlot)
+        // The keyboard's click: focusable only while it waits for one (refresh).
+        let keyContext = Unmanaged.passRetained(WeakImageSlot(self)).toOpaque()
+        _ = actionUIWinUIElementOnKeyEvents(panel.pointer, imageSlotKey, keyContext, releaseWeakImageSlot)
+        _ = actionUIWinUIElementSetSystemFocusVisuals(panel.pointer, true)
         refresh()
     }
 
@@ -135,11 +142,24 @@ final class RichTextWinUIImageSlot {
         RichTextImagePlaceholder.label(alt: alt, url: url, failed: failed, hold: hold, action: "Click")
     }
 
-    /// A click (a tap) on the placeholder: loads a held remote image under "on-click".
-    func placeholderClicked() {
-        guard hold == .awaitingClick else { return }
+    /// A click (a tap) on the placeholder: loads a held remote image under "on-click". True when it did.
+    @discardableResult
+    func placeholderClicked() -> Bool {
+        guard hold == .awaitingClick else { return false }
         approved = true
         start(policy: .automatic)
+        return true
+    }
+
+    /// A key while the placeholder has focus (`down`, its virtual-key code, whether it repeats, the modifiers held):
+    /// Enter or Space, with no modifier, clicks it.
+    fileprivate func keyPressed(down: Bool, virtualKey: Int32, repeats: Bool, modifiers: UInt32) -> Bool {
+        // VK_RETURN, VK_SPACE. Caps Lock on is no modifier held.
+        let held = modifiers & ~UInt32(ActionUIWinUIModifierCapsLock)
+        guard down, !repeats, held == 0, virtualKey == 0x0D || virtualKey == 0x20 else {
+            return false
+        }
+        return placeholderClicked()
     }
 
     private func setHold(_ newHold: RichTextImageHold) {
@@ -153,6 +173,7 @@ final class RichTextWinUIImageSlot {
             _ = actionUIWinUITextBlockSetText(label.pointer, placeholderText)
         }
         _ = actionUIWinUIPanelSetCursor(panel.pointer, hold == .awaitingClick ? ActionUIWinUICursorHand : ActionUIWinUICursorDefault)
+        _ = actionUIWinUIElementSetFocusable(panel.pointer, hold == .awaitingClick)
         _ = actionUIWinUIElementInvalidateMeasure(panel.pointer)
     }
 
@@ -182,6 +203,11 @@ final class RichTextWinUIImageSlot {
         _ = actionUIWinUIPanelInsertChild(panel.pointer, 0, picture.pointer)
         self.picture = picture
         _ = actionUIWinUIPanelSetCursor(panel.pointer, ActionUIWinUICursorDefault)
+        // The image takes no keys: the focus a key gave the placeholder moves on, as Tab would move it.
+        if actionUIWinUIElementHasFocus(panel.pointer) {
+            _ = actionUIWinUIElementGiveUpFocus(panel.pointer)
+        }
+        _ = actionUIWinUIElementSetFocusable(panel.pointer, false)
         let width = Double(image.pixelWidth)
         let height = Double(image.pixelHeight)
         let scale = width > Self.maxWidth ? Self.maxWidth / width : 1
@@ -265,7 +291,20 @@ private let arrangeImageSlot: ActionUIWinUIArrangeCallback = { context, _, final
 private let imageSlotTapped: ActionUIWinUICallback = { context in
     let weak = context.map { Unmanaged<WeakImageSlot>.fromOpaque($0).takeUnretainedValue() }
     MainActor.assumeIsolated {
-        weak?.slot?.placeholderClicked()
+        _ = weak?.slot?.placeholderClicked()
+    }
+}
+
+private let imageSlotKey: ActionUIWinUIKeyEventCallback = { context, event in
+    guard let context, let event else { return false }
+    let weak = Unmanaged<WeakImageSlot>.fromOpaque(context).takeUnretainedValue()
+    // The plain fields, not the event (it holds a pointer to its text, valid during the call only).
+    let down = event.pointee.type == ActionUIWinUIKeyDown
+    let virtualKey = event.pointee.virtualKey
+    let repeats = event.pointee.repeat
+    let modifiers = event.pointee.modifiers
+    return MainActor.assumeIsolated {
+        weak.slot?.keyPressed(down: down, virtualKey: virtualKey, repeats: repeats, modifiers: modifiers) ?? false
     }
 }
 

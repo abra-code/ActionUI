@@ -97,6 +97,13 @@ bool actionUIWinUIElementSetFocusable(ActionUIWinUIObject *element, bool focusab
     });
 }
 
+bool actionUIWinUIElementSetSystemFocusVisuals(ActionUIWinUIObject *element, bool visible) {
+    return guarded("element set system focus visuals", [&]() {
+        objectAs<mux::UIElement>(element, L"UIElement").UseSystemFocusVisuals(visible);
+        return true;
+    });
+}
+
 bool actionUIWinUIElementFocus(ActionUIWinUIObject *element) {
     return guarded("element focus", [&]() {
         if (!objectAs<mux::UIElement>(element, L"UIElement").Focus(mux::FocusState::Pointer)) {
