@@ -732,6 +732,48 @@ s.call(14, "wait", {"timeout_s": 1})
 check("a notice is not a window with events", is_error(s.response(14)))
 s.close()
 
+# The ask_user and notify messages draw the whole of Markdown, and never fetch a remote image in it.
+# The image is served by a local server that records each request; a show markdown window, which
+# loads remote images, is the control that proves the server would see one.
+import http.server
+
+image_requests = []
+
+
+class ImageRequests(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        image_requests.append(self.path)
+        self.send_response(404)
+        self.end_headers()
+
+    def log_message(self, *args):
+        pass
+
+
+image_server = http.server.HTTPServer(("127.0.0.1", 0), ImageRequests)
+threading.Thread(target=image_server.serve_forever, daemon=True).start()
+image_url = "http://127.0.0.1:%d/" % image_server.server_address[1]
+RICH = ("Release **2.3.1** is ready.\n\n## Changes\n\n- one\n- two `code`\n\n```\nlet x = 1\n```\n\n"
+        "| A | B |\n|---|---|\n| 1 | 2 |\n\n![pixel](%s)")
+s = Session(binary)
+s.call(1, "ask_user", {"title": "Rich message", "message": RICH % (image_url + "ask.png"), "timeout_s": 3})
+s.call(2, "notify", {"title": "Rich notice", "message": RICH % (image_url + "notice.png"), "duration_s": 3})
+check("notify with a Markdown list, code block and table", structured(s.response(2)) == {"shown": True})
+check("ask_user with a Markdown list, code block and table",
+      structured(s.response(1)) == {"action": "timeout", "button": None})
+check("ask_user and notify fetch no remote image", not [p for p in image_requests if p in ("/ask.png", "/notice.png")],
+      image_requests)
+s.call(3, "show", {"title": "Control", "kind": "markdown", "text": "![pixel](%sshow.png)" % image_url})
+result = structured(s.response(3)) or {}
+end = time.time() + 10
+while "/show.png" not in image_requests and time.time() < end:
+    time.sleep(0.2)
+check("show markdown fetches its remote image (the control)", "/show.png" in image_requests, image_requests)
+s.call(4, "close_window", {"window": result.get("window", "")})
+s.response(4)
+s.close()
+image_server.shutdown()
+
 # Placement and the Window menu (macOS): windows of the same size open a step apart, never on top of
 # one another, and the Window menu lists each of them, a long title shortened in the middle.
 if not LINUX:

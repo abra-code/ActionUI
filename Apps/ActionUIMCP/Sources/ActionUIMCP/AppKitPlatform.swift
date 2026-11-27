@@ -27,7 +27,9 @@ final class AppKitPlatform: NSObject, NSWindowDelegate, WindowPlatform {
     nonisolated static let noticeDescription = """
         Show a short notice in the top right corner of the user's screen, for example that a long \
         job finished. Returns {shown} at once. The notice does not take focus and disappears after \
-        duration_s or when clicked; nothing comes back from it.
+        duration_s or when clicked; nothing comes back from it. Its message is Markdown: headings, \
+        lists, code blocks and tables are drawn as well as bold, italic, code and links; remote images \
+        in it are not loaded.
         """
     nonisolated static let verifierPlatform = "macos"
     nonisolated static let keepsWindows = true
