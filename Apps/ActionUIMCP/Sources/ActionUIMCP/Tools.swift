@@ -128,7 +128,7 @@ private func askUserTool(host: WindowHost, label: String?) -> MCPTool {
         "type": "object",
         "properties": [
             "title": ["type": "string", "description": "Window title: what is being asked, in a few words."],
-            "message": ["type": "string", "description": "Question or explanation shown above the fields. Markdown allowed."],
+            "message": ["type": "string", "description": "Question or explanation shown above the fields, in Markdown: headings, lists, quotes, code blocks and tables are drawn as well as bold, italic, code and links. Remote (http and https) images in it are not loaded."],
             "fields": ["type": "array", "items": field, "description": "Input fields, top to bottom, at most 30. Omit for a plain confirmation."],
             "buttons": ["type": "array", "items": ["type": "string"],
                         "description": "Button titles, left to right. The last one is the default (Return). A button titled \"Cancel\" is bound to Escape and answers action \"cancel\". Default [\"Cancel\", \"OK\"]."],

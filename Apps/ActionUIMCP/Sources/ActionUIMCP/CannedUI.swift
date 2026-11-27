@@ -15,6 +15,19 @@ import Foundation
 #endif
 import MCPStdio
 
+// MARK: - Agent Markdown
+
+/// A RichText element for Markdown the agent wrote in a canned tool's message (ask_user, notify):
+/// the whole of Markdown (headings, lists, quotes, code blocks, tables) on every platform, where a
+/// Text draws only inline styles. Remote images are never fetched: an image address can carry data
+/// out, and the user did not open a dialog or a notice to read a page. No baseURL, so relative image
+/// paths do not resolve.
+func agentMarkdown(_ text: String, size: Double) -> [String: Any] {
+    ["type": "RichText",
+     "properties": ["markdown": text, "baseFontSize": size, "widthBehavior": "fill", "remoteImages": "never",
+                    "frame": ["maxWidth": "infinity", "alignment": "leading"]]]
+}
+
 // MARK: - ask_user
 
 enum FieldKind: String, CaseIterable {
@@ -185,8 +198,7 @@ struct DialogSpec {
         // The title is the window title; the message is the heading of the content.
         var children: [[String: Any]] = []
         if let message, !message.isEmpty {
-            children.append(["type": "Text", "properties": ["markdown": message, "font": ["size": 14],
-                                                           "frame": ["maxWidth": "infinity", "alignment": "leading"]]])
+            children.append(agentMarkdown(message, size: 14))
         }
         if !fields.isEmpty {
             let form: [String: Any] = ["type": "Form", "children": fields.map(fieldElement)]

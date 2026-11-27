@@ -35,7 +35,7 @@ import ActionUI
 import ActionUISwiftAdapter
 import MCPStdio
 
-let serverVersion = "0.6.3"
+let serverVersion = "0.7.0"
 
 let arguments = CommandLine.arguments.dropFirst()
 if arguments.contains("-h") || arguments.contains("--help") {

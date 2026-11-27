@@ -713,6 +713,22 @@ time.sleep(1)
 elapsed = s.close()
 check("exit on end of input (%.2f s)" % elapsed, elapsed < 2 and s.proc.returncode == 0, s.proc.returncode)
 
+# At most 20 windows at once: the 21st is refused; closing one frees its place.
+s = Session(binary)
+opened = []
+for i in range(20):
+    s.call(100 + i, "show", {"title": "W%d" % i, "kind": "text", "text": "w", "width": 200, "height": 100})
+    opened.append((structured(s.response(100 + i)) or {}).get("window"))
+check("20 windows open at once", all(opened), opened)
+s.call(120, "show", {"title": "W20", "kind": "text", "text": "w", "width": 200, "height": 100})
+message = s.response(120)
+check("the 21st window is refused", is_error(message) and "too many open windows (20)" in json.dumps(message), message)
+s.call(121, "close_window", {"window": opened[0]})
+s.response(121)
+s.call(122, "show", {"title": "W21", "kind": "text", "text": "w", "width": 200, "height": 100})
+check("a closed window frees its place", (structured(s.response(122)) or {}).get("window") is not None)
+s.close()
+
 # multichoice: checked options come back as an array in option order; required blocks an empty answer.
 MULTI = {"key": "platforms", "kind": "multichoice", "options": ["macOS", "iOS", {"value": "vision", "label": "visionOS"}],
          "default": ["vision", "macOS"]}
@@ -748,6 +764,48 @@ for request_id, arguments in [(10, {}), (11, {"message": "  "}), (12, {"message"
 s.call(14, "wait", {"timeout_s": 1})
 check("a notice is not a window with events", is_error(s.response(14)))
 s.close()
+
+# The ask_user and notify messages draw the whole of Markdown, and never fetch a remote image in it.
+# The image is served by a local server that records each request; a show markdown window, which
+# loads remote images, is the control that proves the server would see one.
+import http.server
+
+image_requests = []
+
+
+class ImageRequests(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        image_requests.append(self.path)
+        self.send_response(404)
+        self.end_headers()
+
+    def log_message(self, *args):
+        pass
+
+
+image_server = http.server.HTTPServer(("127.0.0.1", 0), ImageRequests)
+threading.Thread(target=image_server.serve_forever, daemon=True).start()
+image_url = "http://127.0.0.1:%d/" % image_server.server_address[1]
+RICH = ("Release **2.3.1** is ready.\n\n## Changes\n\n- one\n- two `code`\n\n```\nlet x = 1\n```\n\n"
+        "| A | B |\n|---|---|\n| 1 | 2 |\n\n![pixel](%s)")
+s = Session(binary)
+s.call(1, "ask_user", {"title": "Rich message", "message": RICH % (image_url + "ask.png"), "timeout_s": 3})
+s.call(2, "notify", {"title": "Rich notice", "message": RICH % (image_url + "notice.png"), "duration_s": 3})
+check("notify with a Markdown list, code block and table", structured(s.response(2)) == {"shown": True})
+check("ask_user with a Markdown list, code block and table",
+      structured(s.response(1)) == {"action": "timeout", "button": None})
+check("ask_user and notify fetch no remote image", not [p for p in image_requests if p in ("/ask.png", "/notice.png")],
+      image_requests)
+s.call(3, "show", {"title": "Control", "kind": "markdown", "text": "![pixel](%sshow.png)" % image_url})
+result = structured(s.response(3)) or {}
+end = time.time() + 10
+while "/show.png" not in image_requests and time.time() < end:
+    time.sleep(0.2)
+check("show markdown fetches its remote image (the control)", "/show.png" in image_requests, image_requests)
+s.call(4, "close_window", {"window": result.get("window", "")})
+s.response(4)
+s.close()
+image_server.shutdown()
 
 # Placement and the Window menu (macOS): windows of the same size open a step apart, never on top of
 # one another, and the Window menu lists each of them, a long title shortened in the middle.

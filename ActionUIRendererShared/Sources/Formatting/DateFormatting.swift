@@ -10,6 +10,13 @@
  ActionUIAdwaita/Sources/Formatting/DateFormatting+GLib.swift). An unknown time zone name is UTC on
  every path, as ICU takes it.
 
+ With no time zone given, a date is written in TimeZone.current's, the zone Calendar.current does
+ its arithmetic in, so a label names the day and hour the date was built or binned in. That is the
+ system's zone where full Foundation is linked (Apple); with FoundationEssentials alone (the Linux
+ and Windows renderers) TimeZone.current is GMT whatever the system's zone is, and ICU's default,
+ the system's zone, would write a chart's tick at midnight GMT as the day before west of Greenwich,
+ and a DatePicker's label would disagree with its hour and minute fields.
+
  An ICU formatter is kept per locale, time zone and skeleton: a window asks for a few, often.
 */
 
@@ -22,9 +29,11 @@ import Foundation
 @MainActor
 enum DateFormatting {
     /// `date` as `locale` writes it in `timeZone`, in the form CLDR gives for `skeleton`. nil for
-    /// the locale the system's settings give dates (SystemLocale: time) and the system's time
-    /// zone; a time zone is an IANA name ("Europe/Warsaw").
+    /// the locale the system's settings give dates (SystemLocale: time) and for TimeZone.current,
+    /// the zone of Calendar.current's arithmetic (see the header); a time zone is an IANA name
+    /// ("Europe/Warsaw").
     static func string(_ date: Date, skeleton: String, locale: String? = nil, timeZone: String? = nil) -> String {
+        let timeZone = timeZone ?? TimeZone.current.identifier
         let key = Key(locale: locale ?? SystemLocale.icuLocale(for: .time), timeZone: timeZone, skeleton: skeleton)
         if let icu = ICULibrary.shared, let text = icuString(icu, date, key) {
             return text

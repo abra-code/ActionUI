@@ -24,7 +24,10 @@ import MCPStdio
 
 @MainActor
 final class WindowHost {
-    static let maxWindows = 8
+    /// The windows a session may have open at once, dialogs included; one the user closes frees its
+    /// place. Room for an agent that reports each finished task in a window of its own while the
+    /// user is away, with a bound on what a runaway agent can open.
+    static let maxWindows = 20
     static let maxQueuedEvents = 1000
     nonisolated static let maxNoticeLength = 1000
 
