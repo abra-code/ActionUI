@@ -204,11 +204,8 @@ extension DatePicker: ActionUIAdwaitaRenderer {
         node.model.value as? Date ?? DatePicker.initialValue(node.model) as? Date ?? Date()
     }
 
-    private static var calendar: Calendar {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = .current
-        return calendar
-    }
+    /// The value's day and time as the user's clock reads them.
+    private static var calendar: LocalCalendar { LocalTime.calendar }
 
     /// Makes the parts show `date`, setting only what differs.
     private static func show(_ date: Date, _ parts: DatePickerParts, _ props: Props) {

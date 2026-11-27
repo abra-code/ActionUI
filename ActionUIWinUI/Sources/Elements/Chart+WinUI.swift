@@ -241,18 +241,13 @@ extension Chart: ActionUIWinUIRenderer {
         state.drawnScale = scale
         guard size.width > 0, size.height > 0, size.width.isFinite, size.height.isFinite else { return }
         let text = ChartAxisText()
-        // Dates are labeled in the zone the chart's calendar bins and steps them in (ChartDates). On
-        // Windows, Swift's only time zone is GMT: TimeZone.current is GMT and a named zone is nil, and
-        // a written date is read in GMT, while ICU's default is the system's zone. Labeled there, a tick
-        // at a day's start in GMT was named the day before west of Greenwich. In the calendar's zone a
-        // date shows as it was written; one written with a zone ("T03:00Z") shows in GMT, where macOS
-        // shows it in the system's zone.
-        let dateZone = ChartDates.calendar.timeZone.identifier
+        // Dates are labeled in the zone the chart's calendar bins and steps them in (ChartDates, in LocalTime's
+        // zone): DateFormatting with no zone writes in that zone.
         let metrics = ChartTextMetrics(
             size: { text.size($0) },
             number: { NumberFormatting.string($0, format: .decimal(minFraction: $1, maxFraction: $1)) },
             formatted: { NumberFormatting.string($0, format: $1) },
-            date: { DateFormatting.string($0, skeleton: $1, timeZone: dateZone) })
+            date: { DateFormatting.string($0, skeleton: $1) })
         let (primitives, geometry) = ChartLayout.laidOut(state.spec, marks: state.marks, width: size.width, height: size.height,
                                                          metrics: metrics, scroll: state.scroll)
         state.geometry = geometry

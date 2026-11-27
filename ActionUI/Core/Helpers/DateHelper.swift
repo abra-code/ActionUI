@@ -10,31 +10,32 @@ import Foundation
 
 /// Helper for parsing and formatting dates in ActionUI
 struct DateHelper {
-    // Zoned forms are fixed; the local forms are built per call because they read
-    // the current time zone, which can change while the app runs.
     private static let zonedStyle = Date.ISO8601FormatStyle()
     private static let zonedFractionalStyle = Date.ISO8601FormatStyle(includingFractionalSeconds: true)
+    // The forms without a zone are read in GMT, the style's default, as wall-clock time that
+    // LocalCalendar.date(fromWallClock:) then places in the user's zone.
+    private static let dayStyle = Date.ISO8601FormatStyle().year().month().day()
+    private static let wallClockStyle = Date.ISO8601FormatStyle().year().month().day().dateTimeSeparator(.standard)
+        .time(includingFractionalSeconds: false)
+    private static let wallClockFractionalStyle = Date.ISO8601FormatStyle().year().month().day()
+        .dateTimeSeparator(.standard).time(includingFractionalSeconds: true)
 
     /// Parses an ISO 8601 date string. The forms, and what each one means:
-    /// - "2024-07-16": a calendar day, at noon in the current time zone so the day
+    /// - "2024-07-16": a calendar day, at noon in the user's time zone so the day
     ///   survives small zone shifts.
     /// - "2024-07-16T14:30:00Z", "2024-07-16T14:30:00+02:00" (also "+02", "+0200"; seconds
     ///   and fractional seconds optional): an instant. The zone designator is honored.
     /// - "2024-07-16T14:30:00" or "2024-07-16T14:30", no designator: wall-clock time in
-    ///   the current time zone (the form time-bearing DatePickers emit).
+    ///   the user's time zone (the form time-bearing DatePickers emit).
     /// - "14:30" or "14:30:00": that wall-clock time today.
     /// - Returns: The parsed Date, or nil when no form matches.
     /// - Note: Android's DateHelper.kt and the web DatePicker's parseParts follow the
     ///   same rules.
     static func parseDate(from rawString: String) -> Date? {
         let dateString = PlainText.trimmed(rawString)
-        let zone = Calendar.current.timeZone
         if !dateString.contains("T") {
-            let dayStyle = Date.ISO8601FormatStyle(timeZone: zone).year().month().day()
             if let midnight = try? Date(dateString, strategy: dayStyle) {
-                var components = Calendar.current.dateComponents([.year, .month, .day], from: midnight)
-                components.hour = 12
-                return Calendar.current.date(from: components) ?? midnight
+                return LocalTime.calendar.date(fromWallClock: midnight.addingTimeInterval(12 * 3600))
             }
             return parseLocalTime(from: dateString)
         }
@@ -60,12 +61,11 @@ struct DateHelper {
             return try? Date(zoned, strategy: zonedFractionalStyle)
         }
 
-        // Offset-less: wall-clock time in the current time zone.
-        let localDay = Date.ISO8601FormatStyle(timeZone: zone).year().month().day().dateTimeSeparator(.standard)
-        if let date = try? Date(local, strategy: localDay.time(includingFractionalSeconds: false)) {
-            return date
+        // Offset-less: wall-clock time in the user's time zone.
+        guard let wallClock = (try? Date(local, strategy: wallClockStyle)) ?? (try? Date(local, strategy: wallClockFractionalStyle)) else {
+            return nil
         }
-        return try? Date(local, strategy: localDay.time(includingFractionalSeconds: true))
+        return LocalTime.calendar.date(fromWallClock: wallClock)
     }
 
     /// Checks that `string` is "YYYY-MM-DDTHH:mm[:ss[.f...]]" followed by nothing or
@@ -102,7 +102,7 @@ struct DateHelper {
     }
 
     /// Parses a bare local time string ("HH:mm" or "HH:mm:ss") into today's date
-    /// at that time in the current timezone, or nil if it is not a bare time.
+    /// at that time in the user's time zone, or nil if it is not a bare time.
     static func parseLocalTime(from string: String) -> Date? {
         let trimmed = PlainText.trimmed(string)
         let parts = trimmed.split(separator: ":", omittingEmptySubsequences: false)
@@ -110,27 +110,28 @@ struct DateHelper {
         guard let hour = Int(parts[0]), let minute = Int(parts[1]) else { return nil }
         let second = parts.count == 3 ? (Int(parts[2]) ?? -1) : 0
         guard (0...23).contains(hour), (0...59).contains(minute), (0...59).contains(second) else { return nil }
-        var components = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+        let calendar = LocalTime.calendar
+        var components = calendar.dateComponents([.year, .month, .day], from: Date())
         components.hour = hour
         components.minute = minute
         components.second = second
-        return Calendar.current.date(from: components)
+        return calendar.date(from: components)
     }
 
     /// Formats a date as a full ISO 8601 calendar date "yyyy-MM-dd" (date-only), the
-    /// day in the current time zone. The value-bridge serialization for date-only
+    /// day in the user's time zone. The value-bridge serialization for date-only
     /// DatePickers and other Date-valued elements.
     static func formatDate(from date: Date) -> String {
-        let c = Calendar.current.dateComponents([.year, .month, .day], from: date)
+        let c = LocalTime.calendar.dateComponents([.year, .month, .day], from: date)
         return day(c)
     }
 
     /// Formats a date as a full local ISO 8601 datetime "yyyy-MM-ddTHH:mm:ss"
     /// (no timezone designator), used by the time-bearing DatePicker modes so a
     /// host can read the wall-clock HH:mm. The components are taken in the
-    /// current timezone to match what the user sees in the picker.
+    /// user's time zone to match what the user sees in the picker.
     static func formatDateTime(from date: Date) -> String {
-        let c = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute, .second], from: date)
+        let c = LocalTime.calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: date)
         let time = [c.hour, c.minute, c.second].map { PlainText.zeroPadded($0 ?? 0, width: 2) }
         return day(c) + "T" + time.joined(separator: ":")
     }

@@ -93,6 +93,8 @@ extension ActionUIRegistry {
         ActionUIRendererHooks.registerLinkedAddOns = actionUIRegisterLinkedAddOns
         // The folder bundled resources are found in (the host's resource folder, else the program's).
         ActionUIRendererHooks.resourceFolders = { AppBundle.folder.map { [$0] } ?? [] }
+        // Dates in the user's time zone, which FoundationEssentials alone does not know.
+        LocalTime.offset = SystemTimeOffset.seconds(at:)
         let parseMarkdown: (String, String?, any ActionUILogger) -> Any? = { value, contentType, _ in
             contentType == "markdown" ? MarkdownText.attributedString(markdown: value) : nil
         }
