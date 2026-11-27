@@ -175,6 +175,9 @@ PREVIEW_OPTIONS = {
     "FormSections": [],
     "FormColumns": [],
     "Grids": [],
+    # A long Text in a Grid wraps in its column (each cell's height measured at its column's width), so the Grid takes
+    # the 328 points inside the window's padding, not the Text's unwrapped width.
+    "GridWrap": ["360", "300", "--expect-width", "2", "328"],
     "TabViews": ["--select-part", "2", "2", "--expect-action", "tabs.changed",
                  "--on-action", "tabs.changed", "10", "Chose Advanced", "--set-value", "11", "1"],
     "LazyStacks": [],

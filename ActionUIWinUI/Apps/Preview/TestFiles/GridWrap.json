@@ -1,0 +1,59 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": {
+    "alignment": "leading",
+    "spacing": 8,
+    "padding": 16
+  },
+  "children": [
+    {
+      "type": "Grid",
+      "id": 2,
+      "properties": {
+        "alignment": "leading"
+      },
+      "rows": [
+        [
+          {
+            "type": "Text",
+            "id": 3,
+            "properties": {
+              "text": "Name"
+            }
+          },
+          {
+            "type": "Text",
+            "id": 4,
+            "properties": {
+              "text": "A long description that is far wider than the window, so it must wrap inside its column of the Grid instead of widening the Grid past the window."
+            }
+          }
+        ],
+        [
+          {
+            "type": "Text",
+            "id": 5,
+            "properties": {
+              "text": "Size"
+            }
+          },
+          {
+            "type": "Text",
+            "id": 6,
+            "properties": {
+              "text": "12 KB"
+            }
+          }
+        ]
+      ]
+    },
+    {
+      "type": "Text",
+      "id": 7,
+      "properties": {
+        "text": "After the Grid"
+      }
+    }
+  ]
+}
