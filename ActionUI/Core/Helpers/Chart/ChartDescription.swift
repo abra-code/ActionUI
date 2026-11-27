@@ -986,7 +986,7 @@ enum ChartDescription {
     /// components is in SwiftUI. DateHelper reads it as noon, which puts the axis's edge in the
     /// middle of that day's bar. A time of day ("2026-09-20T15:30") is kept.
     static func axisDate(_ date: Date, writtenAs text: String) -> Date {
-        text.contains("-") && !text.contains("T") ? Calendar.current.startOfDay(for: date) : date
+        text.contains("-") && !text.contains("T") ? LocalTime.calendar.startOfDay(for: date) : date
     }
 
     // MARK: - Small parsers

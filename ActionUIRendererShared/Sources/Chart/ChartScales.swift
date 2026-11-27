@@ -294,9 +294,10 @@ struct ChartDateStride: Equatable {
 }
 
 enum ChartDates {
-    /// The calendar bins and ticks use. Chart+Adwaita.swift gives it the first day of the user's
-    /// week, which ICU knows and FoundationEssentials does not. Main thread only.
-    nonisolated(unsafe) static var calendar = Calendar.current
+    /// The calendar bins and ticks use, in the user's time zone (LocalTime). Chart+Adwaita.swift gives
+    /// it the first day of the user's week, which ICU knows and FoundationEssentials does not. Made at
+    /// first use, after the renderer set LocalTime.offset. Main thread only.
+    nonisolated(unsafe) static var calendar = LocalTime.calendar
 
     /// The bin a date falls in: the interval of `unit` holding it, or the date itself without a unit.
     static func bin(_ date: Date, _ unit: Calendar.Component?) -> (start: Date, end: Date) {
