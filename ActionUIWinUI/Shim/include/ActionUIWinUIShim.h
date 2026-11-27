@@ -931,6 +931,10 @@ ACTIONUI_WINUI_API bool actionUIWinUIRichTextBlockAddLineBreak(ActionUIWinUIObje
 // baseline), which places the text after it: a table cell at its column. It copies as nothing. False when the
 // block has no paragraph.
 ACTIONUI_WINUI_API bool actionUIWinUIRichTextBlockAddSpacer(ActionUIWinUIObject *block, double width);
+// Adds `element` to the last paragraph as an inline element at the baseline, as large as it measures (an image in
+// the text); the block keeps a reference. It copies as nothing. False when the block has no paragraph or the
+// element has a parent.
+ACTIONUI_WINUI_API bool actionUIWinUIRichTextBlockAddInlineElement(ActionUIWinUIObject *block, ActionUIWinUIObject *element);
 // Makes the spacer that is the `inlineIndex`th inline of the `paragraphIndex`th paragraph `width` points wide; the
 // block lays its text out again. False when that inline is not a spacer.
 ACTIONUI_WINUI_API bool actionUIWinUIRichTextBlockSetSpacerWidth(ActionUIWinUIObject *block, int32_t paragraphIndex,

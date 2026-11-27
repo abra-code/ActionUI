@@ -1,0 +1,27 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": {
+    "alignment": "leading",
+    "spacing": 12,
+    "padding": 12
+  },
+  "children": [
+    {
+      "type": "RichText",
+      "id": 2,
+      "properties": {
+        "markdown": "## Images\n\nA data: image, shown at its size: ![a blue and orange picture](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHgAAAA8CAIAAAAiz+n/AAAAqUlEQVR4nO3QQQ2AQBDAwAU1yEIG6ngjCxdDLnQUNN2O65nV3HPOavavA/6i0UijkUYjjUYajTQaaTTSaKTRSKORRiONRhqNNBppNNJopNFIo5FGI41GGo00Gmk00mik0UijkUYjjUYajTQaaTTSaKTRSKORRiONRhqNNBppNNJopNFIo5FGI41GGo00Gmk00mik0UijkUYjjUYajTQaaTTSaKTRSKPHeAHqBgL+yx09vwAAAABJRU5ErkJggg==) in the text.\n\nA remote image held until it is clicked:\n\n![a held picture](https://example.com/held.png)",
+        "remoteImages": "on-click"
+      }
+    },
+    {
+      "type": "RichText",
+      "id": 3,
+      "properties": {
+        "markdown": "With remoteImages never, a remote image is not loaded:\n\n![an image that stays off](https://example.com/off.png)",
+        "remoteImages": "never"
+      }
+    }
+  ]
+}

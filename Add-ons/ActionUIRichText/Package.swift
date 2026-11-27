@@ -74,6 +74,9 @@ let package = Package(
         // 0.4.3 is the first version that builds on Windows (the model, with no renderer) and makes public the
         // syntax tokenizer and the image placeholder text this element uses.
         .package(url: "https://github.com/abra-code/RichText", from: "0.4.3"),
+        // The images in the Markdown load through it, as RichText's GTK view loads them on Linux (RichText itself
+        // has no renderer and no dependency on Windows). 0.2.7 is its first version with the Windows engine.
+        .package(url: "https://github.com/abra-code/AsyncImageCache", from: "0.2.7"),
     ],
     targets: [
         .target(
@@ -82,6 +85,7 @@ let package = Package(
                 .product(name: "ActionUIStatic", package: "ActionUI"),
                 .product(name: "CWinUI", package: "ActionUI"),
                 .product(name: "RichText", package: "RichText"),
+                .product(name: "AsyncImageCache", package: "AsyncImageCache"),
             ],
             path: "Sources",
             // The SwiftUI element and the GTK one.

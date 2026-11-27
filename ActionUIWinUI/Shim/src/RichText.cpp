@@ -267,6 +267,23 @@ bool actionUIWinUIRichTextBlockAddSpacer(ActionUIWinUIObject *block, double widt
     });
 }
 
+bool actionUIWinUIRichTextBlockAddInlineElement(ActionUIWinUIObject *block, ActionUIWinUIObject *element) {
+    return guarded("rich text block add inline element", [&]() {
+        mux::UIElement typed = objectAs<mux::UIElement>(element, L"UIElement");
+        docs::Paragraph paragraph = lastParagraph(objectAs<muxc::RichTextBlock>(block, L"RichTextBlock"));
+        if (paragraph == nullptr) {
+            return fail("rich text block add inline element", "the block has no paragraph");
+        }
+        if (media::VisualTreeHelper::GetParent(typed) != nullptr) {
+            return fail("rich text block add inline element", "the element has a parent");
+        }
+        docs::InlineUIContainer container;
+        container.Child(typed);
+        paragraph.Inlines().Append(container);
+        return true;
+    });
+}
+
 bool actionUIWinUIRichTextBlockSetSpacerWidth(ActionUIWinUIObject *block, int32_t paragraphIndex, int32_t inlineIndex,
                                               double width) {
     return guarded("rich text block set spacer width", [&]() {

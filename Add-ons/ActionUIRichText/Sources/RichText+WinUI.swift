@@ -14,8 +14,9 @@
  or right, as the Markdown aligns it) by a spacer before it, the columns as wide as their widest cell plus the
  theme's cell padding, lines at the column edges and between the rows, the header row bold on the code fill. A copy
  has a space between cells, where Linux has a tab. The cells are placed once the text is laid out, where WinUI's own
- measure of each cell is known (placeTables). Not yet: images (an image shows its alt text in brackets), find,
- copy as HTML; a row wider than the element wraps (on Linux only its last cell wraps).
+ measure of each cell is known (placeTables). Images are inline elements of the text at their places, loaded as
+ "remoteImages" allows (RichText+WinUIImages.swift). Not yet: find, copy as HTML; a row wider than the element wraps
+ (on Linux only its last cell wraps).
 
  Built only from ActionUI's interface for add-ons (ActionUIWinUIElement, RenderNode) and the shim's C functions
  (CWinUI's rich text group). The metrics are the GTK renderer's (RichTextGtkBuilder: heading scales, code scale)
@@ -131,6 +132,9 @@ final class RichTextWinUIState {
     private var tablePlacings = 0
     /// The width at which every table was last found placed: at that width an arrange measures nothing again.
     private var tablesSettledAt: Double?
+    /// The images in the text, and when their remote ones may load ("remoteImages").
+    private var images: [RichTextWinUIImageSlot] = []
+    private var remoteImages: RichTextRemoteImages = .automatic
     /// What the block shows: rebuilt when it changes.
     private var shown: Shown?
     private var document = RichTextDocument(blocks: [])
@@ -202,6 +206,25 @@ final class RichTextWinUIState {
         rebuild()
     }
 
+    /// When the text's remote images may load; a change starts the ones it now allows (a held image loads at
+    /// "automatic", or waits for a click at "on-click").
+    func setRemoteImages(_ policy: RichTextRemoteImages) {
+        guard policy != remoteImages else { return }
+        remoteImages = policy
+        for image in images {
+            image.start(policy: policy)
+        }
+    }
+
+    /// An image took its size: the text is laid out again, and its tables placed again (one may hold the image).
+    private func imageArrived() {
+        inlineLines = [:]
+        tablePlacings = 0
+        tablesSettledAt = nil
+        _ = actionUIWinUIElementInvalidateMeasure(block.pointer)
+        _ = actionUIWinUIElementInvalidateMeasure(panel.pointer)
+    }
+
     /// Builds the text again, as the theme has it now.
     func themeChanged() {
         rebuild()
@@ -219,6 +242,11 @@ final class RichTextWinUIState {
         tables = builder.tables
         tablePlacings = 0
         tablesSettledAt = nil
+        images = builder.images
+        for image in images {
+            image.sizeChanged = { [weak self] in self?.imageArrived() }
+            image.start(policy: remoteImages)
+        }
         replaceShapes(builder.decorations)
         _ = actionUIWinUIElementInvalidateMeasure(panel.pointer)
     }
@@ -480,6 +508,8 @@ struct RichTextWinUIBuilder {
     private(set) var decorations: [RichTextDecoration] = []
     /// The tables, in the order of their decorations' table indices.
     private(set) var tables: [RichTextWinUITable] = []
+    /// The images, in the order of the text.
+    private(set) var images: [RichTextWinUIImageSlot] = []
     /// The paragraphs added so far: the next one's index.
     private var paragraphCount = 0
     /// Where the bar of the innermost quote being walked stands; nil outside quotes.
@@ -672,10 +702,16 @@ struct RichTextWinUIBuilder {
                 }
             case .link(let text, let url):
                 link(text.plainText, url: url, style: style, size: size)
-            case .image(let alt, _):
-                // Until images load: the alt text, as a picture that cannot be shown.
-                run("[" + (alt.isEmpty ? "image" : alt) + "]", style: style | italicRun, size: size,
-                    secondary: true)
+            case .image(let alt, let url):
+                // A picture at its place in the text, loaded as "remoteImages" allows (RichText+WinUIImages.swift);
+                // the alt text in brackets only if it cannot be placed.
+                if let image = RichTextWinUIImageSlot(alt: alt, url: URL(string: url)),
+                   actionUIWinUIRichTextBlockAddInlineElement(block, image.panel.pointer) {
+                    images.append(image)
+                } else {
+                    run("[" + (alt.isEmpty ? "image" : alt) + "]", style: style | italicRun, size: size,
+                        secondary: true)
+                }
             case .lineBreak:
                 check(actionUIWinUIRichTextBlockAddLineBreak(block), "a line break")
             }
@@ -827,6 +863,8 @@ struct RichTextView: ActionUIWinUIElement {
         let markdown = runtime ?? (properties["markdown"] as? String) ?? ""
         // The base path is asked whether it is a folder only if the content may read it (RichText+LocalImages.swift).
         let baseURL = markdownBaseURL(properties["baseURL"], mayProbe: { node.readsLocalFile($0) })
+        // Before the text: a rebuild starts its images with the policy (RichTextView+RemoteImages.swift).
+        state.setRemoteImages(effectiveRemoteImagesPolicy(properties["remoteImages"]))
         state.show(markdown: markdown, baseURL: baseURL, theme: theme(properties))
     }
 
