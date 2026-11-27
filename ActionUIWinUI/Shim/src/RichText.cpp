@@ -9,6 +9,7 @@
 #include <winrt/Microsoft.UI.Text.h>
 #include <winrt/Microsoft.UI.Xaml.Documents.h>
 #include <winrt/Microsoft.UI.Xaml.Media.h>
+#include <winrt/Windows.Foundation.Numerics.h>
 #include <winrt/Windows.UI.Text.h>
 
 namespace docs = winrt::Microsoft::UI::Xaml::Documents;
@@ -115,7 +116,26 @@ int32_t actionUIWinUIRichTextBlockInlineLineBounds(ActionUIWinUIObject *block, i
         if (paragraph == nullptr || inlineIndex < 0 || static_cast<uint32_t>(inlineIndex) >= paragraph.Inlines().Size()) {
             return fail("rich text block inline line bounds", "no such inline");
         }
-        docs::TextElement element = paragraph.Inlines().GetAt(static_cast<uint32_t>(inlineIndex)).try_as<docs::TextElement>();
+        docs::Inline item = paragraph.Inlines().GetAt(static_cast<uint32_t>(inlineIndex));
+        // An inline element (an image, a spacer) holds no characters: its rectangle is its child's, where the block
+        // placed it; none while it is not laid out.
+        docs::InlineUIContainer container = item.try_as<docs::InlineUIContainer>();
+        if (container != nullptr) {
+            mux::UIElement child = container.Child();
+            if (child == nullptr) {
+                return true;
+            }
+            wf::Numerics::float2 size = child.ActualSize();
+            // Both sides empty: not laid out. One empty side is still a rectangle: a spacer has a width and no
+            // height.
+            if (size.x <= 0 && size.y <= 0) {
+                return true;
+            }
+            wf::Point origin = child.TransformToVisual(typed).TransformPoint(wf::Point{0, 0});
+            rects[written++] = ActionUIWinUIRect{origin.X, origin.Y, size.x, size.y};
+            return true;
+        }
+        docs::TextElement element = item.try_as<docs::TextElement>();
         if (element == nullptr) {
             return fail("rich text block inline line bounds", "no such inline");
         }

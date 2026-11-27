@@ -22,6 +22,13 @@
         "markdown": "With remoteImages never, a remote image is not loaded:\n\n![an image that stays off](https://example.com/off.png)",
         "remoteImages": "never"
       }
+    },
+    {
+      "type": "RichText",
+      "id": 5,
+      "properties": {
+        "markdown": "## An image in a table\n\n| Picture | Name |\n|---|---|\n| ![a blue and orange picture](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHgAAAA8CAIAAAAiz+n/AAAAqUlEQVR4nO3QQQ2AQBDAwAU1yEIG6ngjCxdDLnQUNN2O65nV3HPOavavA/6i0UijkUYjjUYajTQaaTTSaKTRSKORRiONRhqNNBppNNJopNFIo5FGI41GGo00Gmk00mik0UijkUYjjUYajTQaaTTSaKTRSKORRiONRhqNNBppNNJopNFIo5FGI41GGo00Gmk00mik0UijkUYjjUYajTQaaTTSaKTRSKPHeAHqBgL+yx09vwAAAABJRU5ErkJggg==) | wide picture |\n| icon ![a blue and orange picture](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHgAAAA8CAIAAAAiz+n/AAAAqUlEQVR4nO3QQQ2AQBDAwAU1yEIG6ngjCxdDLnQUNN2O65nV3HPOavavA/6i0UijkUYjjUYajTQaaTTSaKTRSKORRiONRhqNNBppNNJopNFIo5FGI41GGo00Gmk00mik0UijkUYjjUYajTQaaTTSaKTRSKORRiONRhqNNBppNNJopNFIo5FGI41GGo00Gmk00mik0UijkUYjjUYajTQaaTTSaKTRSKPHeAHqBgL+yx09vwAAAABJRU5ErkJggg==) | with text |\n| x | narrow |"
+      }
     }
   ]
 }

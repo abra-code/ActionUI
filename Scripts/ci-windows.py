@@ -755,7 +755,8 @@ ADD_ON_PREVIEW_OPTIONS = {
                             "--forbid-log", "creating the element RichText", "--forbid-log", "RichText: "],
     # Images in RichText: a data: image shown in the text at its size; a remote image held for a click under
     # "on-click" (its placeholder names the host), and one left off under "never" (its placeholder says so: the PNG
-    # shows both placeholders). No failure line.
+    # shows both placeholders); and images in a table's cells, which count toward their column's width (the PNG shows
+    # the picture column as wide as the picture plus "icon", the names in their own column). No failure line.
     "RichTextImages": ["--delay", "1500", "--forbid-log", "creating the element RichText", "--forbid-log", "RichText: "],
     # states["search"] highlights the matches of a term: "ready" in element 2 (one across a bold run's edge, one after an
     # emoji (two UTF-16 units), in a list, a link, a table cell and a code block: the PNG shows six, the first in

@@ -345,7 +345,8 @@ final class RichTextWinUIState {
             var cells: [[(start: Double, width: Double)]] = []
             for row in table.rows {
                 var measured: [(start: Double, width: Double)] = []
-                var rowTop: Double?
+                // The first rectangle's top and bottom: the row's line.
+                var rowLine: (top: Double, bottom: Double)?
                 for cell in row.cells {
                     guard let content = cell.content else {
                         // An empty cell starts where its spacer ends: after the space before it, or at the row's start.
@@ -367,10 +368,14 @@ final class RichTextWinUIState {
                         for rect in lines(of: RichTextInlineKey(paragraph: row.paragraph, inline: inline)) {
                             // A row that wraps (the element is narrower than the table) is left as it is: its
                             // wrapped lines are no cell widths, and placing by them would widen the columns at
-                            // each layout.
-                            let top = rowTop ?? rect.y
-                            rowTop = top
-                            guard abs(rect.y - top) <= rect.height / 2 else {
+                            // each layout. A rectangle on the row's line overlaps it: an image in a cell is taller
+                            // than the text beside it, and starts higher.
+                            let line = rowLine ?? (rect.y, rect.y + rect.height)
+                            rowLine = line
+                            // More than half a point: the next line's top is the row line's bottom, give or take
+                            // rounding.
+                            let overlap = min(rect.y + rect.height, line.bottom) - max(rect.y, line.top)
+                            guard overlap > 0.5 else {
                                 skipped = true
                                 continue nextTable
                             }

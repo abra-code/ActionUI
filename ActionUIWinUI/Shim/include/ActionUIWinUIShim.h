@@ -955,8 +955,9 @@ ACTIONUI_WINUI_API bool actionUIWinUIRichTextBlockAddLink(ActionUIWinUIObject *b
 ACTIONUI_WINUI_API int32_t actionUIWinUIRichTextBlockLastInlineIndex(ActionUIWinUIObject *block);
 // The rectangles the `inlineIndex`th inline of the `paragraphIndex`th paragraph takes, one per line it is on,
 // in points from the block's top-left corner, once the block is laid out: each from its first character's
-// leading edge to its last character's trailing edge on that line, the line's height. For drawing behind
-// the text (inline code's fill). Writes up to `capacity` rectangles into `rects` and returns how many it
+// leading edge to its last character's trailing edge on that line, the line's height; for an inline element (an
+// image, a spacer), its one rectangle. For drawing behind the text (inline code's fill) and measuring a table's
+// cells. Writes up to `capacity` rectangles into `rects` and returns how many it
 // wrote: 0 when the inline is empty or not laid out yet, or on failure (no such inline).
 ACTIONUI_WINUI_API int32_t actionUIWinUIRichTextBlockInlineLineBounds(ActionUIWinUIObject *block, int32_t paragraphIndex,
                                                                       int32_t inlineIndex, ActionUIWinUIRect *rects,
