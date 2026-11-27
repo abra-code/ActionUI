@@ -588,26 +588,33 @@ bool actionUIWinUIWindowSetResizable(ActionUIWinUIObject *window, bool resizable
     });
 }
 
-bool actionUIWinUIWindowSetMinimumContentWidth(ActionUIWinUIObject *window, double width) {
-    return guarded("window set minimum content width", [&]() {
-        if (!(width >= 0 && width < 1000000.0)) {
-            return fail("window set minimum content width", "the width must be 0 or more, and finite");
+bool actionUIWinUIWindowSetMinimumContentSize(ActionUIWinUIObject *window, double width, double height) {
+    return guarded("window set minimum content size", [&]() {
+        if (!(width >= 0 && width < 1000000.0 && height >= 0 && height < 1000000.0)) {
+            return fail("window set minimum content size", "the width and height must be 0 or more, and finite");
         }
         mux::Window typed = windowFrom(window);
         winrt::Microsoft::UI::Windowing::AppWindow appWindow = typed.AppWindow();
         winrt::Microsoft::UI::Windowing::OverlappedPresenter presenter =
             appWindow.Presenter().try_as<winrt::Microsoft::UI::Windowing::OverlappedPresenter>();
         if (presenter == nullptr) {
-            return fail("window set minimum content width", "the window has no overlapped presenter");
+            return fail("window set minimum content size", "the window has no overlapped presenter");
         }
+        // The presenter's minimum is the whole window's, in physical pixels: the content's size at the window's
+        // scale plus its frame (and title bar, down).
+        double scale = windowScale(typed);
+        int32_t frameWidth = appWindow.Size().Width - appWindow.ClientSize().Width;
+        int32_t frameHeight = appWindow.Size().Height - appWindow.ClientSize().Height;
         if (width == 0) {
             presenter.PreferredMinimumWidth(nullptr);
-            return true;
+        } else {
+            presenter.PreferredMinimumWidth(static_cast<int32_t>(width * scale + 0.5) + (frameWidth > 0 ? frameWidth : 0));
         }
-        // The presenter's minimum is the whole window's, in physical pixels: the content's width at the
-        // window's scale plus its frame.
-        int32_t frame = appWindow.Size().Width - appWindow.ClientSize().Width;
-        presenter.PreferredMinimumWidth(static_cast<int32_t>(width * windowScale(typed) + 0.5) + (frame > 0 ? frame : 0));
+        if (height == 0) {
+            presenter.PreferredMinimumHeight(nullptr);
+        } else {
+            presenter.PreferredMinimumHeight(static_cast<int32_t>(height * scale + 0.5) + (frameHeight > 0 ? frameHeight : 0));
+        }
         return true;
     });
 }

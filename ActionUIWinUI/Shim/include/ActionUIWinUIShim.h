@@ -117,9 +117,9 @@ ACTIONUI_WINUI_API bool actionUIWinUIWindowSetContentSize(ActionUIWinUIObject *w
                                                           double height);
 // Whether the user can resize (and maximize) the window; a window is resizable when made.
 ACTIONUI_WINUI_API bool actionUIWinUIWindowSetResizable(ActionUIWinUIObject *window, bool resizable);
-// The least width the user can resize the window's content area to (0: none), at the window's current
-// display scale and frame.
-ACTIONUI_WINUI_API bool actionUIWinUIWindowSetMinimumContentWidth(ActionUIWinUIObject *window, double width);
+// The least size the user can resize the window's content area to (0 on a side: none on that side), at the
+// window's current display scale and frame.
+ACTIONUI_WINUI_API bool actionUIWinUIWindowSetMinimumContentSize(ActionUIWinUIObject *window, double width, double height);
 // Makes `element` the window's content (NULL removes it). The window keeps its own reference. The
 // content sits on the theme's page background, filling the window's content area.
 ACTIONUI_WINUI_API bool actionUIWinUIWindowSetContent(ActionUIWinUIObject *window, ActionUIWinUIObject *element);

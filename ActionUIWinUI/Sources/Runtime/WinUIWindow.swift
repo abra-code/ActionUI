@@ -335,7 +335,8 @@ package final class WinUIWindow {
     /// never sees it at its first size; it shows after fittingTimeoutNanoseconds if its content has not
     /// loaded by then. `extraHeight` is added to the content's height (a menu bar, a host's mark above it);
     /// the window is at least `minimumWidth` wide (what the mark's row needs), and the user cannot resize
-    /// it narrower; `fitted`
+    /// it narrower, nor smaller than its content's minimum (ContentSizeLimits.measured) unless `setsMinimum` is
+    /// false (a host's window, whose limits are the host's); `fitted`
     /// runs once the window is sized. Call it with the content in the window, before the window shows.
     /// A window is never smaller than its content needs (fittingSize), even when `wanted` gives both
     /// sides, as on macOS, where a window is at least its content's minimum size; it keeps growing
@@ -343,6 +344,7 @@ package final class WinUIWindow {
     package func fit(_ window: WinUIObject, wanted: (width: Int, height: Int)?, cloaks: Bool,
                      extraHeight: @escaping @MainActor (WinUIObject) -> Double = { _ in 0 },
                      minimumWidth: @escaping @MainActor (WinUIObject) -> Double = { _ in 0 },
+                     setsMinimum: Bool = true,
                      fitted: @escaping @MainActor () -> Void = {}) {
         guard let view else {
             fitted()
@@ -368,9 +370,16 @@ package final class WinUIWindow {
             if !actionUIWinUIWindowSetContentSize(window.pointer, size.width, size.height + max(extraHeight(window), 0)) {
                 logger.log("WinUIWindow: \(WinUIError.last("sizing a window to its loaded content"))", .warning)
             }
-            // The user cannot make it narrower either.
-            if leastWidth > 0, !actionUIWinUIWindowSetMinimumContentWidth(window.pointer, leastWidth) {
-                logger.log("WinUIWindow: \(WinUIError.last("setting a window's least width"))", .warning)
+            // The user cannot make it smaller than its content's minimum either (its toolbar included), as a macOS
+            // window keeps its content's minimum size, nor narrower than `minimumWidth`.
+            let least = setsMinimum ? self.root.map {
+                ContentSizeLimits.measured(view, expansion: $0.expansion, compression: $0.compression, caps: $0.caps).minSize
+            } : nil
+            let leastSize = ActionUIWinUISize(width: max(leastWidth, (least?.width ?? 0).rounded(.up)),
+                                              height: least.map { ($0.height + max(extraHeight(window), 0)).rounded(.up) } ?? 0)
+            if leastSize.width > 0 || leastSize.height > 0,
+               !actionUIWinUIWindowSetMinimumContentSize(window.pointer, leastSize.width, leastSize.height) {
+                logger.log("WinUIWindow: \(WinUIError.last("setting a window's least size"))", .warning)
             }
             // Laid out at the new size now, and shown on the next turn of the loop: the first frame the
             // user sees has the content at its size, not at the first one.

@@ -99,7 +99,8 @@ package enum HostWindow {
         }
         // Cloaked until sized to its content once loaded (WinUIWindow.fit): the size above is measured before
         // the controls have their styles.
-        tree.fit(window, wanted: nil, cloaks: true)
+        // The host decides how small its window may be: no minimum from the content.
+        tree.fit(window, wanted: nil, cloaks: true, setsMinimum: false)
         let entry = Filled(window: window, tree: tree)
         filled[windowUUID] = entry
         WinUIEvents.connect(window, actionUIWinUIWindowOnClosed, "a host window's closing") { [weak entry] in

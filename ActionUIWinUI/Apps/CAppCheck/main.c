@@ -9,7 +9,8 @@
 // run, with no window, over a window and with four buttons; and file panels (actionUIAppRunOpenPanel,
 // actionUIAppRunSavePanel): open, save, cancel, a folder. Each is answered as an accessibility tool does (UI
 // Automation's Invoke on a button, its Value on the name field, from a thread of its own while the call waits).
-// Measures the size limits of five windows' contents (actionUIGetContentSizeLimits).
+// Measures the size limits of five windows' contents (actionUIGetContentSizeLimits), and the least size one can be
+// resized to.
 // Reads a TextField and a SecureField of the first window as a screen reader does: the TextField gives its
 // text, the SecureField says it is a password and gives none of its text.
 // Usage: ActionUIAppCheck WINDOW.json URL.
@@ -905,7 +906,8 @@ static DWORD WINAPI pause(void *parameter) {
 // natural size, its minimum not above its maximum); an unknown window has none.
 static const char *const limitsWindows[] = {"csl-fixed", "csl-flexible", "csl-color", "csl-text", "csl-wide"};
 static const char *const limitsJSON[] = {
-    "{\"type\": \"Text\", \"id\": 1, \"properties\": {\"text\": \"Fixed\", \"frame\": {\"width\": 300, \"height\": 200}}}",
+    "{\"type\": \"WindowGroup\", \"properties\": {\"title\": \"Fixed limits\"}, \"content\": "
+    "{\"type\": \"Text\", \"id\": 1, \"properties\": {\"text\": \"Fixed\", \"frame\": {\"width\": 300, \"height\": 200}}}}",
     "{\"type\": \"Color\", \"id\": 1, \"properties\": {\"color\": \"red\", \"frame\": {\"minWidth\": 100, \"maxWidth\": 400, "
     "\"minHeight\": 50, \"maxHeight\": 300}}}",
     "{\"type\": \"Color\", \"id\": 1, \"properties\": {\"color\": \"blue\"}}",
@@ -952,6 +954,31 @@ static void checkContentSizeLimits(void) {
     check(maximum[4][0] == DBL_MAX && maximum[4][1] < 100, "a frame to maxWidth infinity: unbounded across, bounded by its text down");
     double ignored = 0;
     check(!actionUIGetContentSizeLimits("csl-unknown", &ignored, NULL, NULL, NULL), "an unknown window has no size limits");
+    // The user cannot resize a window below its content's minimum: the least size Windows lets them drag it to
+    // (WM_GETMINMAXINFO, which WinUI's presenter answers) holds the fixed frame's 300 x 200, at the window's scale,
+    // with its frame.
+    HWND fixedWindow = FindWindowW(NULL, L"Fixed limits");
+    check(fixedWindow != NULL, "the fixed window is found by its title");
+    if (fixedWindow != NULL) {
+        MINMAXINFO info;
+        memset(&info, 0, sizeof info);
+        SendMessageW(fixedWindow, WM_GETMINMAXINFO, 0, (LPARAM)&info);
+        RECT outer;
+        RECT client;
+        double scale = GetDpiForWindow(fixedWindow) / 96.0;
+        if (GetWindowRect(fixedWindow, &outer) && GetClientRect(fixedWindow, &client)) {
+            long frameWidth = (outer.right - outer.left) - (client.right - client.left);
+            long frameHeight = (outer.bottom - outer.top) - (client.bottom - client.top);
+            printf("c-app: fixed window least size %ld x %ld (scale %.2f, frame %ld x %ld)\n", info.ptMinTrackSize.x,
+                   info.ptMinTrackSize.y, scale, frameWidth, frameHeight);
+            fflush(stdout);
+            check(info.ptMinTrackSize.x + 1 >= (long)(300 * scale) + frameWidth &&
+                      info.ptMinTrackSize.y + 1 >= (long)(200 * scale) + frameHeight,
+                  "a window cannot be resized below its content's minimum");
+        } else {
+            check(false, "the fixed window's frame is read");
+        }
+    }
     for (size_t index = 0; index < count; index++) {
         actionUIAppCloseWindow(limitsWindows[index]);
     }

@@ -18,7 +18,9 @@
    largest width, or for the natural width when nothing bounds the width.
 
  A fixed root frame gives minSize == maxSize, which a host reads as a window of a fixed size. The measures are
- WinUI's own, made outside its layout pass; the root is measured again for its window's size afterwards.
+ WinUI's own, made outside its layout pass; the root is measured again for its window's size afterwards. A window
+ fit to its content (WinUIWindow.fit) takes the same minimum, toolbar included, as the least size the user can
+ resize it to.
 */
 
 #if canImport(FoundationEssentials)
@@ -40,17 +42,15 @@ public struct ContentSizeLimits: Sendable, Equatable {
     public let maxSize: Size
 }
 
-@MainActor
-extension ActionUIModel {
-    /// The size limits of the content of the window showing `windowUUID`, or nil when no such window is on
-    /// screen with its content.
-    public func contentSizeLimits(windowUUID: String) -> ContentSizeLimits? {
-        guard let root = WinUIWindow.shownRoot(windowUUID: windowUUID), let view = root.outerView else {
-            return nil
-        }
+extension ContentSizeLimits {
+    /// The limits of `view`, a window's content whose root grows as `expansion` says, up to `caps`, and can be made
+    /// smaller as `compression` says (see the header).
+    /// Measured outside WinUI's layout pass: the view is measured again for its window's size afterwards.
+    @MainActor
+    static func measured(_ view: WinUIObject, expansion: Expansion, compression: Expansion,
+                         caps: (horizontal: Int?, vertical: Int?)) -> ContentSizeLimits {
         func measure() -> ContentSizeLimits {
             defer {
-                // Measured here for other sizes: laid out again for its window's.
                 view.invalidateMeasure()
             }
             let unbounded = Double.infinity
@@ -58,16 +58,15 @@ extension ActionUIModel {
             // Probed with nothing offered only along an axis the root can be made smaller in, or grows in (down to its
             // frame's minimum); elsewhere at its natural size, as a stack reads a child that cannot shrink: WinUI caps a
             // control's answer at what it is offered.
-            let minWidth = root.compression.union(root.expansion).contains(.horizontal)
+            let minWidth = compression.union(expansion).contains(.horizontal)
                 ? view.measureRequested(ActionUIWinUISize(width: 0, height: unbounded)).width : natural.width
-            let maxWidth: Double? = root.expansion.contains(.horizontal)
-                ? root.caps.horizontal.map(Double.init) : natural.width
+            let maxWidth: Double? = expansion.contains(.horizontal) ? caps.horizontal.map(Double.init) : natural.width
             // Both heights at one width, so that the minimum is not above the maximum.
             let heightForWidth = maxWidth ?? natural.width
             let minHeight = view.measureRequested(ActionUIWinUISize(width: heightForWidth,
-                                                                   height: root.compression.union(root.expansion).contains(.vertical) ? 0 : unbounded)).height
-            let maxHeight: Double? = root.expansion.contains(.vertical)
-                ? root.caps.vertical.map(Double.init)
+                                                                   height: compression.union(expansion).contains(.vertical) ? 0 : unbounded)).height
+            let maxHeight: Double? = expansion.contains(.vertical)
+                ? caps.vertical.map(Double.init)
                 : view.measureRequested(ActionUIWinUISize(width: heightForWidth, height: unbounded)).height
             func finite(_ value: Double) -> Double {
                 value.isFinite ? max(0, value) : 0
@@ -80,5 +79,17 @@ extension ActionUIModel {
         // The panel's own offer and answer kept for the window's next layout pass, which grows the window
         // when the answer changed for the same offer (LayoutPanel.measuringOutsideLayout).
         return view.layoutPanel?.measuringOutsideLayout(measure) ?? measure()
+    }
+}
+
+@MainActor
+extension ActionUIModel {
+    /// The size limits of the content of the window showing `windowUUID`, or nil when no such window is on
+    /// screen with its content.
+    public func contentSizeLimits(windowUUID: String) -> ContentSizeLimits? {
+        guard let root = WinUIWindow.shownRoot(windowUUID: windowUUID), let view = root.outerView else {
+            return nil
+        }
+        return ContentSizeLimits.measured(view, expansion: root.expansion, compression: root.compression, caps: root.caps)
     }
 }
