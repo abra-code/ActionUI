@@ -95,6 +95,12 @@ WINUI_RUNTIME_MSIX = [
     "Microsoft.WindowsAppRuntime.DDLM.2.msix",
 ]
 SMOKE_TIMEOUT_SECONDS = 180
+# WinHTTP's text for ERROR_WINHTTP_NAME_NOT_RESOLVED, as ActionUI logs a remote load that failed on it. A preview
+# that loads a test file from GitHub fails on it when the network's DNS does not answer for a moment (seen on the
+# VMware NAT's resolver); such a preview runs once more after NAME_RETRY_SECONDS (render_previews). No test
+# expects this error.
+NAME_NOT_RESOLVED = "The server name or address could not be resolved"
+NAME_RETRY_SECONDS = 15
 # Options for ActionUIWinUIPreview by test file name (ActionUIWinUI/Apps/Preview/TestFiles), beside
 # the test file and the PNG: elements to operate with the actions they must fire, and a window size only
 # where a check needs one (real mouse input at points, scrolling, an expected width or height, how many
@@ -1879,8 +1885,19 @@ def render_previews(program, folder, options_by_name, real_input_by_name, prefix
             options = without_real_input(options)
         else:
             options += real_input_by_name.get(ui_file.stem, [])
-        step = run_step(f"{prefix}-{ui_file.stem}", [program, ui_file, png] + options, results, env, cwd=bin_path,
-                        timeout=SMOKE_TIMEOUT_SECONDS)
+        name = f"{prefix}-{ui_file.stem}"
+        command = [program, ui_file, png] + options
+        step = run_step(name, command, results, env, cwd=bin_path, timeout=SMOKE_TIMEOUT_SECONDS)
+        log_path = results / step["log"]
+        if step["status"] != 0 and NAME_NOT_RESOLVED in log_path.read_text(encoding="utf-8", errors="replace"):
+            # The DNS, not the code: once more, the first run's log kept beside the second's.
+            first_log = results / f"{name}-name-not-resolved.log"
+            log_path.replace(first_log)
+            summary["findings"].append(f"{name}: a host name could not be resolved (the network's DNS); ran again "
+                                       f"after {NAME_RETRY_SECONDS} s, the first run's log is {first_log.name}")
+            time.sleep(NAME_RETRY_SECONDS)
+            step = run_step(name, command, results, env, cwd=bin_path, timeout=SMOKE_TIMEOUT_SECONDS)
+            step["note"] = (step["note"] + " (second run: the first could not resolve a host name)").strip()
         summary["steps"].append(step)
         summary["findings"] += [line for line in (results / step["log"]).read_text(encoding="utf-8", errors="replace")
                                 .splitlines() if line.startswith("preview:")]
