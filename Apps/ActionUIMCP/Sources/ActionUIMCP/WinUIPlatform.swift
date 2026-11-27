@@ -30,8 +30,9 @@ final class WinUIPlatform: WindowPlatform {
     nonisolated static let noticeDescription = """
         Show a short notice in the bottom right corner of the user's screen, for example that a long \
         job finished. Returns {shown} at once. The notice does not take focus and disappears after \
-        duration_s or when clicked; nothing comes back from it. Markdown is not formatted on Windows yet: \
-        its marks show as written, so write the message as plain text.
+        duration_s or when clicked; nothing comes back from it. Its message is Markdown: headings, \
+        lists, code blocks and tables are drawn as well as bold, italic, code and links; remote images \
+        in it are not loaded.
         """
     nonisolated static let verifierPlatform = "windows"
     nonisolated static let keepsWindows = true

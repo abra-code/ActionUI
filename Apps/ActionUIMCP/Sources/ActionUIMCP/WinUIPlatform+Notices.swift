@@ -43,8 +43,7 @@ extension WinUIPlatform {
         if let title, !title.isEmpty {
             children.append(["type": "Text", "properties": ["text": title, "font": "headline"]])
         }
-        children.append(["type": "Text", "properties": ["markdown": message, "font": ["size": 13],
-                                                       "frame": ["maxWidth": "infinity", "alignment": "leading"]]])
+        children.append(agentMarkdown(message, size: 13))
         children.append(["type": "Text", "properties": ["text": subtitle, "font": "caption", "foregroundStyle": "secondary"]])
         let ui: [String: Any] = [
             "type": "VStack",
