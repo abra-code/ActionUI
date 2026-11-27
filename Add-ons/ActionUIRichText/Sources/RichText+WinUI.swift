@@ -15,8 +15,10 @@
  theme's cell padding, lines at the column edges and between the rows, the header row bold on the code fill. A copy
  has a space between cells, where Linux has a tab. The cells are placed once the text is laid out, where WinUI's own
  measure of each cell is known (placeTables). Images are inline elements of the text at their places, loaded as
- "remoteImages" allows (RichText+WinUIImages.swift). Not yet: find, copy as HTML; a row wider than the element wraps
- (on Linux only its last cell wraps).
+ "remoteImages" allows (RichText+WinUIImages.swift). states["search"] highlights the matches of a term in the text,
+ as on Apple platforms and Linux (RichText+WinUIFind.swift). A selection copies as plain text, as on Linux (Apple
+ platforms copy attributed text). Not yet: the find bar ("showFindBar"); a row wider than the element wraps (on Linux
+ only its last cell wraps).
 
  Built only from ActionUI's interface for add-ons (ActionUIWinUIElement, RenderNode) and the shim's C functions
  (CWinUI's rich text group). The metrics are the GTK renderer's (RichTextGtkBuilder: heading scales, code scale)
@@ -140,6 +142,11 @@ final class RichTextWinUIState {
     private var document = RichTextDocument(blocks: [])
     private var theme = RichTextTheme.default
     private weak var node: RenderNode?
+    /// Find in the text (RichText+WinUIFind.swift), and the last states["search"] applied, so a states change that
+    /// delivers it again changes nothing.
+    let find: RichTextWinUIFind
+    private var lastAppliedSearch: String?
+    private var lastRejectedSearch: String?
 
     /// The fill behind code (cards and inline code) and the color of quote bars and rules: theme brushes, as the
     /// GTK renderer derives them from the text color.
@@ -183,6 +190,7 @@ final class RichTextWinUIState {
         self.block = block
         self.panel = panel
         self.node = node
+        find = RichTextWinUIFind(block: block.pointer)
         Unmanaged<WeakRichTextState>.fromOpaque(layoutContext).takeUnretainedValue().state = self
         guard actionUIWinUIPanelInsertChild(panel.pointer, 0, block.pointer) else {
             logger.log("RichText: placing its text failed: \(lastShimError())", .error)
@@ -249,6 +257,25 @@ final class RichTextWinUIState {
         }
         replaceShapes(builder.decorations)
         _ = actionUIWinUIElementInvalidateMeasure(panel.pointer)
+        find.textChanged()
+    }
+
+    /// Applies a value of states["search"], as the GTK element does: a term highlights its matches, a blank one
+    /// clears them.
+    func applySearch(_ value: Any?) {
+        // nil: the key was never set - no opinion.
+        guard let value else { return }
+        guard let query = value as? String else {
+            let description = String(describing: value)
+            if description != lastRejectedSearch {
+                lastRejectedSearch = description
+                ActionUIModel.shared.logger.log("RichText search state must be a String; ignoring", .warning)
+            }
+            return
+        }
+        guard query != lastAppliedSearch else { return }
+        lastAppliedSearch = query
+        find.query = query
     }
 
     /// The shapes for `decorations`, in place of the old ones, behind the text.
@@ -827,8 +854,8 @@ struct RichTextView: ActionUIWinUIElement {
     // "no runtime source", and update then falls back to the "markdown" property.
     static var initialValue: (ViewModel) -> Any? { { model in (model.value as? String) ?? "" } }
 
-    // Seeded as an empty String, as on Apple and Linux: a state key's first write fixes its type. (Find, which reads
-    // it, follows on Windows.)
+    // Seeded as an empty String, as on Apple and Linux: a state key's first write fixes its type, and these terms are
+    // typed by people.
     static var initialStates: (ViewModel) -> [String: Any] {
         { model in
             var states = model.states
@@ -866,6 +893,8 @@ struct RichTextView: ActionUIWinUIElement {
         // Before the text: a rebuild starts its images with the policy (RichTextView+RemoteImages.swift).
         state.setRemoteImages(effectiveRemoteImagesPolicy(properties["remoteImages"]))
         state.show(markdown: markdown, baseURL: baseURL, theme: theme(properties))
+        // After the text, which the search reads.
+        state.applySearch(node.model.states["search"])
     }
 
     /// "fill" (the default) takes the width it is offered; "hug" takes its text's, wrapping only at what it is offered.

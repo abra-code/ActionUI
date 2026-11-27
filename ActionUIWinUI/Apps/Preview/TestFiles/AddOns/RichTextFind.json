@@ -1,0 +1,25 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": {
+    "alignment": "leading",
+    "spacing": 12,
+    "padding": 12
+  },
+  "children": [
+    {
+      "type": "RichText",
+      "id": 2,
+      "properties": {
+        "markdown": "## Find\n\nThe **re**ady reader 😀 is ready.\n\n- one ready item\n- [a ready link](https://example.com)\n\n| Item | State |\n|---|---|\n| ready | not yet |\n\n```\nlet ready = true\n```"
+      }
+    },
+    {
+      "type": "RichText",
+      "id": 3,
+      "properties": {
+        "markdown": "Her ￼ résumé, a Resume, two RESUMES, resumed work, and présumé."
+      }
+    }
+  ]
+}

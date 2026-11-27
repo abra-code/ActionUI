@@ -72,8 +72,9 @@ let package = Package(
     dependencies: [
         .package(path: "../.."),   // the ActionUI package at the repo root
         // 0.4.3 is the first version that builds on Windows (the model, with no renderer) and makes public the
-        // syntax tokenizer and the image placeholder text this element uses.
-        .package(url: "https://github.com/abra-code/RichText", from: "0.4.3"),
+        // syntax tokenizer and the image placeholder text this element uses; 0.4.4 the first with the find engine
+        // on Windows (RichTextSearch, over Windows' ICU), which find in the element uses.
+        .package(url: "https://github.com/abra-code/RichText", from: "0.4.4"),
         // The images in the Markdown load through it, as RichText's GTK view loads them on Linux (RichText itself
         // has no renderer and no dependency on Windows). 0.2.7 is its first version with the Windows engine.
         .package(url: "https://github.com/abra-code/AsyncImageCache", from: "0.2.7"),

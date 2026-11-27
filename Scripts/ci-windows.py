@@ -652,6 +652,10 @@ def edit_overlay_dependencies(package_arguments, results, summary, env):
     for folder in overlays:
         if folder.name.lower() not in identities:
             continue
+        # An edit left by an earlier run in a kept build folder is undone first: SwiftPM refuses a second edit. (No
+        # edit to undo is an error, and is ignored.)
+        subprocess.run(["swift", "package"] + package_arguments + ["unedit", "--force", folder.name.lower()],
+                       capture_output=True, text=True, env=env)
         step = run_step(f"overlay-{folder.name}-edit", ["swift", "package"] + package_arguments
                         + ["edit", folder.name.lower(), "--path", str(folder)], results, env)
         summary["steps"].append(step)
@@ -749,6 +753,12 @@ ADD_ON_PREVIEW_OPTIONS = {
     # "on-click" (its placeholder names the host), and one left off under "never" (its placeholder says so: the PNG
     # shows both placeholders). No failure line.
     "RichTextImages": ["--delay", "1500", "--forbid-log", "creating the element RichText", "--forbid-log", "RichText: "],
+    # states["search"] highlights the matches of a term: "ready" in element 2 (one across a bold run's edge, one after an
+    # emoji (two UTF-16 units), in a list, a link, a table cell and a code block: the PNG shows six, the first in
+    # orange, the others in yellow), "resume" in element 3 (folding case and accents: r\u00e9sum\u00e9 after a typed U+FFFC,
+    # which is text, Resume, RESUMES, resumed, pr\u00e9sum\u00e9's inner one). No failure line.
+    "RichTextFind": ["--set-state", "2", "search", "ready", "--set-state", "3", "search", "resume", "--delay", "500",
+                     "--forbid-log", "creating the element RichText", "--forbid-log", "RichText: "],
     # A Diff in JSON from a server reads no file on a share or a device, whatever form the path has: the add-on asks
     # the trust policy about the full path Windows opens (two slashes become backslashes, NUL is \\.\NUL), so each
     # refusal names that path. The share (actionui-canary, CANARY_SHARE) is the one check_share_reads shares and
@@ -1992,6 +2002,9 @@ def check_mcp(shim_out, results, summary, env):
     library is on the linker path and its folder on PATH. True when they built without warnings and passed."""
     scratch = ["--package-path", str(REPO_DIR / "Apps" / "ActionUIMCP"),
                "--scratch-path", str(REPO_DIR / ".build" / "ci-windows-mcp"), "--manifest-cache", "none"]
+    # The overlay packages' working trees, as the library build takes them (the server links the same add-ons).
+    if not edit_overlay_dependencies(scratch, results, summary, env):
+        return False
     build = run_step("mcp-build", ["swift", "build", "--build-tests"] + scratch + ["-Xswiftc", f"-L{shim_out}"], results, env)
     summary["steps"].append(build)
     if build["status"] != 0:

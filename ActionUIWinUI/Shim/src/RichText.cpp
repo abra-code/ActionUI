@@ -46,6 +46,26 @@ void applyStyle(docs::TextElement const &element, uint32_t style, double fontSiz
     }
 }
 
+// Each piece of `inlines`' text to `piece`, links and spans entered (visitText).
+void visitInlines(winrt::Windows::Foundation::Collections::IVector<docs::Inline> const &inlines, int32_t paragraphIndex,
+                  ActionUIWinUIRichTextPieceCallback piece, void *context) {
+    for (docs::Inline const &item : inlines) {
+        docs::Run run = item.try_as<docs::Run>();
+        docs::Span span = item.try_as<docs::Span>();
+        if (run != nullptr) {
+            std::string text = winrt::to_string(run.Text());
+            piece(context, paragraphIndex, text.c_str());
+        } else if (span != nullptr) {
+            // A Hyperlink is a Span.
+            visitInlines(span.Inlines(), paragraphIndex, piece, context);
+        } else if (item.try_as<docs::LineBreak>() != nullptr) {
+            piece(context, paragraphIndex, "\n");
+        } else if (item.try_as<docs::InlineUIContainer>() != nullptr) {
+            piece(context, paragraphIndex, nullptr);
+        }
+    }
+}
+
 } // namespace
 
 extern "C" {
@@ -340,6 +360,52 @@ bool actionUIWinUIRichTextBlockAddLink(ActionUIWinUIObject *block, const char *t
                                link.Click([holder](auto &&, auto &&) { holder->fire(); });
                                paragraph.Inlines().Append(link);
                            });
+}
+
+bool actionUIWinUIRichTextBlockVisitText(ActionUIWinUIObject *block, ActionUIWinUIRichTextPieceCallback piece,
+                                         void *context) {
+    return guarded("rich text block visit text", [&]() {
+        if (piece == nullptr) {
+            return fail("rich text block visit text", "no callback");
+        }
+        auto blocks = objectAs<muxc::RichTextBlock>(block, L"RichTextBlock").Blocks();
+        for (uint32_t index = 0; index < blocks.Size(); ++index) {
+            docs::Paragraph paragraph = blocks.GetAt(index).try_as<docs::Paragraph>();
+            if (paragraph != nullptr) {
+                visitInlines(paragraph.Inlines(), static_cast<int32_t>(index), piece, context);
+            }
+        }
+        return true;
+    });
+}
+
+bool actionUIWinUIRichTextBlockSetHighlights(ActionUIWinUIObject *block, const int32_t *starts, const int32_t *lengths,
+                                             int32_t count, int32_t current, ActionUIWinUIColor matchColor,
+                                             ActionUIWinUIColor currentColor) {
+    return guarded("rich text block set highlights", [&]() {
+        auto highlighters = objectAs<muxc::RichTextBlock>(block, L"RichTextBlock").TextHighlighters();
+        highlighters.Clear();
+        if (count <= 0) {
+            return true;
+        }
+        if (starts == nullptr || lengths == nullptr) {
+            return fail("rich text block set highlights", "no ranges");
+        }
+        docs::TextHighlighter matches;
+        matches.Background(brushFor(&matchColor, nullptr));
+        docs::TextHighlighter chosen;
+        chosen.Background(brushFor(&currentColor, nullptr));
+        for (int32_t index = 0; index < count; ++index) {
+            if (lengths[index] <= 0 || starts[index] < 0) {
+                continue;
+            }
+            docs::TextRange range{starts[index], lengths[index]};
+            (index == current ? chosen : matches).Ranges().Append(range);
+        }
+        highlighters.Append(matches);
+        highlighters.Append(chosen);
+        return true;
+    });
 }
 
 } // extern "C"

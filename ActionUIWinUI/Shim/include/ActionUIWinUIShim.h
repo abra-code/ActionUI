@@ -964,6 +964,22 @@ ACTIONUI_WINUI_API int32_t actionUIWinUIRichTextBlockInlineLineBounds(ActionUIWi
 // False when there is no such paragraph.
 ACTIONUI_WINUI_API bool actionUIWinUIRichTextBlockParagraphBounds(ActionUIWinUIObject *block, int32_t index,
                                                                   ActionUIWinUIRect *bounds);
+// One piece of a block's text, for actionUIWinUIRichTextBlockVisitText: in the `paragraphIndex`th paragraph (from
+// 0), its text `text` (UTF-8), or NULL for an inline element.
+typedef void (*ActionUIWinUIRichTextPieceCallback)(void *context, int32_t paragraphIndex, const char *text);
+// Calls `piece` for each piece of the block's text, in order: a run's text (inside a link too), "\n" for a line
+// break, and NULL for an inline element (a spacer, an image). For finding text in the block. False on failure.
+ACTIONUI_WINUI_API bool actionUIWinUIRichTextBlockVisitText(ActionUIWinUIObject *block,
+                                                            ActionUIWinUIRichTextPieceCallback piece, void *context);
+// Highlights `count` ranges of the block's text, each `lengths[i]` positions from `starts[i]`, behind the text in
+// `matchColor`, and the `current`th of them (-1: none) in `currentColor`: the matches of a find. Replaces
+// the highlights set before; a count of 0 clears them. The positions are WinUI's TextHighlighter index: a run's
+// UTF-16 code units and a line break one each, a paragraph's edges and an inline element none (not a TextPointer's
+// Offset, which counts each element's edges).
+ACTIONUI_WINUI_API bool actionUIWinUIRichTextBlockSetHighlights(ActionUIWinUIObject *block, const int32_t *starts,
+                                                                const int32_t *lengths, int32_t count, int32_t current,
+                                                                ActionUIWinUIColor matchColor,
+                                                                ActionUIWinUIColor currentColor);
 
 // MARK: - Color button (a ColorPicker)
 

@@ -24,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/abra-code/RichText",
       "state" : {
-        "revision" : "92e5d06c5e2e8510892f78ed140c0917baea03a4",
-        "version" : "0.4.3"
+        "revision" : "1fb987fe402117e1bbb934d1d41ab129e03132c8",
+        "version" : "0.4.4"
       }
     }
   ],
