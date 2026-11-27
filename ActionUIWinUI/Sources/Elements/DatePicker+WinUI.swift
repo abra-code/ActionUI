@@ -205,11 +205,8 @@ extension DatePicker: ActionUIWinUIRenderer {
         clamped(currentDate(node), to: dateRange(props))
     }
 
-    private static var calendar: Calendar {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = .current
-        return calendar
-    }
+    /// The value's day and time as the user's clock reads them (LocalTime, from Windows' zone data).
+    private static var calendar: LocalCalendar { LocalTime.calendar }
 
     private static func localDay(_ date: Date) -> LocalDay {
         let local = calendar.dateComponents([.year, .month, .day], from: date)

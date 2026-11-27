@@ -1,0 +1,58 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": {
+    "alignment": "leading",
+    "spacing": 8,
+    "padding": 16
+  },
+  "children": [
+    {
+      "type": "Text",
+      "id": 2,
+      "properties": {
+        "text": "In the system's time zone (US Eastern on the VM: 1:30 AM twice, then 2:30 PM, then Jul 4 and 6:00 PM)"
+      }
+    },
+    {
+      "type": "DatePicker",
+      "id": 3,
+      "properties": {
+        "title": "05:30Z on Nov 1",
+        "displayedComponents": "hourAndMinute",
+        "selectedDate": "2026-11-01T05:30:00Z",
+        "valueChangeActionID": "local.changed"
+      }
+    },
+    {
+      "type": "DatePicker",
+      "id": 4,
+      "properties": {
+        "title": "06:30Z on Nov 1",
+        "displayedComponents": "hourAndMinute",
+        "selectedDate": "2026-11-01T06:30:00Z",
+        "valueChangeActionID": "local.changed"
+      }
+    },
+    {
+      "type": "DatePicker",
+      "id": 5,
+      "properties": {
+        "title": "14:30 local",
+        "displayedComponents": "hourAndMinute",
+        "selectedDate": "14:30",
+        "valueChangeActionID": "local.changed"
+      }
+    },
+    {
+      "type": "DatePicker",
+      "id": 6,
+      "properties": {
+        "title": "Jul 4, 22:00Z",
+        "displayedComponents": "dateAndTime",
+        "selectedDate": "2026-07-04T22:00:00Z",
+        "valueChangeActionID": "local.changed"
+      }
+    }
+  ]
+}

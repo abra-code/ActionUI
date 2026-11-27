@@ -157,6 +157,10 @@ PREVIEW_OPTIONS = {
     "DatePickers": ["--forbid-action", "day.changed", "--forbid-action", "time.changed",
                     "--forbid-action", "both.changed", "--forbid-action", "calendar.changed",
                     "--forbid-action", "outside.changed"],
+    # Times in the system's zone (LocalTime's offset from Windows' zone data): on a machine in US Eastern time the PNG
+    # shows 1:30 AM for both 05:30Z and 06:30Z on 2026-11-01 (before and after the clocks go back), 2:30 PM for
+    # "14:30", and Jul 4, 6:00 PM for 22:00Z that day; in GMT they would read 5:30, 6:30 and 10:00 PM. Nothing fires.
+    "DatePickerLocalTime": ["--forbid-action", "local.changed"],
     "Sliders": ["--set-text", "10", "0.75", "--expect-action", "moved.changed",
                 "--on-action", "moved.changed", "12", "Moved through UI Automation",
                 "--forbid-action", "plain.changed", "--forbid-action", "stepped.changed", "--forbid-action", "outside.changed"],

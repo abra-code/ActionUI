@@ -38,17 +38,19 @@ extension DateFormatting {
     /// The moment as a SYSTEMTIME in the zone asked for; nil outside the years Windows writes (1601 to
     /// about 30000) or for a date that is not a number.
     private static func systemTime(_ date: Date, timeZone: String?) -> SYSTEMTIME? {
-        let seconds = date.timeIntervalSince1970.rounded(.down)
-        let offset = timeZone.map { Double(TimeZone(identifier: $0)?.secondsFromGMT(for: date) ?? 0) } ?? 0
-        // FILETIME counts 100-nanosecond steps from 1601-01-01 UTC, 11644473600 seconds before 1970.
-        let steps = (seconds + offset + 11_644_473_600) * 10_000_000
-        guard steps.isFinite, steps >= 0, steps < 9.1e18 else { return nil }
-        let value = UInt64(steps)
+        // A named zone, or with none the user's, as LocalTime's offset gives it (the renderer's, from Windows' zone
+        // data), so a date is written in the zone it was computed in; else Windows' own conversion, below.
+        let userOffset = timeZone == nil ? LocalTime.offset?(date) : nil
+        let offset = timeZone.map { TimeZone(identifier: $0)?.secondsFromGMT(for: date) ?? 0 } ?? userOffset ?? 0
+        // FILETIME counts 100-nanosecond steps from 1601-01-01 UTC, 11644473600 seconds before 1970; in integers,
+        // as a Double's steps are not exact past about the year 5250.
+        let seconds = date.timeIntervalSince1970.rounded(.down) + Double(offset) + 11_644_473_600
+        guard seconds.isFinite, seconds >= 0, seconds < 910_000_000_000 else { return nil }
+        let value = UInt64(seconds) * 10_000_000
         var file = FILETIME(dwLowDateTime: DWORD(truncatingIfNeeded: value), dwHighDateTime: DWORD(truncatingIfNeeded: value >> 32))
         var utc = SYSTEMTIME()
         guard FileTimeToSystemTime(&file, &utc) else { return nil }
-        // A named zone is applied above; with none, the user's own.
-        guard timeZone == nil else { return utc }
+        guard timeZone == nil, userOffset == nil else { return utc }
         var local = SYSTEMTIME()
         guard SystemTimeToTzSpecificLocalTime(nil, &utc, &local) else { return nil }
         return local

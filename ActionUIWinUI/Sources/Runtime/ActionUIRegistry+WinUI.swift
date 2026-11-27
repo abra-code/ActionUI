@@ -88,6 +88,8 @@ extension ActionUIRegistry {
         // The app's own resources, whose ActionUI JSON is trusted: the host's folder, else the
         // program's.
         ActionUIRendererHooks.resourceFolders = LinkTrust.resourceFolders
+        // Dates in the user's time zone, which FoundationEssentials alone does not know (Windows' zone data).
+        LocalTime.offset = SystemTimeOffset.seconds(at:)
     }
 
     /// Binds `renderer` to an element type (register(_:as:), for an add-on's element).
