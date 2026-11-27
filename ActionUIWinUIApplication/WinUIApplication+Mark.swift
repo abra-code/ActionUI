@@ -10,7 +10,9 @@
    edge a time and one button (a Save or Copy URL), each with the host's title and tooltip. Its text is
    dark on the yellow in light and dark mode alike.
  - Its buttons never take the keyboard focus (a window's first focus would land on them when its
-   content has nothing to focus); a pointer, UI Automation and screen readers press them.
+   content has nothing to focus); a pointer, UI Automation and screen readers press them, and a button
+   with a Ctrl key (Save's Ctrl+S) presses from the keyboard wherever the focus is in the window, except
+   inside a web page (WinUI's WebView2 passes no keys to the window's accelerators).
  - The row counts in the window's least width: a window is never narrower than its buttons, its time and
    a little of its source need (WinUIWindow.fit's minimumWidth).
  - WinUIApplication.revealInFileExplorer and copyToClipboard are what a host's buttons usually do.
@@ -42,13 +44,18 @@ extension WinUIApplication {
             /// its outline; nil: the title.
             public var symbol: String?
             public var toolTip: String?
+            /// A letter (A to Z) that with Ctrl presses the button wherever the focus is in its window
+            /// except inside a web page ("S": Ctrl+S); nil: none. The tooltip ends with the key
+            /// ("... (Ctrl+S)"); without a tooltip, WinUI's own shows the key.
+            public var controlKey: Character?
             public var action: @MainActor @Sendable () -> Void
 
-            public init(title: String, symbol: String? = nil, toolTip: String? = nil,
+            public init(title: String, symbol: String? = nil, toolTip: String? = nil, controlKey: Character? = nil,
                         action: @escaping @MainActor @Sendable () -> Void) {
                 self.title = title
                 self.symbol = symbol
                 self.toolTip = toolTip
+                self.controlKey = controlKey
                 self.action = action
             }
         }
@@ -304,8 +311,20 @@ final class MarkRow {
         } else {
             _ = actionUIWinUIButtonSetTitle(button.pointer, content.title)
         }
+        // A keyboard accelerator: WinUI presses the button from anywhere in the window, without its focus.
+        var controlKey: String?
+        if let letter = content.controlKey.map({ $0.uppercased() }), letter.unicodeScalars.count == 1,
+           let scalar = letter.unicodeScalars.first, ("A"..."Z").contains(scalar) {
+            if actionUIWinUIElementSetKeyboardShortcut(button.pointer, Int32(scalar.value), 1, "Ctrl+\(letter)") {
+                controlKey = "Ctrl+\(letter)"
+            } else {
+                ActionUIModel.shared.logger.log("WinUIApplication: \(WinUIError.last("giving a window bar's button Ctrl+\(letter)"))", .warning)
+            }
+        }
         if let toolTip = content.toolTip {
-            _ = actionUIWinUIElementSetToolTip(button.pointer, toolTip)
+            // WinUI shows an accelerator's key only on a button without a tooltip of its own (the
+            // ToolTipService one wins over the accelerator's): the key goes into the tooltip here.
+            _ = actionUIWinUIElementSetToolTip(button.pointer, controlKey.map { "\(toolTip) (\($0))" } ?? toolTip)
         }
         let action = content.action
         _ = actionUIWinUIElementSetFont(button.pointer, nil, fontSize, 0)

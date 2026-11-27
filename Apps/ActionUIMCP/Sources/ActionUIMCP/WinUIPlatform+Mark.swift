@@ -43,7 +43,9 @@ enum WinUIWindowMarks {
         }
         var button: Button?
         if let save = footer.save {
-            button = Button(title: "Save\u{2026}", toolTip: "Save a copy of what the window shows") {
+            // Ctrl+S, Windows' key for Save, from anywhere in the window but a web page that has the focus
+            // (WebView2 keeps its keys): the button itself never takes the focus.
+            button = Button(title: "Save\u{2026}", toolTip: "Save a copy of what the window shows", controlKey: "S") {
                 saveCopy(save, windowID: windowID)
             }
             #if DEBUG
@@ -79,11 +81,17 @@ enum WinUIWindowMarks {
         return [day, time].filter { !$0.isEmpty }.joined(separator: " ")
     }
 
+    /// The windows whose save dialog is up. The dialog has no owner window, so the bar keeps working under
+    /// it, and Ctrl+S held down repeats (WinUI's accelerators fire on every repeat): one dialog per window.
+    private static var saving: Set<String> = []
+
     /// Asks where with Windows' save dialog, then writes there; the dialog confirms replacing a file.
-    /// Nothing is written anywhere else.
+    /// Nothing is written anywhere else. Nothing happens while the window's dialog is up.
     private static func saveCopy(_ save: ShowSave, windowID: String) {
+        guard saving.insert(windowID).inserted else { return }
         let settings = JSONValue.object(["title": .string("Save a Copy"), "nameFieldStringValue": .string(offeredName(save))])
         _ = AppPanels.beginSavePanel(json: settings.serialized()) { path in
+            saving.remove(windowID)
             guard let path else { return }
             write(save.content, to: path, windowID: windowID) { error in
                 guard let error else { return }
