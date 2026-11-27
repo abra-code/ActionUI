@@ -36,9 +36,12 @@ Exit status: 0 passed, 1 a step failed or a tool is missing, 2 bad arguments.
 """
 
 import argparse
+import ctypes
 import datetime
+import functools
 import hashlib
 import http.client
+import http.server
 import json
 import os
 import platform
@@ -2347,6 +2350,92 @@ def canary_connections():
     return int(output)
 
 
+def free_drive_letters(count):
+    """`count` drive letters nothing uses, from Z down (fewer when there are not that many)."""
+    used = ctypes.windll.kernel32.GetLogicalDrives()
+    free = [chr(ord("A") + index) for index in range(25, 3, -1) if not used & (1 << index)]
+    return free[:count]
+
+
+def check_drive_reads(preview, folder, share, bin_path, results, summary, env):
+    """Whether less-trusted content judges the path Windows opens, not the text it was given: JSON served from a
+    local server (less trusted) names, from a program whose current folder is on the share `share` (whose
+    files are in `folder`), a relative path and the current drive's root (both on the share), a drive mapped to
+    the share (net use), a drive subst points at the share, and, as the control, a drive subst points at a
+    local folder. Each of the first is refused as a network path, before the trust policy is asked (which
+    would reach the share); the control is asked and refused by the policy. Returns the steps run (none when
+    no drive letters are free)."""
+    findings = summary["findings"]
+    letters = free_drive_letters(3)
+    if len(letters) < 3:
+        findings.append("drive check: not run: fewer than 3 drive letters are free")
+        return []
+    mapped, substituted, local = letters
+    local_folder = results / "drive-local"
+    local_folder.mkdir(parents=True, exist_ok=True)
+    served = results / "drive-served"
+    served.mkdir(parents=True, exist_ok=True)
+    (served / "drives.json").write_text(json.dumps({"type": "VStack", "id": 950, "children": [
+        {"type": "LoadableView", "id": 951, "properties": {"filePath": "view7.json"}},
+        {"type": "LoadableView", "id": 952, "properties": {"filePath": "\\view7.json"}},
+        {"type": "LoadableView", "id": 953, "properties": {"filePath": f"{mapped}:\\view7.json"}},
+        {"type": "Image", "id": 954, "properties": {"filePath": "old.png"}},
+        {"type": "Image", "id": 955, "properties": {"filePath": f"{mapped}:\\old.png"}},
+        {"type": "Image", "id": 956, "properties": {"filePath": f"{substituted}:\\old.png"}},
+        {"type": "Image", "id": 957, "properties": {"filePath": f"{local}:\\local.png"}},
+    ]}), encoding="utf-8")
+    outer = folder / "drives-outer.json"
+    outer.write_text(json.dumps({"type": "LoadableView", "id": 2}), encoding="utf-8")
+    handler = functools.partial(QuietFiles, directory=str(served))
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    mounts = []
+    try:
+        status, output = powershell(f"net use {mapped}: '{share}' 2>&1")
+        if status == 0:
+            mounts.append(f"net use {mapped}: /delete /y")
+        else:
+            findings.append(f"drive check: the mapped drive's checks not run: net use failed: {output.splitlines()[-1] if output else status}")
+        for letter, target in [(substituted, share), (local, str(local_folder))]:
+            status, output = powershell(f"subst {letter}: '{target}' 2>&1")
+            if status != 0:
+                note = f"subst {letter}: {target} failed: {output or status}"
+                findings.append(f"drive check: FAILED: {note}")
+                (results / "drive-reads.log").write_text(note + "\n", encoding="utf-8")
+                return [{"step": "drive-reads", "status": 1, "seconds": 0, "note": note, "log": "drive-reads.log"}]
+            mounts.append(f"subst {letter}: /D")
+        not_network = "less-trusted content reads no network or device path"
+        expected = [f"LoadableView: not loading {share}\\view7.json for element 951: {not_network}",
+                    f"LoadableView: not loading {share}\\view7.json for element 952: {not_network}",
+                    f"Not reading old.png (Windows opens {share}\\old.png) for element 954: {not_network}",
+                    f"Not reading {substituted}:\\old.png for element 956: {not_network}",
+                    f"Not reading {local}:\\local.png for element 957: the trust policy refuses it"]
+        if mounts and mounts[0].startswith("net use"):
+            expected += [f"LoadableView: not loading {mapped}:\\view7.json for element 953: {not_network}",
+                         f"Not reading {mapped}:\\old.png for element 955: {not_network}"]
+        url = f"http://127.0.0.1:{server.server_address[1]}/drives.json"
+        step = run_step("drive-reads", [preview, f"{share}\\{outer.name}", results / "drive-reads.png", "420", "300",
+                                        "--set-value", "2", url, "--delay", "4000"]
+                        + [option for text in expected for option in ["--expect-log", text]],
+                        results, env, cwd=bin_path, timeout=SMOKE_TIMEOUT_SECONDS)
+        if step["status"] != 0:
+            findings.append("drive check: FAILED: less-trusted content was not refused every path off a local disk "
+                            "(drive-reads.log)")
+        return [step]
+    finally:
+        for command in reversed(mounts):
+            powershell(command)
+        server.shutdown()
+        server.server_close()
+
+
+class QuietFiles(http.server.SimpleHTTPRequestHandler):
+    """Serves a folder's files, logging nothing (check_drive_reads)."""
+
+    def log_message(self, *args):
+        pass
+
+
 def check_share_reads(preview, add_on_preview, bin_path, results, summary, env):
     """Whether less-trusted content's LoadableView, or the Diff add-on's element, reaches a share before
     refusing it: a share on this machine (\\\\localhost\\actionui-canary) is named by JSON from a server
@@ -2356,7 +2445,8 @@ def check_share_reads(preview, add_on_preview, bin_path, results, summary, env):
     when the control opens no connection either. Then, judged by their messages (a program whose current
     folder is on the share holds a connection to it): the Diff in JSON from a server refuses a relative path
     and the current drive's root with the current folder on the share, and the Diff in the app's own JSON
-    reads a file on the share."""
+    reads a file on the share. Last, with the share still there, check_drive_reads: relative paths, a mapped drive
+    and a subst drive on the share, refused to less-trusted content."""
     findings = summary["findings"]
     folder = results / "share-canary"
     folder.mkdir(parents=True, exist_ok=True)
@@ -2365,6 +2455,7 @@ def check_share_reads(preview, add_on_preview, bin_path, results, summary, env):
     (folder / "old.txt").write_text("From the share\n", encoding="utf-8")
     share = f"\\\\localhost\\{CANARY_SHARE}"
     diff_steps = []
+    drive_steps = []
     status, output = powershell(f"New-SmbShare -Name '{CANARY_SHARE}' -Path '{folder}' -ReadAccess 'Everyone' "
                                 "-ErrorAction Stop | Out-Null")
     if status != 0:
@@ -2416,15 +2507,19 @@ def check_share_reads(preview, add_on_preview, bin_path, results, summary, env):
                                         "Diff is not available on Windows yet", "--forbid-log",
                                         "creating the element Diff"], results, env, cwd=bin_path,
                                        timeout=SMOKE_TIMEOUT_SECONDS))
+        # After the connection counts: a mapped drive holds a connection of its own.
+        drive_steps = check_drive_reads(preview, folder, share, bin_path, results, summary, env)
     finally:
         powershell(f"Remove-SmbShare -Name '{CANARY_SHARE}' -Force")
-    summary["steps"] += diff_steps
-    diff_passed = all(diff_step["status"] == 0 for diff_step in diff_steps)
+    summary["steps"] += diff_steps + drive_steps
+    # check_drive_reads names its own failure in the findings.
+    diff_passed = all(diff_step["status"] == 0 for diff_step in diff_steps + drive_steps)
     if add_on_preview is None:
         findings.append("share check: the Diff's checks not run: ActionUI.dll's package was not built")
     elif not diff_passed:
         failed = ", ".join(diff_step["step"] for diff_step in diff_steps if diff_step["status"] != 0)
-        findings.append(f"share check: FAILED: the Diff's checks ({failed})")
+        if failed:
+            findings.append(f"share check: FAILED: the Diff's checks ({failed})")
     counts = f"connections before {before}, after JSON from a server {less_trusted}, after the app's own JSON {trusted}"
     if before is None or less_trusted is None or trusted is None:
         findings.append(f"share check: inconclusive: SMB connections could not be listed ({counts})")

@@ -19,6 +19,7 @@ import FoundationEssentials
 import Foundation
 #endif
 import CWinUI
+import WinSDK
 
 @MainActor
 enum LinkTrust {
@@ -125,6 +126,55 @@ enum LinkTrust {
             && isSeparator(characters[3])
     }
 
+    /// The path on a share, a device or a drive that is not local that Windows reaches when it opens
+    /// `path`, or nil when it opens a file on a local drive. Decided from the text, the current folders and
+    /// the drive's type, touching neither the file nor the share. Besides a path that names a share or a
+    /// device (isNetworkPath), this is:
+    /// - a path Windows reads from the current folder, which may be on a share (a program started from a
+    ///   network folder): a relative one, "\name" (that drive's root) and "C:name" (that drive's current
+    ///   folder); judged by the full path Windows makes of it (GetFullPathNameW, which only joins text);
+    /// - a device's name alone ("NUL", "CON"), whose full path is "\\.\NUL";
+    /// - a path on a drive whose type is not that of a local disk (GetDriveTypeW): a drive mapped to a
+    ///   share and one that subst points at a share are DRIVE_REMOTE (measured on Windows 11); a drive
+    ///   with no root (a letter nothing uses) or of unknown type counts too, since what it reaches cannot
+    ///   be told.
+    /// A path Windows cannot make whole (past its length limit) counts as reaching one, as written: what it
+    /// would open cannot be told.
+    static func networkPathReached(_ path: String) -> String? {
+        if isNetworkPath(path) {
+            return path
+        }
+        guard let full = fullPath(path) else { return path }
+        if isNetworkPath(full) {
+            return full
+        }
+        // A full path that is not on a share or a device starts with a drive: "C:\".
+        let scalars = Array(full.unicodeScalars.prefix(3))
+        guard scalars.count == 3, ("A"..."Z").contains(scalars[0]) || ("a"..."z").contains(scalars[0]),
+              scalars[1] == ":", scalars[2] == "\\" else {
+            return full
+        }
+        let root = String(String.UnicodeScalarView(scalars))
+        let type = root.withCString(encodedAs: UTF16.self) { GetDriveTypeW($0) }
+        let local: Set<UINT> = [UINT(DRIVE_FIXED), UINT(DRIVE_REMOVABLE), UINT(DRIVE_CDROM), UINT(DRIVE_RAMDISK)]
+        return local.contains(type) ? nil : full
+    }
+
+    /// The full path Windows makes of `path` (GetFullPathNameW: joined with the current folder, or with a
+    /// drive's current folder, its dots resolved), without touching the file system; nil when it cannot (an
+    /// empty path, past its length limit, or the current folder changed between the two calls).
+    static func fullPath(_ path: String) -> String? {
+        guard !path.isEmpty else { return nil }
+        return path.withCString(encodedAs: UTF16.self) { text -> String? in
+            let needed = GetFullPathNameW(text, 0, nil, nil)
+            guard needed > 0 else { return nil }
+            var buffer = [WCHAR](repeating: 0, count: Int(needed))
+            let written = GetFullPathNameW(text, needed, &buffer, nil)
+            guard written > 0, written < needed else { return nil }
+            return String(decoding: buffer.prefix(Int(written)), as: UTF16.self)
+        }
+    }
+
     /// The path Windows opens for a file: URL, as the shim reads one (filePathOf in Images.cpp): with a
     /// host, a file on that server's share ("file://server/share/a.png" is "\\server\share\a.png"),
     /// which URL.path leaves out ("/share/a.png"), so the policy would be asked about another file;
@@ -151,11 +201,13 @@ enum LinkTrust {
         if let node, isTrusted(node) {
             return true
         }
-        // A network path (\\server\share, //server/share, and the \\?\ and \\.\ forms) is refused
-        // without asking: the policy's own check of the path (Core's resolvingSymlinksInPath) would
-        // already reach the server with the user's credentials.
-        if isNetworkPath(path) {
-            ActionUIModel.shared.logger.log("Not reading \(path) for element \(node.map { String($0.element.id) } ?? "?"): less-trusted content reads no network or device path", .warning)
+        // A path that reaches a share, a device or a drive that is not local (networkPathReached:
+        // \\server\share, //server/share, the \\?\ and \\.\ forms, a relative path with the current folder
+        // on a share, a mapped drive) is refused without asking: the policy's own check of the path (Core's
+        // resolvingSymlinksInPath) would already reach the server with the user's credentials.
+        if let reached = networkPathReached(path) {
+            let opened = reached == path ? "" : " (Windows opens \(reached))"
+            ActionUIModel.shared.logger.log("Not reading \(path)\(opened) for element \(node.map { String($0.element.id) } ?? "?"): less-trusted content reads no network or device path", .warning)
             return false
         }
         let allowed = node.map { allows(capability, $0) }

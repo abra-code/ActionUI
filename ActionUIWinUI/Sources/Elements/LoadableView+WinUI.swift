@@ -36,9 +36,11 @@
    the LoadableView is in), as on Apple and Linux: a refused source shows "Failed to load view: ...".
  - A file is read only when it is a regular file (ActionUIContentLoader.readRegularFile). Less-trusted
    content (ActionUI JSON from a server or from a file outside the app's resources) loads no file on a
-   share or a device (\\server\share, \\?\ and the like), decided from the text before anything touches
-   the path. A path or a name becomes a file URL without the file system being asked whether it is a
-   folder (which URL(fileURLWithPath:) asks, opening the path).
+   share, a device or a drive that is not local (\\server\share, \\?\ and the like, a relative path with
+   the current folder on a share, a mapped drive), decided from the text, the current folders and the
+   drive's type before anything touches the path (LinkTrust.networkPathReached). A path or a name
+   becomes a file URL without the file system being asked whether it is a folder (which
+   URL(fileURLWithPath:) asks, opening the path).
 
  Not yet: the message in the LoadableView's place takes none of its text appearance (font,
  foregroundStyle); a file it may not read shows the system's error text, not Apple's words for it.
@@ -125,11 +127,12 @@ extension LoadableView: ActionUIWinUIRenderer {
         }
         let folder = contentFolder(of: node)
         let trusted = LinkTrust.isTrusted(node)
-        // Less-trusted content loads no file on a share or a device: opening it, even asking whether
-        // it is a folder (as URL(fileURLWithPath:) does), reaches the server with the user's Windows
-        // credentials. Decided from the text alone, before anything below can touch the path.
-        if !trusted, let path = namedPath(value, folder: folder), LinkTrust.isNetworkPath(path) {
-            refuseNetworkPath(path, node, state)
+        // Less-trusted content loads no file on a share, a device or a drive that is not local: opening
+        // it, even asking whether it is a folder (as URL(fileURLWithPath:) does), reaches the server with
+        // the user's Windows credentials. Decided from the text, the current folders and the drive's type
+        // (LinkTrust.networkPathReached), before anything below can touch the path.
+        if !trusted, let path = namedPath(value, folder: folder), let reached = LinkTrust.networkPathReached(path) {
+            refuseNetworkPath(reached, node, state)
             return
         }
         let source: Result<ActionUIContentLoader.Source, ActionUIContentLoader.SourceError>
@@ -149,9 +152,8 @@ extension LoadableView: ActionUIWinUIRenderer {
             // The same rule for the URL the text became, in case it names a share the text check
             // above did not see; before the trust policy and the nesting key, which follow symbolic links.
             if case .file(let url) = found, !trusted {
-                let path = LinkTrust.filePath(of: url)
-                if LinkTrust.isNetworkPath(path) {
-                    refuseNetworkPath(path, node, state)
+                if let reached = LinkTrust.networkPathReached(LinkTrust.filePath(of: url)) {
+                    refuseNetworkPath(reached, node, state)
                     return
                 }
             }
