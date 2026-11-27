@@ -247,6 +247,51 @@ bool actionUIWinUIRichTextBlockAddRun(ActionUIWinUIObject *block, const char *te
     });
 }
 
+bool actionUIWinUIRichTextBlockAddSpacer(ActionUIWinUIObject *block, double width) {
+    return guarded("rich text block add spacer", [&]() {
+        if (!(width >= 0 && width < 1000000.0)) {
+            return fail("rich text block add spacer", "the width must be 0 or more, and finite");
+        }
+        docs::Paragraph paragraph = lastParagraph(objectAs<muxc::RichTextBlock>(block, L"RichTextBlock"));
+        if (paragraph == nullptr) {
+            return fail("rich text block add spacer", "the block has no paragraph");
+        }
+        muxc::Border space;
+        space.Width(width);
+        space.Height(0);
+        space.IsHitTestVisible(false);
+        docs::InlineUIContainer container;
+        container.Child(space);
+        paragraph.Inlines().Append(container);
+        return true;
+    });
+}
+
+bool actionUIWinUIRichTextBlockSetSpacerWidth(ActionUIWinUIObject *block, int32_t paragraphIndex, int32_t inlineIndex,
+                                              double width) {
+    return guarded("rich text block set spacer width", [&]() {
+        if (!(width >= 0 && width < 1000000.0)) {
+            return fail("rich text block set spacer width", "the width must be 0 or more, and finite");
+        }
+        auto blocks = objectAs<muxc::RichTextBlock>(block, L"RichTextBlock").Blocks();
+        if (paragraphIndex < 0 || static_cast<uint32_t>(paragraphIndex) >= blocks.Size()) {
+            return fail("rich text block set spacer width", "no such paragraph");
+        }
+        docs::Paragraph paragraph = blocks.GetAt(static_cast<uint32_t>(paragraphIndex)).try_as<docs::Paragraph>();
+        if (paragraph == nullptr || inlineIndex < 0 || static_cast<uint32_t>(inlineIndex) >= paragraph.Inlines().Size()) {
+            return fail("rich text block set spacer width", "no such inline");
+        }
+        docs::InlineUIContainer container =
+            paragraph.Inlines().GetAt(static_cast<uint32_t>(inlineIndex)).try_as<docs::InlineUIContainer>();
+        mux::FrameworkElement space = container != nullptr ? container.Child().try_as<mux::FrameworkElement>() : nullptr;
+        if (space == nullptr) {
+            return fail("rich text block set spacer width", "the inline is not a spacer");
+        }
+        space.Width(width);
+        return true;
+    });
+}
+
 bool actionUIWinUIRichTextBlockAddLineBreak(ActionUIWinUIObject *block) {
     return guarded("rich text block add line break", [&]() {
         docs::Paragraph paragraph = lastParagraph(objectAs<muxc::RichTextBlock>(block, L"RichTextBlock"));

@@ -11,7 +11,7 @@
       "type": "RichText",
       "id": 2,
       "properties": {
-        "markdown": "# RichText on Windows\n\nA paragraph with *emphasis*, **strong**, ~~strikethrough~~, `inline code` and a [link](https://example.com).\n\n## Lists\n\n- First item\n- Second item, long enough to wrap onto a second line when the window is narrow enough to need it\n  1. A nested numbered item\n  2. And another\n\n> A quote, in the secondary color,\n> indented one step.\n\n```swift\nlet greeting = \"Hello\"\nprint(greeting)\n```\n\n---\n\n| Name | Value |\n|---|---|\n| alpha | 1 |\n| beta | 2 |\n\n![a picture](missing.png)\n",
+        "markdown": "# RichText on Windows\n\nA paragraph with *emphasis*, **strong**, ~~strikethrough~~, `inline code` and a [link](https://example.com).\n\n## Lists\n\n- First item\n- Second item, long enough to wrap onto a second line when the window is narrow enough to need it\n  1. A nested numbered item\n  2. And another\n\n> A quote, in the secondary color,\n> indented one step.\n\n```swift\nlet greeting = \"Hello\"\nprint(greeting)\n```\n\n---\n\n| Name | Value | Note |\n|:---|---:|:---:|\n| alpha | 1 | **bold** |\n| beta, longer | 22 | |\n| gamma | 333 | `code` |\n\n![a picture](missing.png)\n",
         "frame": {
           "maxWidth": "infinity"
         }

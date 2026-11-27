@@ -9,8 +9,13 @@
  strikethrough, inline code (monospaced), links (in the theme's link color; opened as a Link opens its address, after
  RichText's own scheme check), line breaks, nested quotes (indented, in the secondary text color), lists (bullets or
  numbers, nested), fenced code (monospaced, line by line, in syntax colors when the theme asks), and behind the text,
- as on Apple platforms and Linux: code cards, quote bars, rules and the fill behind inline code. Not yet: tables as a
- grid, images (an image shows its alt text in brackets), find, copy as HTML. Those follow, as on Linux.
+ as on Apple platforms and Linux: code cards, quote bars, rules and the fill behind inline code; and tables as a grid,
+ as the GTK renderer draws them: each row a paragraph of the same text, each cell placed at its column (left, center
+ or right, as the Markdown aligns it) by a spacer before it, the columns as wide as their widest cell plus the
+ theme's cell padding, lines at the column edges and between the rows, the header row bold on the code fill. A copy
+ has a space between cells, where Linux has a tab. The cells are placed once the text is laid out, where WinUI's own
+ measure of each cell is known (placeTables). Not yet: images (an image shows its alt text in brackets), find,
+ copy as HTML; a row wider than the element wraps (on Linux only its last cell wraps).
 
  Built only from ActionUI's interface for add-ons (ActionUIWinUIElement, RenderNode) and the shim's C functions
  (CWinUI's rich text group). The metrics are the GTK renderer's (RichTextGtkBuilder: heading scales, code scale)
@@ -65,6 +70,37 @@ enum RichTextDecoration {
     /// The fill behind inline code, the `inline`th inline of its paragraph, in three parts: its first line, the full
     /// lines between (one shape over them), and its last line; a part it does not have gets no size.
     case inlineCode(paragraph: Int, inline: Int, part: InlineCodePart)
+    /// The fill behind a table's header row.
+    case tableHeader(table: Int, row: Int)
+    /// A line at a table row's `edge`th column edge (0: the table's left edge).
+    case tableColumnLine(table: Int, row: Int, edge: Int)
+    /// A line above (the first row) or below a table row.
+    case tableRowLine(table: Int, row: Int, below: Bool)
+}
+
+/// A table as built: each row's paragraph and, for each cell, its spacer and its inlines (indices in the paragraph),
+/// for placing the cells once the text is laid out; and its column edges, from that placing.
+struct RichTextWinUITable {
+    struct Cell {
+        /// The space run before the cell (none before the first), the spacer that places it, and its width now.
+        var separator: Int?
+        var spacer: Int
+        var spacerWidth: Double = 0
+        /// The cell's first and last inline; nil for an empty cell, which is measured from what is before it.
+        var content: ClosedRange<Int>?
+    }
+
+    struct Row {
+        var paragraph: Int
+        var cells: [Cell] = []
+    }
+
+    var indent: Double
+    var padding: Double
+    var alignments: [RichTextColumnAlignment]
+    var rows: [Row] = []
+    /// The column edges, from the table's left edge to its right; empty until the cells are placed.
+    var edges: [Double] = []
 }
 
 enum InlineCodePart {
@@ -89,6 +125,12 @@ final class RichTextWinUIState {
     private var decorations: [RichTextDecoration] = []
     /// Each inline code's lines, measured once per arrange for its three shapes.
     private var inlineLines: [RichTextInlineKey: [ActionUIWinUIRect]] = [:]
+    /// The tables, for placing their cells; how many layouts have moved cells since the text was built (bounded, in
+    /// case a placing never settles).
+    private var tables: [RichTextWinUITable] = []
+    private var tablePlacings = 0
+    /// The width at which every table was last found placed: at that width an arrange measures nothing again.
+    private var tablesSettledAt: Double?
     /// What the block shows: rebuilt when it changes.
     private var shown: Shown?
     private var document = RichTextDocument(blocks: [])
@@ -174,6 +216,9 @@ final class RichTextWinUIState {
         if let failure = builder.failure {
             ActionUIModel.shared.logger.log("RichText: \(failure)", .warning)
         }
+        tables = builder.tables
+        tablePlacings = 0
+        tablesSettledAt = nil
         replaceShapes(builder.decorations)
         _ = actionUIWinUIElementInvalidateMeasure(panel.pointer)
     }
@@ -189,14 +234,14 @@ final class RichTextWinUIState {
             let radius: Double = switch decoration {
             case .codeCard: Double(theme.codeCornerRadius)
             case .quoteBar: Self.quoteBarWidth / 2
-            case .rule: 0
+            case .rule, .tableHeader, .tableColumnLine, .tableRowLine: 0
             case .inlineCode: Self.inlineCodeCornerRadius
             }
             let kind = radius > 0 ? ActionUIWinUIShapeRoundedRectangle : ActionUIWinUIShapeRectangle
             guard let shape = ShimObject(adopting: actionUIWinUIShapeCreate(kind)) else { continue }
             let brush = switch decoration {
-            case .codeCard, .inlineCode: Self.codeFillBrush
-            case .quoteBar, .rule: Self.separatorBrush
+            case .codeCard, .inlineCode, .tableHeader: Self.codeFillBrush
+            case .quoteBar, .rule, .tableColumnLine, .tableRowLine: Self.separatorBrush
             }
             _ = actionUIWinUIElementSetBrush(shape.pointer, ActionUIWinUIBrushFill, nil, brush)
             if radius > 0 {
@@ -224,8 +269,115 @@ final class RichTextWinUIState {
         _ = actionUIWinUIElementArrange(block.pointer, ActionUIWinUIRect(x: 0, y: 0, width: size.width, height: size.height))
         // The text is laid out anew: its inline code is measured again.
         inlineLines = [:]
+        placeTables(width: size.width)
         for (shape, decoration) in zip(shapes, decorations) {
             _ = actionUIWinUIElementArrange(shape.pointer, frame(of: decoration, width: size.width))
+        }
+    }
+
+    /// Places each table's cells at their columns, from where WinUI laid out each cell's text: each column as wide as
+    /// its widest cell plus the padding on both sides, each cell at its column's left, center or right. A spacer that
+    /// must change is resized, and WinUI lays the text out again; the next arrange checks the result, which settles at
+    /// once (each cell's place depends only on fixed widths before it), up to four times per build. A table whose rows
+    /// wrap keeps its cells where they are until it fits again.
+    private func placeTables(width: Double) {
+        guard !tables.isEmpty, tablePlacings < 4, tablesSettledAt != width else { return }
+        var moved = false
+        var skipped = false
+        nextTable: for index in tables.indices {
+            var table = tables[index]
+            // Each cell's start and width as laid out now: from its inlines' lines.
+            var cells: [[(start: Double, width: Double)]] = []
+            for row in table.rows {
+                var measured: [(start: Double, width: Double)] = []
+                var rowTop: Double?
+                for cell in row.cells {
+                    guard let content = cell.content else {
+                        // An empty cell starts where its spacer ends: after the space before it, or at the row's start.
+                        var before = table.indent
+                        if let separator = cell.separator {
+                            let rects = lines(of: RichTextInlineKey(paragraph: row.paragraph, inline: separator))
+                            guard let last = rects.last else {
+                                skipped = true
+                                continue nextTable
+                            }
+                            before = last.x + last.width
+                        }
+                        measured.append((before + cell.spacerWidth, 0))
+                        continue
+                    }
+                    var left = Double.infinity
+                    var right = -Double.infinity
+                    for inline in content {
+                        for rect in lines(of: RichTextInlineKey(paragraph: row.paragraph, inline: inline)) {
+                            // A row that wraps (the element is narrower than the table) is left as it is: its
+                            // wrapped lines are no cell widths, and placing by them would widen the columns at
+                            // each layout.
+                            let top = rowTop ?? rect.y
+                            rowTop = top
+                            guard abs(rect.y - top) <= rect.height / 2 else {
+                                skipped = true
+                                continue nextTable
+                            }
+                            left = min(left, rect.x)
+                            right = max(right, rect.x + rect.width)
+                        }
+                    }
+                    // Not laid out yet: placed at a later arrange (the other tables are placed now).
+                    guard left.isFinite, right.isFinite else {
+                        skipped = true
+                        continue nextTable
+                    }
+                    measured.append((left, max(0, right - left)))
+                }
+                cells.append(measured)
+            }
+            let columns = table.rows.map(\.cells.count).max() ?? 0
+            var widths = [Double](repeating: 0, count: columns)
+            for row in cells {
+                for (column, cell) in row.enumerated() {
+                    widths[column] = max(widths[column], cell.width)
+                }
+            }
+            var edges = [table.indent]
+            for width in widths {
+                edges.append(edges[edges.count - 1] + table.padding * 2 + width)
+            }
+            table.edges = edges
+            for (rowIndex, row) in table.rows.enumerated() {
+                // How far the cells after a resized spacer have moved already.
+                var shift = 0.0
+                for (column, cell) in row.cells.enumerated() {
+                    let measured = cells[rowIndex][column]
+                    let room = widths[column] - measured.width
+                    let alignment = column < table.alignments.count ? table.alignments[column] : .none
+                    let offset = switch alignment {
+                    case .right: room
+                    case .center: room / 2
+                    case .left, .none: 0.0
+                    }
+                    let wanted = edges[column] + table.padding + offset
+                    let delta = wanted - (measured.start + shift)
+                    // Half a point: WinUI may round a spacer to whole pixels, which must not count as a move.
+                    guard abs(delta) > 0.5 else { continue }
+                    let width = max(0, cell.spacerWidth + delta)
+                    if actionUIWinUIRichTextBlockSetSpacerWidth(block.pointer, Int32(row.paragraph), Int32(cell.spacer), width) {
+                        shift += width - cell.spacerWidth
+                        table.rows[rowIndex].cells[column].spacerWidth = width
+                        moved = true
+                    }
+                }
+            }
+            tables[index] = table
+        }
+        if !moved, !skipped {
+            tablesSettledAt = width
+        }
+        if moved {
+            tablePlacings += 1
+            // Laid out again with the new spacers; the inlines move, so their lines are measured again.
+            inlineLines = [:]
+            _ = actionUIWinUIElementInvalidateMeasure(panel.pointer)
         }
     }
 
@@ -277,6 +429,23 @@ final class RichTextWinUIState {
         case .rule(let paragraph, let indent):
             guard let line = bounds(paragraph) else { return none }
             return ActionUIWinUIRect(x: indent, y: line.y + line.height / 2, width: max(0, width - indent), height: 1)
+        case .tableHeader(let table, let row), .tableColumnLine(let table, let row, _), .tableRowLine(let table, let row, _):
+            guard table < tables.count, row < tables[table].rows.count, let left = tables[table].edges.first,
+                  let right = tables[table].edges.last, let line = bounds(tables[table].rows[row].paragraph) else {
+                return none
+            }
+            // One-point lines on whole points, as the GTK renderer draws them.
+            switch decoration {
+            case .tableColumnLine(_, _, let edge):
+                let edges = tables[table].edges
+                guard edge < edges.count else { return none }
+                return ActionUIWinUIRect(x: edges[edge].rounded(), y: line.y, width: 1, height: line.height)
+            case .tableRowLine(_, _, let below):
+                let y = (below ? line.y + line.height : line.y).rounded()
+                return ActionUIWinUIRect(x: left.rounded(), y: y, width: right.rounded() - left.rounded() + 1, height: 1)
+            default:
+                return ActionUIWinUIRect(x: left, y: line.y, width: right - left, height: line.height)
+            }
         }
     }
 }
@@ -309,6 +478,8 @@ struct RichTextWinUIBuilder {
     private(set) var failure: String?
     /// The shapes to draw behind the text, by paragraph index.
     private(set) var decorations: [RichTextDecoration] = []
+    /// The tables, in the order of their decorations' table indices.
+    private(set) var tables: [RichTextWinUITable] = []
     /// The paragraphs added so far: the next one's index.
     private var paragraphCount = 0
     /// Where the bar of the innermost quote being walked stands; nil outside quotes.
@@ -365,18 +536,53 @@ struct RichTextWinUIBuilder {
             decorations.append(.rule(paragraph: paragraphCount, indent: indent))
             paragraph(indent: indent, spaceBefore: blockSpacing * 0.5, spaceAfter: blockSpacing)
             run("\u{00A0}", style: 0, size: 0, secondary: true)
-        case .table(let headers, _, let rows):
-            // Until tables are a grid: each row a line, its cells apart.
-            for (rowIndex, cells) in ([headers] + rows).enumerated() {
-                paragraph(indent: indent, spaceAfter: rowIndex == rows.count ? blockSpacing : 2)
-                for (cellIndex, cell) in cells.enumerated() {
-                    if cellIndex > 0 {
-                        run("  \u{2502}  ", style: 0, size: 0, secondary: true)
-                    }
-                    append(cell, style: rowIndex == 0 ? boldRun : 0, size: 0, secondary: secondary)
-                }
-            }
+        case .table(let headers, let alignments, let rows):
+            appendTable(headers: headers, alignments: alignments, rows: rows, indent: indent, secondary: secondary)
         }
+    }
+
+    /// A table: a paragraph per row (the header row bold), each cell after a spacer that places it at its column once
+    /// the text is laid out (RichTextWinUIState.placeTables), a small space between cells for a copy; the
+    /// header's fill, the lines at the column edges and between the rows behind it.
+    private mutating func appendTable(headers: [[RichTextInline]], alignments: [RichTextColumnAlignment],
+                                      rows: [[[RichTextInline]]], indent: Double, secondary: Bool) {
+        let columns = max(headers.count, rows.map(\.count).max() ?? 0)
+        guard columns > 0 else { return }
+        let tableIndex = tables.count
+        var table = RichTextWinUITable(indent: indent, padding: Double(theme.cellPadding), alignments: alignments)
+        let allRows = [headers] + rows
+        for (rowIndex, cells) in allRows.enumerated() {
+            let isLast = rowIndex == allRows.count - 1
+            var row = RichTextWinUITable.Row(paragraph: paragraphCount)
+            paragraph(indent: indent, spaceAfter: isLast ? blockSpacing : 0)
+            if rowIndex == 0 {
+                decorations.append(.tableHeader(table: tableIndex, row: rowIndex))
+            }
+            for column in 0..<columns {
+                var separator: Int?
+                if column > 0 {
+                    // A space apart in a copy, a point's size. Not a tab: its width depends on where it starts, so a
+                    // resized spacer before it would move the cells after it by more than the spacer changed.
+                    run(" ", style: 0, size: 1, secondary: secondary)
+                    separator = Int(actionUIWinUIRichTextBlockLastInlineIndex(block))
+                }
+                check(actionUIWinUIRichTextBlockAddSpacer(block, 0), "a table cell's place")
+                let spacer = Int(actionUIWinUIRichTextBlockLastInlineIndex(block))
+                append(column < cells.count ? cells[column] : [], style: rowIndex == 0 ? boldRun : 0, size: 0,
+                       secondary: secondary)
+                let last = Int(actionUIWinUIRichTextBlockLastInlineIndex(block))
+                row.cells.append(.init(separator: separator, spacer: spacer, content: last > spacer ? (spacer + 1)...last : nil))
+            }
+            for edge in 0...columns {
+                decorations.append(.tableColumnLine(table: tableIndex, row: rowIndex, edge: edge))
+            }
+            if rowIndex == 0 {
+                decorations.append(.tableRowLine(table: tableIndex, row: rowIndex, below: false))
+            }
+            decorations.append(.tableRowLine(table: tableIndex, row: rowIndex, below: true))
+            table.rows.append(row)
+        }
+        tables.append(table)
     }
 
     /// Fenced code, line by line in the monospaced face, its comments, strings, numbers and keywords in the syntax

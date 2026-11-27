@@ -927,6 +927,14 @@ ACTIONUI_WINUI_API bool actionUIWinUIRichTextBlockAddRun(ActionUIWinUIObject *bl
                                                          const char *themeBrush);
 // Adds a line break to the last paragraph: a new line within it. False when the block has no paragraph.
 ACTIONUI_WINUI_API bool actionUIWinUIRichTextBlockAddLineBreak(ActionUIWinUIObject *block);
+// Adds an empty space `width` points wide to the last paragraph (an inline element with no height, at the
+// baseline), which places the text after it: a table cell at its column. It copies as nothing. False when the
+// block has no paragraph.
+ACTIONUI_WINUI_API bool actionUIWinUIRichTextBlockAddSpacer(ActionUIWinUIObject *block, double width);
+// Makes the spacer that is the `inlineIndex`th inline of the `paragraphIndex`th paragraph `width` points wide; the
+// block lays its text out again. False when that inline is not a spacer.
+ACTIONUI_WINUI_API bool actionUIWinUIRichTextBlockSetSpacerWidth(ActionUIWinUIObject *block, int32_t paragraphIndex,
+                                                                 int32_t inlineIndex, double width);
 // Adds `text` as a link to the last paragraph, in `style` and at `fontSize`, in the theme's link color and
 // underlined: handler(context) runs when the user clicks it or invokes it from the keyboard, and opens
 // nothing itself (the caller judges and opens the address). destroyContext as for the events below.
