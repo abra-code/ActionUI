@@ -16,9 +16,11 @@
  has a space between cells, where Linux has a tab. The cells are placed once the text is laid out, where WinUI's own
  measure of each cell is known (placeTables). Images are inline elements of the text at their places, loaded as
  "remoteImages" allows (RichText+WinUIImages.swift). states["search"] highlights the matches of a term in the text,
- as on Apple platforms and Linux (RichText+WinUIFind.swift). A selection copies as plain text, as on Linux (Apple
- platforms copy attributed text). Not yet: the find bar ("showFindBar"); a row wider than the element wraps (on Linux
- only its last cell wraps).
+ as on Apple platforms and Linux (RichText+WinUIFind.swift), and "showFindBar" puts a find bar above the text
+ (RichText+WinUIFindBar.swift). Its keys work while the focus is inside the element, as on Linux: Ctrl+F, F3 or
+ Ctrl+G, Shift+F3 or Shift+Ctrl+G, Enter and Shift+Enter in its field, Escape. A selection copies as plain text, as on
+ Linux (Apple platforms copy attributed text). Not yet: a row wider than the element wraps (on Linux only its last
+ cell wraps).
 
  Built only from ActionUI's interface for add-ons (ActionUIWinUIElement, RenderNode) and the shim's C functions
  (CWinUI's rich text group). The metrics are the GTK renderer's (RichTextGtkBuilder: heading scales, code scale)
@@ -117,7 +119,7 @@ struct RichTextInlineKey: Hashable {
 }
 
 /// What an element instance keeps (RenderNode.state): a panel holding the RichTextBlock in front of the shapes
-/// drawn behind its text, and what it shows.
+/// drawn behind its text, and the find bar above it once "showFindBar" has been on; and what it shows.
 @MainActor
 final class RichTextWinUIState {
     /// The element's object: a panel laid out here (measureRichText, arrangeRichText).
@@ -143,10 +145,20 @@ final class RichTextWinUIState {
     private var theme = RichTextTheme.default
     private weak var node: RenderNode?
     /// Find in the text (RichText+WinUIFind.swift), and the last states["search"] applied, so a states change that
-    /// delivers it again changes nothing.
+    /// delivers it again does not open a bar the reader closed; and the last value refused, so a host's mistake is
+    /// said once.
     let find: RichTextWinUIFind
     private var lastAppliedSearch: String?
     private var lastRejectedSearch: String?
+    /// The find bar above the text (RichText+WinUIFindBar.swift), made the first time "showFindBar" is on, the
+    /// panel's last child; whether "showFindBar" is on; and whether the bar shows (on, and the find presented).
+    private var bar: RichTextWinUIFindBar?
+    private var showsBar = false
+    private var barShown = false
+    /// The bar's height as the last measure found it (0 while it does not show).
+    private var barHeight = 0.0
+    /// Delivers each change of the states, so "" and then a term in one go still count as two.
+    var statesObservation: ActionUIObservation?
 
     /// The fill behind code (cards and inline code) and the color of quote bars and rules: theme brushes, as the
     /// GTK renderer derives them from the text color.
@@ -200,6 +212,14 @@ final class RichTextWinUIState {
         if !actionUIWinUIElementOnActualThemeChanged(block.pointer, richTextThemeChanged, context, releaseWeakRichTextState) {
             logger.log("RichText: following the theme failed: \(lastShimError())", .warning)
         }
+        // The find bar's keys, while the focus is in the element (the text, an image's placeholder, the bar).
+        let keyContext = Unmanaged.passRetained(WeakRichTextState(self)).toOpaque()
+        if !actionUIWinUIElementOnKeyEvents(panel.pointer, richTextKey, keyContext, releaseWeakRichTextState) {
+            logger.log("RichText: taking the find keys failed: \(lastShimError())", .warning)
+        }
+        find.onChange.append { [weak self] in
+            self?.findChanged()
+        }
     }
 
     /// Shows `markdown` (its relative image paths resolved against `baseURL`, its local images as the node's
@@ -233,9 +253,10 @@ final class RichTextWinUIState {
         _ = actionUIWinUIElementInvalidateMeasure(panel.pointer)
     }
 
-    /// Builds the text again, as the theme has it now.
+    /// Builds the text again, as the theme has it now, and gives the find bar the theme's brushes.
     func themeChanged() {
         rebuild()
+        bar?.applyBrushes()
     }
 
     private func rebuild() {
@@ -260,8 +281,8 @@ final class RichTextWinUIState {
         find.textChanged()
     }
 
-    /// Applies a value of states["search"], as the GTK element does: a term highlights its matches, a blank one
-    /// clears them.
+    /// Applies a value of states["search"], as the GTK element does: a term highlights its matches and, with
+    /// "showFindBar" on, shows the bar with it; a blank one clears them and closes the bar.
     func applySearch(_ value: Any?) {
         // nil: the key was never set - no opinion.
         guard let value else { return }
@@ -275,7 +296,97 @@ final class RichTextWinUIState {
         }
         guard query != lastAppliedSearch else { return }
         lastAppliedSearch = query
+        // What Apple's element trims, whitespacesAndNewlines: U+200B counts, and a space with a mark on it does not.
+        if query.unicodeScalars.allSatisfy({ $0.properties.isWhitespace || $0 == "\u{200B}" }) {
+            if find.isPresented || !find.query.isEmpty {
+                find.dismiss()
+            }
+            return
+        }
         find.query = query
+        if showsBar {
+            // Without the focus: the reader is typing in the host's field, which is what sent this.
+            find.present(focus: false)
+        }
+    }
+
+    /// "showFindBar": on, the bar shows while the find is presented, and the element takes the find keys. Off, the bar
+    /// goes and the search stays, as on Apple platforms and Linux: its highlights stay, and turning it on again shows
+    /// the bar as it was.
+    func setShowsBar(_ shows: Bool) {
+        guard shows != showsBar else { return }
+        showsBar = shows
+        if shows, bar == nil {
+            if let made = RichTextWinUIFindBar(find: find),
+               actionUIWinUIPanelInsertChild(panel.pointer, actionUIWinUIPanelChildCount(panel.pointer), made.panel.pointer) {
+                _ = actionUIWinUIElementSetCollapsed(made.panel.pointer, true)
+                bar = made
+            } else {
+                ActionUIModel.shared.logger.log("RichText: making the find bar failed: \(lastShimError())", .warning)
+            }
+        }
+        findChanged()
+    }
+
+    /// The find changed: the bar shows what it holds, shows or goes, and takes the focus asked for.
+    private func findChanged() {
+        guard let bar else { return }
+        bar.update()
+        let shown = showsBar && find.isPresented
+        if shown != barShown {
+            // The focus in a bar that goes would be lost: it goes to the text, or on.
+            if !shown, bar.hasFocus, !actionUIWinUIElementFocus(block.pointer) {
+                bar.giveUpFocus()
+            }
+            barShown = shown
+            _ = actionUIWinUIElementSetCollapsed(bar.panel.pointer, !shown)
+            _ = actionUIWinUIElementInvalidateMeasure(panel.pointer)
+        }
+        if shown, find.focusRequested {
+            find.focusRequested = false
+            if !actionUIWinUIElementFocus(bar.field.pointer) {
+                ActionUIModel.shared.logger.log("RichText: focusing the find field failed", .warning)
+            }
+        }
+    }
+
+    /// The find bar's keys, as on Linux with Control for Command, and Windows' own F3: Ctrl+F shows the bar (its field
+    /// focused); while it shows, F3 or Ctrl+G and Shift+F3 or Shift+Ctrl+G step through the matches, as Enter and
+    /// Shift+Enter in its field do, and Escape closes it.
+    fileprivate func keyPressed(down: Bool, virtualKey: Int32, modifiers: UInt32) -> Bool {
+        guard down, showsBar, bar != nil else { return false }
+        // Caps Lock on is no modifier held.
+        let held = modifiers & ~UInt32(ActionUIWinUIModifierCapsLock)
+        let control = UInt32(ActionUIWinUIModifierControl)
+        let shift = UInt32(ActionUIWinUIModifierShift)
+        // VK_F (0x46), VK_G (0x47), VK_F3 (0x72), VK_RETURN (0x0D), VK_ESCAPE (0x1B).
+        switch (virtualKey, held) {
+        case (0x46, control):
+            find.present()
+            return true
+        case (0x72, 0), (0x47, control):
+            guard barShown else { return false }
+            find.next()
+            return true
+        case (0x72, shift), (0x47, control | shift):
+            guard barShown else { return false }
+            find.previous()
+            return true
+        case (0x0D, 0), (0x0D, shift):
+            guard barShown, let bar, actionUIWinUIElementHasFocus(bar.field.pointer) else { return false }
+            if held == shift {
+                find.previous()
+            } else {
+                find.next()
+            }
+            return true
+        case (0x1B, 0):
+            guard barShown else { return false }
+            find.dismiss()
+            return true
+        default:
+            return false
+        }
     }
 
     /// The shapes for `decorations`, in place of the old ones, behind the text.
@@ -311,22 +422,42 @@ final class RichTextWinUIState {
     // MARK: - Layout
 
     func measure(_ available: ActionUIWinUISize) -> ActionUIWinUISize {
+        // The find bar while it shows, above the text, which gets the height it leaves.
+        var barSize = ActionUIWinUISize(width: 0, height: 0)
+        if let bar {
+            barSize = actionUIWinUIElementMeasure(bar.panel.pointer, ActionUIWinUISize(width: available.width, height: .infinity))
+            if !barShown {
+                barSize = ActionUIWinUISize(width: 0, height: 0)
+            }
+        }
+        barHeight = barSize.height
+        let textHeight = available.height.isFinite ? max(0, available.height - barSize.height) : available.height
         // The text's size; a "fill" element is stretched by its container (expansion), as before the panel.
-        let size = actionUIWinUIElementMeasure(block.pointer, available)
+        let size = actionUIWinUIElementMeasure(block.pointer, ActionUIWinUISize(width: available.width, height: textHeight))
         for shape in shapes {
             _ = actionUIWinUIElementMeasure(shape.pointer, ActionUIWinUISize(width: 0, height: 0))
         }
-        return size
+        return ActionUIWinUISize(width: max(size.width, barSize.width), height: size.height + barSize.height)
     }
 
-    /// The text over the whole size, then each shape where its paragraphs are, now that the text is laid out.
+    /// The find bar at the top while it shows, the text below it, then each shape where its paragraphs are, now that
+    /// the text is laid out.
     func arrange(_ size: ActionUIWinUISize) {
-        _ = actionUIWinUIElementArrange(block.pointer, ActionUIWinUIRect(x: 0, y: 0, width: size.width, height: size.height))
+        var top = 0.0
+        if let bar {
+            top = barShown ? barHeight : 0
+            _ = actionUIWinUIElementArrange(bar.panel.pointer, ActionUIWinUIRect(x: 0, y: 0, width: size.width, height: top))
+        }
+        _ = actionUIWinUIElementArrange(block.pointer, ActionUIWinUIRect(x: 0, y: top, width: size.width,
+                                                                         height: max(0, size.height - top)))
         // The text is laid out anew: its inline code is measured again.
         inlineLines = [:]
         placeTables(width: size.width)
+        // The shapes' frames are in the text's coordinates.
         for (shape, decoration) in zip(shapes, decorations) {
-            _ = actionUIWinUIElementArrange(shape.pointer, frame(of: decoration, width: size.width))
+            var frame = frame(of: decoration, width: size.width)
+            frame.y += top
+            _ = actionUIWinUIElementArrange(shape.pointer, frame)
         }
     }
 
@@ -844,6 +975,18 @@ private let richTextThemeChanged: ActionUIWinUICallback = { context in
     }
 }
 
+private let richTextKey: ActionUIWinUIKeyEventCallback = { context, event in
+    guard let context, let event else { return false }
+    let weak = Unmanaged<WeakRichTextState>.fromOpaque(context).takeUnretainedValue()
+    // The plain fields, not the event (it holds a pointer to its text, valid during the call only).
+    let down = event.pointee.type == ActionUIWinUIKeyDown
+    let virtualKey = event.pointee.virtualKey
+    let modifiers = event.pointee.modifiers
+    return MainActor.assumeIsolated {
+        weak.state?.keyPressed(down: down, virtualKey: virtualKey, modifiers: modifiers) ?? false
+    }
+}
+
 private let releaseWeakRichTextState: ActionUIWinUICallback = { context in
     guard let context else { return }
     Unmanaged<WeakRichTextState>.fromOpaque(context).release()
@@ -898,8 +1041,16 @@ struct RichTextView: ActionUIWinUIElement {
         // Before the text: a rebuild starts its images with the policy (RichTextView+RemoteImages.swift).
         state.setRemoteImages(effectiveRemoteImagesPolicy(properties["remoteImages"]))
         state.show(markdown: markdown, baseURL: baseURL, theme: theme(properties))
-        // After the text, which the search reads.
-        state.applySearch(node.model.states["search"])
+        // Before the search: a term shows the bar when it is on.
+        state.setShowsBar(properties["showFindBar"] as? Bool ?? false)
+        // After the text, which the search reads. In the first update, not makeView: it delivers the current states at
+        // once. Not by reading the states here: updates coalesce, and a host's "" and then the same term must reach the
+        // element as two changes (to open again a bar the reader closed).
+        if state.statesObservation == nil {
+            state.statesObservation = node.model.observeStates { [weak state] states in
+                state?.applySearch(states["search"])
+            }
+        }
     }
 
     /// "fill" (the default) takes the width it is offered; "hug" takes its text's, wrapping only at what it is offered.

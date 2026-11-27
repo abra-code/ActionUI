@@ -17,7 +17,9 @@
                                              //           messaging-bubble idiom; pair with frame.maxWidth to cap).
      "showFindBar": false,                   // Optional: Bool (default false); a find bar over this document
                                              //           (Cmd-F to open, Cmd-G / Shift-Cmd-G next / previous, Escape
-                                             //           to close, options for case / whole word / diacritics).
+                                             //           to close, options for case / whole word / diacritics;
+                                             //           Ctrl for Cmd on Linux and Windows; on Windows F3 /
+                                             //           Shift-F3 step too).
                                              //           Matches are painted behind the text without re-laying it
                                              //           out. Off, states["search"] still highlights (see below).
      "remoteImages": "on-click",             // Optional (default "automatic"): when http / https images are fetched.

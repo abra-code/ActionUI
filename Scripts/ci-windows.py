@@ -767,6 +767,11 @@ ADD_ON_PREVIEW_OPTIONS = {
     # which is text, Resume, RESUMES, resumed, pr\u00e9sum\u00e9's inner one). No failure line.
     "RichTextFind": ["--set-state", "2", "search", "ready", "--set-state", "3", "search", "resume", "--delay", "500",
                      "--forbid-log", "creating the element RichText", "--forbid-log", "RichText: "],
+    # The find bar ("showFindBar"): states["search"] opens element 2's bar with the term, without the focus: the field
+    # shows "ready", the count "1 of 5", and the matches are painted below it, the first in orange. Element 3's bar is
+    # not open and takes no room. No failure line.
+    "RichTextFindBar": ["520", "420", "--set-state", "2", "search", "ready", "--delay", "500", "--expect-width", "2", "496",
+                        "--forbid-log", "creating the element RichText", "--forbid-log", "RichText: "],
     # A Diff in JSON from a server reads no file on a share or a device, whatever form the path has: the add-on asks
     # the trust policy about the full path Windows opens (two slashes become backslashes, NUL is \\.\NUL), so each
     # refusal names that path. The share (actionui-canary, CANARY_SHARE) is the one check_share_reads shares and

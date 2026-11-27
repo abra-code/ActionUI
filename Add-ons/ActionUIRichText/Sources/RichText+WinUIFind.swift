@@ -1,7 +1,8 @@
 // Add-ons/ActionUIRichText/Sources/RichText+WinUIFind.swift
 /*
  Find in the RichText element's text on Windows, the counterpart of RichTextGtkFindController in the RichText
- package's GTK view: the query, the options, the matches and the one the reader is on, painted behind the text.
+ package's GTK view: the query, the options, the matches and the one the reader is on, painted behind the text, and
+ whether the find bar (RichText+WinUIFindBar.swift) shows.
 
  - The text searched is the block's own, as WinUI holds it (actionUIWinUIRichTextBlockVisitText): each run's text,
    a line break and a new paragraph as a newline, and an inline element (a table cell's spacer, an image) as
@@ -49,7 +50,11 @@ final class RichTextWinUIFind {
     /// The matches, in the highlighter's positions (TextReader), and the one the reader is on.
     private(set) var ranges: [Range<Int>] = []
     private(set) var currentIndex: Int?
-    /// Runs after any change of the matches or the current match (the bar follows it).
+    /// Whether the find bar shows (the element follows it, while "showFindBar" is on).
+    private(set) var isPresented = false
+    /// Set by present(), cleared by the element once it put the focus in the bar's field (again on a repeat Ctrl+F).
+    var focusRequested = false
+    /// Runs after any change of the matches, the current match or the presentation (the bar follows it).
     var onChange: [@MainActor () -> Void] = []
 
     private let block: OpaquePointer
@@ -96,6 +101,22 @@ final class RichTextWinUIFind {
 
     func previous() {
         step(by: -1)
+    }
+
+    /// Shows the bar. Its field takes the focus, unless `focus` is false: for a term from a search field of the
+    /// host's (states["search"]), where the reader is typing.
+    func present(focus: Bool = true) {
+        isPresented = true
+        focusRequested = focus
+        changed()
+    }
+
+    /// Hides the bar and clears the query, so nothing stays painted.
+    func dismiss() {
+        isPresented = false
+        focusRequested = false
+        query = ""
+        changed()
     }
 
     /// The block's text was built again (a new document or theme): search it again.
