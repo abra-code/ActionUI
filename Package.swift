@@ -632,6 +632,8 @@ Package(
         // The Swift adapter (ActionUISwift) without its SwiftUI views, for Swift programs (the MCP server), as on
         // Linux.
         .library(name: "ActionUISwiftAdapter", targets: ["ActionUISwiftAdapter"]),
+        // The test app's action handlers, for the Windows demo in ActionUIWinUI/Apps/Demo, as on Linux.
+        .library(name: "ActionUIDemoHandlers", targets: ["ActionUIDemoHandlers"]),
         // The remote server over a named pipe (ActionUIRemote/PROTOCOL.md), in ActionUI.dll through the
         // application layer, as in libActionUI.so on Linux.
         .library(name: "ActionUIRemote", targets: ["ActionUIRemote"]),
@@ -714,6 +716,14 @@ Package(
             dependencies: ["ActionUI"],
             path: "ActionUISwiftAdapter",
             exclude: ["ActionUISwift+SwiftUI.swift", "ActionUISwiftAdapter.docc"]
+        ),
+        // The test app's action handlers, which the Mac and iOS app compiles itself, as on Linux.
+        .target(
+            name: "ActionUIDemoHandlers",
+            dependencies: ["ActionUI", "ActionUISwiftAdapter"],
+            path: ".",
+            exclude: excludingAllBut(["ActionUISwiftTestApp/DemoHandlers.swift"]),
+            sources: ["ActionUISwiftTestApp/DemoHandlers.swift"]
         ),
         // The renderer's smoke test from Swift: WinUI through the shim, the main-queue bridge, a
         // PNG of a window.

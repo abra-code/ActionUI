@@ -569,6 +569,17 @@ public final class WinUIApplication {
         windows[windowUUID]?.showsContent ?? false
     }
 
+    /// Brings the window showing `windowUUID` to the front, restoring it when it is minimized; false when it is not
+    /// on screen (also while its JSON is still loading), as on Linux.
+    @discardableResult
+    public func showWindow(_ windowUUID: String) -> Bool {
+        guard let shown = windows[windowUUID] else { return false }
+        if !actionUIWinUIWindowActivate(shown.window.pointer) {
+            ActionUIModel.shared.logger.log("WinUIApplication: \(WinUIError.last("bringing the window for \(windowUUID) to the front"))", .error)
+        }
+        return true
+    }
+
     /// The size of the content of the window showing `windowUUID` as it is now laid out, in effective
     /// pixels (below its menu bar, if any); nil when there is no such window or it is not laid out yet.
     public func contentSize(windowUUID: String) -> (width: Double, height: Double)? {

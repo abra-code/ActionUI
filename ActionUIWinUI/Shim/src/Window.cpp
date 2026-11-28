@@ -834,7 +834,14 @@ bool actionUIWinUIRevealInFileExplorer(const char *path) {
 
 bool actionUIWinUIWindowActivate(ActionUIWinUIObject *window) {
     return guarded("window activate", [&]() {
-        windowFrom(window).Activate();
+        mux::Window shown = windowFrom(window);
+        // A minimized window is restored first, so bringing it to the front also shows it.
+        auto presenter = shown.AppWindow().Presenter().try_as<winrt::Microsoft::UI::Windowing::OverlappedPresenter>();
+        if (presenter != nullptr &&
+            presenter.State() == winrt::Microsoft::UI::Windowing::OverlappedPresenterState::Minimized) {
+            presenter.Restore();
+        }
+        shown.Activate();
         return true;
     });
 }

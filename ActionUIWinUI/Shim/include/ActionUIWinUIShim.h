@@ -123,7 +123,7 @@ ACTIONUI_WINUI_API bool actionUIWinUIWindowSetMinimumContentSize(ActionUIWinUIOb
 // Makes `element` the window's content (NULL removes it). The window keeps its own reference. The
 // content sits on the theme's page background, filling the window's content area.
 ACTIONUI_WINUI_API bool actionUIWinUIWindowSetContent(ActionUIWinUIObject *window, ActionUIWinUIObject *element);
-// Shows the window and brings it to the front.
+// Shows the window and brings it to the front, restoring it when it is minimized.
 ACTIONUI_WINUI_API bool actionUIWinUIWindowActivate(ActionUIWinUIObject *window);
 // Moves a window not shown yet past every monitor's edge and keeps it out of the taskbar and Alt+Tab,
 // for a window drawn where the user never sees it. Before its content size is set: that is in the

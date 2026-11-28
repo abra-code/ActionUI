@@ -3,8 +3,9 @@
 //  ActionUISwiftTestApp
 //
 //  The test app's action handlers, shared by the Mac and iOS app (ActionUISwiftTestApp.swift) and
-//  the Linux demo in ActionUIAdwaita/Apps (through the ActionUIDemoHandlers library, which builds
-//  this file): they call only ActionUISwift, the portable part of the Swift adapter.
+//  the Linux and Windows demos (ActionUIAdwaita/Apps, ActionUIWinUI/Apps/Demo), through the
+//  ActionUIDemoHandlers library, which builds this file: they call only ActionUISwift, the portable
+//  part of the Swift adapter.
 //
 
 #if canImport(FoundationEssentials)
@@ -14,6 +15,8 @@ import Foundation
 #endif
 #if canImport(Glibc)
 import Glibc
+#elseif os(Windows)
+import ucrt
 #endif
 import ActionUI
 import ActionUISwiftAdapter
@@ -907,14 +910,19 @@ public enum DemoHandlers {
     }
 }
 
-/// The time of day as the system writes it: Foundation's standard time style on Apple; on Linux,
-/// where FoundationEssentials formats no dates, the C library's format for the locale (strftime's
-/// "%X"; GTK sets the locale from the environment).
+/// The time of day as the system writes it: Foundation's standard time style on Apple; on Linux and
+/// Windows, where FoundationEssentials formats no dates, the C library's format for the locale
+/// (strftime's "%X"). GTK sets the locale from the environment on Linux; nothing sets it on Windows,
+/// so there it is the C locale's 24-hour "HH:MM:SS".
 private func timeNow() -> String {
     #if canImport(FoundationEssentials)
     var now = time(nil)
     var parts = tm()
+    #if os(Windows)
+    localtime_s(&parts, &now)
+    #else
     localtime_r(&now, &parts)
+    #endif
     var buffer = [CChar](repeating: 0, count: 64)
     let count = strftime(&buffer, buffer.count, "%X", &parts)
     return String(decoding: buffer.prefix(count).map { UInt8(bitPattern: $0) }, as: UTF8.self)
