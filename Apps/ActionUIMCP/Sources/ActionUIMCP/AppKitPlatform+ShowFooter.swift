@@ -9,6 +9,8 @@
 // that shows it in the Finder, or a web address), when the window was shown, and a Save button (Copy
 // URL for content from the network). It is AppKit, outside the ActionUI JSON, so the agent can
 // neither change it nor press its buttons; it keeps working in a kept window after the session ends.
+// File > Save... (Command-S) in the server's own main menu presses the key window's Save
+// (SaveCopyCommand).
 
 #if canImport(AppKit)
 import AppKit
@@ -21,6 +23,10 @@ final class ShowFooterView: NSView {
     private let windowID: String
     /// The view showing the ActionUI content, drawn for a chart's PNG.
     private weak var content: NSView?
+    /// A save panel of this window's is up: one at a time (a held Command-S repeats).
+    private var saving = false
+    /// Each window's bar, for File > Save...
+    private static let byWindow = NSMapTable<NSWindow, ShowFooterView>.weakToWeakObjects()
 
     init(footer: ShowFooter, windowID: String, content: NSView) {
         path = footer.path
@@ -60,7 +66,7 @@ final class ShowFooterView: NSView {
         shown.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
         items.append(shown)
         if let save {
-            items.append(Self.button("Save\u{2026}", help: "Save a copy of what the window shows", target: self, action: #selector(saveCopy)))
+            items.append(Self.button("Save\u{2026}", help: "Save a copy of what the window shows (\u{2318}S)", target: self, action: #selector(saveCopy)))
             #if DEBUG
             scheduleTestSave(save)
             #endif
@@ -85,6 +91,23 @@ final class ShowFooterView: NSView {
     required init?(coder: NSCoder) { fatalError("not used") }
 
     override var isFlipped: Bool { true }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if let window {
+            Self.byWindow.setObject(self, forKey: window)
+        }
+    }
+
+    /// The bar of `window`, nil for a window without one.
+    static func bar(of window: NSWindow?) -> ShowFooterView? {
+        window.flatMap { byWindow.object(forKey: $0) }
+    }
+
+    /// True while Save would ask where: the window has Save and no sheet is up on it.
+    var canSaveCopy: Bool {
+        save != nil && !saving && window?.attachedSheet == nil
+    }
 
     private static func button(_ title: String, help: String, target: AnyObject, action: Selector) -> NSButton {
         let button = NSButton(title: title, target: target, action: action)
@@ -119,13 +142,15 @@ final class ShowFooterView: NSView {
 
     /// Asks where with a save panel on the window, then writes there; the panel confirms replacing
     /// a file. Nothing is written anywhere else.
-    @objc private func saveCopy() {
-        guard let save, let window else { return }
+    @objc func saveCopy() {
+        guard canSaveCopy, let save, let window else { return }
         let panel = NSSavePanel()
         panel.nameFieldStringValue = save.suggestedName
         panel.canCreateDirectories = true
         panel.isExtensionHidden = false
+        saving = true
         panel.beginSheetModal(for: window) { [weak self] response in
+            self?.saving = false
             guard response == .OK, let destination = panel.url, let self else { return }
             do {
                 try self.write(save.content, to: destination)
@@ -191,6 +216,24 @@ final class ShowFooterView: NSView {
         content.cacheDisplay(in: content.bounds, to: rep)
         guard let png = rep.representation(using: .png, properties: [:]) else { throw MCPToolError("the chart could not be encoded") }
         return png
+    }
+}
+
+/// File > Save... (Command-S): the key window's Save, as its bar's button does. Enabled only while
+/// the key window's bar has Save and no sheet is up on it, so in a window without Save (network
+/// content, show_ui, a dialog) the menu item is gray and Command-S is left to the window: a show_ui
+/// window's own Command-S button keeps it. The menu is the server's (AppKitPlatform.makeMainMenu),
+/// outside the ActionUI JSON: the agent can neither add the item nor choose it.
+@MainActor
+final class SaveCopyCommand: NSObject, NSMenuItemValidation {
+    static let shared = SaveCopyCommand()
+
+    @objc func saveCopy(_ sender: Any?) {
+        ShowFooterView.bar(of: NSApp.keyWindow)?.saveCopy()
+    }
+
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        ShowFooterView.bar(of: NSApp.keyWindow)?.canSaveCopy == true
     }
 }
 #endif

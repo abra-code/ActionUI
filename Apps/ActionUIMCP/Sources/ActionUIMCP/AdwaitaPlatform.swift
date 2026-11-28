@@ -17,6 +17,7 @@ import ActionUIAdwaitaApplication
 import ActionUICachedImage
 import ActionUIDiff
 import ActionUIRichText
+import ActionUISwiftAdapter
 import MCPStdio
 
 @MainActor
@@ -67,6 +68,11 @@ final class AdwaitaPlatform: WindowPlatform {
     /// icon and name on GNOME; the icon set here is the windows' own, which some desktops show without
     /// one. The name, version and copyright line are what the About item of the windows' menu shows,
     /// as the About panel does on macOS (where the name and copyright come from Info.plist).
+    /// The menu has Save..., a `show` window's Save (LinuxShowFooter.pressSave), as macOS's File menu
+    /// does. Its shortcut, Ctrl+S, is each Save button's own (not the application's, which would
+    /// take Ctrl+S from every window), so the menu shows none. Its action goes to a handler of the
+    /// server's own, never to an agent's events; a show_ui Button firing the same ID names its own
+    /// window, which has no Save.
     static func prepareApplication(isKeeper: Bool) {
         AdwaitaApplication.shared.name = DesktopEntry.name
         AdwaitaApplication.shared.version = serverVersion
@@ -77,8 +83,12 @@ final class AdwaitaPlatform: WindowPlatform {
         }
         AdwaitaApplication.shared.keepsRunningWithoutWindows = !isKeeper
         AdwaitaApplication.shared.runsWithoutDisplay = !isKeeper
-        guard !isKeeper else { return }
-        AdwaitaApplication.shared.loadMenuBar(json: #"[{"type": "CommandGroup", "properties": {"placementTarget": "appTermination", "placement": "replacing"}}]"#)
+        ActionUISwift.registerActionHandler(actionID: LinuxShowFooter.saveActionID) { _, windowUUID, _, _, _ in
+            MainActor.assumeIsolated { LinuxShowFooter.pressSave(windowID: windowUUID) }
+        }
+        let save = #"{"type": "CommandGroup", "properties": {"placementTarget": "saveItem"}, "children": [{"type": "Button", "properties": {"title": "Save\#u{2026}", "actionID": "\#(LinuxShowFooter.saveActionID)"}}]}"#
+        let noQuit = #"{"type": "CommandGroup", "properties": {"placementTarget": "appTermination", "placement": "replacing"}}"#
+        AdwaitaApplication.shared.loadMenuBar(json: "[" + (isKeeper ? [save] : [save, noQuit]).joined(separator: ", ") + "]")
     }
 
     static func runApplication() {

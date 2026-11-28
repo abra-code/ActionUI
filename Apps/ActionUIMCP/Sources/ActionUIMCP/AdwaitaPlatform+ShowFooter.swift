@@ -10,7 +10,8 @@
 // address), when the window was shown, and a Save button (Copy URL for content from the network). It
 // is in one of the window's own bars (AdwaitaApplication.WindowOptions.topBar), outside the ActionUI
 // JSON, so the agent can neither change it nor press its buttons; it keeps working in a kept window
-// after the session ends.
+// after the session ends. Ctrl+S presses Save anywhere in its window, and so does Save... in the
+// windows' menu (pressSave).
 
 #if os(Linux)
 import FoundationEssentials
@@ -44,6 +45,13 @@ enum LinuxShowFooter {
         .actionui-mcp-bar button.flat:hover { background: rgba(0, 0, 0, 0.08); }
         """
     private static var styled = false
+    /// The action ID of Save... in the windows' menu (AdwaitaPlatform.prepareApplication).
+    static let saveActionID = "mcp.saveCopy"
+    /// Each window's Save button, held weakly in a box GLib clears when the button goes.
+    private static var saveButtons: [String: UnsafeMutablePointer<gpointer?>] = [:]
+    /// The windows whose save panel is up: one at a time, as the panel is modal to no window and a
+    /// held Ctrl+S repeats.
+    private static var saving: Set<String> = []
 
     /// A new row for `footer` in the window `windowID`, transparent: the bar draws the yellow.
     static func widget(_ footer: ShowFooter, windowID: String) -> UnsafeMutableRawPointer {
@@ -82,9 +90,11 @@ enum LinuxShowFooter {
         append(bar, shown)
         if let save = footer.save {
             let button = gtk_button_new_with_label("Save\u{2026}")!
-            gtk_widget_set_tooltip_text(button, "Save a copy of what the window shows")
+            gtk_widget_set_tooltip_text(button, "Save a copy of what the window shows (Ctrl+S)")
             gtk_widget_set_valign(button, GTK_ALIGN_CENTER)
             onClicked(button) { saveCopy(save, windowID: windowID, from: button) }
+            addShortcut(to: button)
+            remember(button, windowID: windowID)
             append(bar, button)
             #if DEBUG
             scheduleTestSave(save, windowID: windowID)
@@ -97,6 +107,47 @@ enum LinuxShowFooter {
             append(bar, button)
         }
         return UnsafeMutableRawPointer(bar)
+    }
+
+    /// Presses the Save button of window `windowID`, for Save... in the windows' menu, which names
+    /// the active window. Nothing for a window without one (network content, show_ui, a dialog),
+    /// where GTK's menu cannot gray the item out.
+    static func pressSave(windowID: String) {
+        guard let button = saveButtons[windowID]?.pointee else { return }
+        gtk_widget_activate(button.assumingMemoryBound(to: GtkWidget.self))
+    }
+
+    /// Ctrl+S anywhere in the button's window activates it, as a view's keyboardShortcut does
+    /// (ViewShortcut): in the window's own shortcuts, not the application's, so a window without
+    /// Save keeps Ctrl+S for its content (a show_ui window's own Ctrl+S button).
+    private static func addShortcut(to button: UnsafeMutablePointer<GtkWidget>) {
+        guard let trigger = gtk_shortcut_trigger_parse_string("<Control>s") else { return }
+        let controller = gtk_shortcut_controller_new()!
+        gtk_shortcut_controller_set_scope(controller, GTK_SHORTCUT_SCOPE_MANAGED)
+        // gtk_activate_action_get is the shared action without a reference; the shortcut takes one.
+        let action = gtk_activate_action_get()!
+        g_object_ref(UnsafeMutableRawPointer(action))
+        gtk_shortcut_controller_add_shortcut(controller, gtk_shortcut_new(trigger, action))
+        gtk_widget_add_controller(button, controller)
+    }
+
+    /// Keeps `button` as the Save button of window `windowID`, in place of one it had before.
+    private static func remember(_ button: UnsafeMutablePointer<GtkWidget>, windowID: String) {
+        if let old = saveButtons.removeValue(forKey: windowID) {
+            if let widget = old.pointee {
+                g_object_remove_weak_pointer(widget.assumingMemoryBound(to: GObject.self), old)
+            }
+            old.deallocate()
+        }
+        // Boxes of buttons that are gone, their windows closed.
+        for (id, box) in saveButtons where box.pointee == nil {
+            saveButtons[id] = nil
+            box.deallocate()
+        }
+        let box = UnsafeMutablePointer<gpointer?>.allocate(capacity: 1)
+        box.initialize(to: UnsafeMutableRawPointer(button))
+        g_object_add_weak_pointer(UnsafeMutableRawPointer(button).assumingMemoryBound(to: GObject.self), box)
+        saveButtons[windowID] = box
     }
 
     private static func append(_ box: UnsafeMutablePointer<GtkWidget>, _ child: UnsafeMutablePointer<GtkWidget>) {
@@ -142,12 +193,14 @@ enum LinuxShowFooter {
     /// Asks where with a save panel, then writes there; the panel confirms replacing a file.
     /// Nothing is written anywhere else.
     private static func saveCopy(_ save: ShowSave, windowID: String, from button: UnsafeMutablePointer<GtkWidget>) {
+        guard saving.insert(windowID).inserted else { return }
         let settings = JSONValue.object(["title": .string("Save a Copy"), "nameFieldStringValue": .string(save.suggestedName)])
         // The panel is modal to no window, which can close under it: the button lives until the
         // panel answers, and an error then shows over the window only while the button is in one.
         g_object_ref(UnsafeMutableRawPointer(button))
         AppPanels.beginSavePanel(json: settings.serialized()) { path in
             defer { g_object_unref(UnsafeMutableRawPointer(button)) }
+            saving.remove(windowID)
             guard let path else { return }
             do {
                 try write(save.content, to: path, windowID: windowID)
