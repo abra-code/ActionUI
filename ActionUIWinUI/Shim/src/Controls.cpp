@@ -442,6 +442,12 @@ ActionUIWinUIObject *actionUIWinUIOverflowButtonCreate(ActionUIWinUIObject *cont
         muxc::Flyout flyout;
         mux::UIElement panel = objectAs<mux::UIElement>(content, L"UIElement");
         flyout.Content(panel);
+        // In a window of its own, so in a small window it reaches past the window's edges, as a macOS
+        // toolbar's overflow menu does, instead of fitting inside it and scrolling.
+        flyout.ShouldConstrainToRootBounds(false);
+        // Below the button, its right edge at the button's, as a menu drops down (a button's flyout
+        // otherwise prefers to open above it); WinUI opens it above when the screen has no room below.
+        flyout.Placement(muxc::Primitives::FlyoutPlacementMode::BottomEdgeAlignedRight);
         // Chosen an item, the flyout closes, as a menu does: a tap, or Enter or Space, in it (also when
         // the item handled the event itself, as a Button does).
         winrt::weak_ref<muxc::Flyout> weakFlyout = flyout;
