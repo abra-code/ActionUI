@@ -35,7 +35,7 @@ package final class WinUIWindow {
     /// The command rows around the root, when the ActionUI JSON declares a toolbar outside a navigation
     /// container (WindowCommandBar).
     private var commandBar: WindowCommandBar?
-    /// The window-level presentations the host asks for (alerts, confirmation dialogs).
+    /// The window-level presentations the host asks for (modals, alerts, confirmation dialogs).
     private var presenter: WindowPresenter?
 
     /// The title of the WindowGroup at the JSON's root, when it is one and names a title.

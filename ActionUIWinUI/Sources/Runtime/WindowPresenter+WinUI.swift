@@ -1,8 +1,15 @@
 // Sources/Runtime/WindowPresenter+WinUI.swift
 /*
- The window-level presentations of one window: what ActionUIModel.presentAlert and
- presentConfirmationDialog put in the window model, as WindowPresenter does on Linux. presentModal and
- presentToast are not shown yet.
+ The window-level presentations of one window: what ActionUIModel.presentModal, presentAlert and
+ presentConfirmationDialog put in the window model, as WindowPresenter does on Linux. presentToast is not
+ shown yet.
+
+ - A modal (sheet or fullScreenCover): a ContentDialog over the window showing the modal's element alone,
+   as an element's own sheet is shown (NodePresentations): no title or buttons, as a macOS sheet shows its
+   view alone, and a window smaller than the dialog grows to it while it is shown. fullScreenCover is a
+   dialog too, as macOS makes it a sheet. Closing it (Escape) dismisses the modal in the model, which fires
+   its onDismissActionID; a modal the host dismisses or replaces closes. A modal asked for before the
+   window's content is in a window is shown once it is.
 
  - An alert or a confirmation dialog: a ContentDialog over the window (the shim's alert,
    actionUIWinUIAlertShow) with the title, the message and one button per DialogButton, in Fluent's
@@ -16,8 +23,9 @@
    style.
  - A dialog with no buttons gets "OK", as SwiftUI shows. A button fires its action after the dialog has
    closed, so the action can present another one.
- - WinUI shows one dialog at a time in a window: a dialog asked for while a sheet or another dialog is
-   open is not shown. It is logged and dismissed in the model, so a later one can be shown.
+ - WinUI shows one dialog at a time in a window: a modal or dialog asked for while a sheet or another dialog
+   is open is not shown. It is logged and dismissed in the model (a modal's onDismissActionID fires), so a
+   later one can be shown.
 
  The presenter watches the model values with withObservationTracking and shows what they hold after each
  change, from the main queue (onChange runs before the new value is stored). Each presentation is matched
@@ -42,7 +50,11 @@ final class WindowPresenter {
     private let anchor: WinUIObject
     private var isActive = true
     private var updateQueued = false
+    /// Whether the anchor entering a window updates again: connected the first time a modal finds it in
+    /// no window, once.
+    private var watchesLoaded = false
 
+    private var modal: PresentedModal?
     private var dialog: PresentedDialog?
 
     private var windowUUID: String { windowModel.windowUUID }
@@ -59,6 +71,7 @@ final class WindowPresenter {
     /// takes other content).
     func stop() {
         isActive = false
+        closeModal()
         closeDialog()
     }
 
@@ -66,11 +79,15 @@ final class WindowPresenter {
 
     private func update() {
         guard isActive else { return }
-        let dialog = withObservationTracking {
-            windowModel.windowDialog
+        let (modal, dialog) = withObservationTracking {
+            (windowModel.windowModal, windowModel.windowDialog)
         } onChange: { [weak self] in
             MainActor.assumeIsolated { self?.queueUpdate() }
         }
+        show(modal)
+        // A refused modal fires its onDismissActionID, whose handler may have closed the window or given it
+        // other content (stop).
+        guard isActive else { return }
         show(dialog)
     }
 
@@ -83,6 +100,98 @@ final class WindowPresenter {
                 self.updateQueued = false
                 self.update()
             }
+        }
+    }
+
+    // MARK: Modal
+
+    private final class PresentedModal {
+        let id: UUID
+        let shown: NodePresentations.Shown
+
+        init(id: UUID, shown: NodePresentations.Shown) {
+            self.id = id
+            self.shown = shown
+        }
+    }
+
+    private func show(_ windowModal: WindowModal?) {
+        guard modal?.id != windowModal?.id else { return }
+        closeModal()
+        guard let windowModal else { return }
+        guard actionUIWinUIElementIsInWindow(anchor.pointer) else {
+            // The window is still being built: again once its content is in it.
+            updateWhenLoaded()
+            return
+        }
+        let id = windowModal.id
+        guard let model = windowModel.viewModels[windowModal.element.id] else {
+            ActionUIModel.shared.logger.log("WindowPresenter: no view model for the modal's element \(windowModal.element.id) in window \(windowUUID)", .error)
+            return
+        }
+        let root = RenderNode(element: windowModal.element, model: model, windowModel: windowModel, parent: nil)
+        root.sync()
+        guard let content = root.outerView else {
+            ActionUIModel.shared.logger.log("WindowPresenter: the modal's element \(windowModal.element.id) in window \(windowUUID) has no view", .error)
+            root.detach()
+            return
+        }
+        guard let host = WinUIObject(adopting: actionUIWinUIDialogCreate(content.pointer)) else {
+            ActionUIModel.shared.logger.log("WindowPresenter: \(WinUIError.last("making a modal in window \(windowUUID)"))", .error)
+            root.detach()
+            return
+        }
+        WinUIEvents.connect(host, actionUIWinUIDialogOnClosed, "a modal's closing") { [weak self] in
+            self?.modalClosed(id)
+        }
+        let presented = PresentedModal(id: id, shown: NodePresentations.Shown(host: host, root: root))
+        modal = presented
+        guard actionUIWinUIDialogShow(host.pointer, anchor.pointer) else {
+            ActionUIModel.shared.logger.log("WindowPresenter: the modal was not shown in window \(windowUUID): \(WinUIError.last("showing it")) (WinUI shows one dialog at a time in a window)", .warning)
+            takeDownModal()
+            if windowModel.windowModal?.id == id {
+                ActionUIModel.shared.dismissModal(windowUUID: windowUUID)
+            }
+            return
+        }
+        NodePresentations.growWindow(for: presented.shown, content: content, windowUUID: windowUUID)
+    }
+
+    /// Closed: the user closed the modal (Escape); one the presenter closed is no longer `modal`.
+    private func modalClosed(_ id: UUID) {
+        guard let presented = modal, presented.id == id else { return }
+        takeDownModal()
+        if windowModel.windowModal?.id == id {
+            ActionUIModel.shared.dismissModal(windowUUID: windowUUID)
+        }
+    }
+
+    /// Takes down the modal shown, firing nothing (the model replaced or dismissed it, or the window goes).
+    private func closeModal() {
+        guard let presented = modal else { return }
+        takeDownModal()
+        if !actionUIWinUIDialogHide(presented.shown.host.pointer) {
+            ActionUIModel.shared.logger.log("WindowPresenter: \(WinUIError.last("closing a modal in window \(windowUUID)"))", .warning)
+        }
+    }
+
+    /// Forgets the modal (so its Closed changes nothing) and detaches its tree; a window it grew gets its
+    /// size back.
+    private func takeDownModal() {
+        guard let presented = modal else { return }
+        modal = nil
+        presented.shown.root.detach()
+        if let grown = presented.shown.grown {
+            WinUIWindow.shrinkAfterPresentation(windowUUID: windowUUID, from: grown)
+        }
+    }
+
+    /// Updates again each time the anchor enters a window (WinUI's Loaded), on the main queue's next turn.
+    private func updateWhenLoaded() {
+        guard !watchesLoaded else { return }
+        watchesLoaded = true
+        WinUIEvents.connect(anchor, actionUIWinUIElementOnLoaded, "a window's content loading") { [weak self] in
+            self?.queueUpdate()
         }
     }
 

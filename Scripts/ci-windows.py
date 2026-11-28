@@ -1318,7 +1318,7 @@ def check_demo(shim_out, bin_path, results, summary, env):
     the shim's import library, puts the shim's DLL, the bootstrapper, WebView2's Core DLL and the programs'
     manifest beside it, gathers its resources (the test app's JSON files and those of the add-ons that work on
     Windows) in one folder, and runs it as the Linux demo's tests do: the launcher, JSON files with and without an
-    action (which must change the window; an alert and a confirmation dialog must show), add-on elements
+    action (which must change the window; an alert, a confirmation dialog and a modal must show), add-on elements
     (RichText must be registered: its Markdown changes the window), JSON that cannot be loaded, and bad
     arguments. True when each run answered as expected."""
     scratch = ["--scratch-path", str(REPO_DIR / ".build" / "ci-windows-demo"), "--manifest-cache", "none"]
@@ -1377,6 +1377,8 @@ def check_demo(shim_out, bin_path, results, summary, env):
         ("demo-alert", ["--resources", resources, "--open", "Alert", "--action", "demo.showAlert"], 0, True),
         ("demo-alert-confirmation", ["--resources", resources, "--open", "Alert", "--action", "demo.showConfirmation"],
          0, True),
+        ("demo-sheet-none", ["--resources", resources, "--open", "Sheet"], 0, True),
+        ("demo-modal", ["--resources", resources, "--open", "Sheet", "--action", "sheet.demo.presentModal.sheet"], 0, True),
         ("demo-bad", ["--resources", bad, "--open", "Bad"], 65, True),
         ("demo-unknown", ["--resources", resources, "--open", "NoSuchSample"], 66, False),
         ("demo-empty", ["--resources", empty], 66, False),
@@ -1403,7 +1405,8 @@ def check_demo(shim_out, bin_path, results, summary, env):
                                     "the Markdown made no difference: RichText is not registered"),
                                    ("demo-alert-none", "demo-alert", "presentAlert showed no dialog"),
                                    ("demo-alert-none", "demo-alert-confirmation",
-                                    "presentConfirmationDialog showed no dialog")]:
+                                    "presentConfirmationDialog showed no dialog"),
+                                   ("demo-sheet-none", "demo-modal", "presentModal showed no sheet")]:
         first_png, second_png = results / f"{first}.png", results / f"{second}.png"
         if first_png.is_file() and second_png.is_file() and first_png.read_bytes() == second_png.read_bytes():
             summary["findings"].append(f"demo: {first}.png and {second}.png are the same: {meaning}")

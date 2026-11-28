@@ -80,8 +80,9 @@ package final class NodePresentations {
     /// the first time a show finds it in no window, once.
     private var watchesLoaded = false
 
-    /// One presentation on screen: its WinUI object (a ContentDialog or a Flyout) and its tree.
-    private final class Shown {
+    /// One presentation on screen: its WinUI object (a ContentDialog or a Flyout) and its tree. Also the
+    /// window presenter's modal (WindowPresenter), a dialog as a sheet is.
+    final class Shown {
         let host: WinUIObject
         let root: RenderNode
         /// The window's content size before a sheet grew it, and the size it grew to.
@@ -205,7 +206,7 @@ package final class NodePresentations {
                 takeDown(kind)
                 return
             }
-            growWindow(for: presented, content: content, windowUUID: node.windowModel.windowUUID)
+            Self.growWindow(for: presented, content: content, windowUUID: node.windowModel.windowUUID)
         }
     }
 
@@ -222,7 +223,8 @@ package final class NodePresentations {
     /// Grows the window to the dialog's size once the sheet's content has loaded (its controls have their
     /// styles then): WinUI draws the dialog within its window, so a window smaller than it cut it at both
     /// ends, where a macOS sheet can reach past its window. After the layout pass, as WinUIWindow grows.
-    private func growWindow(for presented: Shown, content: WinUIObject, windowUUID: String) {
+    /// The window presenter's modal grows its window the same way.
+    static func growWindow(for presented: Shown, content: WinUIObject, windowUUID: String) {
         var once = false
         WinUIEvents.connect(content, actionUIWinUIElementOnLoaded, "a sheet's content loading") { [weak presented, weak content] in
             guard !once else { return }
