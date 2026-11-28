@@ -18,6 +18,14 @@
 
  - Padding: the content is offered the space less the padding, and the padded size is the content
    plus the padding (negative padding lets the content overflow).
+ - A control (a WinUI Control: a Button, a TextBox, a CheckBox, a Slider...) that neither expands
+   nor can be made smaller vertically (a DisclosureGroup around a ScrollView can) keeps its own
+   height when offered less, overflowing its frame centered, as SwiftUI's controls do (measured on
+   macOS 27: buttons of every style, toggles, text fields, pickers, sliders, steppers and progress
+   bars keep their height in a frame 12 high). WinUI caps a control's desired size at the room
+   offered and draws it cut at that size; the box measures it again with no height limit. Widths are
+   left as offered: SwiftUI's controls give up width (a bordered button truncates its title, a text
+   field narrows).
  - frame(width:height:): the frame is that size whatever its content, and the content is offered it.
  - A flexible frame, given a proposal: with a minimum and a maximum, the proposal clamped to them;
    only a maximum, the proposal up to it but at least the content (it expands up to the maximum);
@@ -260,10 +268,15 @@ final class ModifierBox {
     /// Exactly the frame's size: the background, and the element inside the padding.
     let group: LayoutPanel
     let content: WinUIObject
+    /// Whether the content is a WinUI Control, which keeps its own height (see the header).
+    private let contentIsControl: Bool
     private(set) var geometry = BoxGeometry()
     /// Whether the content itself expands (its renderer's expansion): content that expands
     /// takes the room inside the padding.
     var contentExpansion: Expansion = []
+    /// The axes along which the content itself can be made smaller (its renderer's compression): a
+    /// control holding content that can (a DisclosureGroup around a ScrollView) gives up its height.
+    var contentCompression: Expansion = []
     /// The padded content's size from the last measure pass, per axis.
     private var padded = (width: 0, height: 0)
     /// The rounded box between the outer box and the group, made at the first corner radius.
@@ -350,6 +363,7 @@ final class ModifierBox {
 
     init(content: WinUIObject) throws(WinUIError) {
         self.content = content
+        contentIsControl = actionUIWinUIElementIsControl(content.pointer)
         panel = try LayoutPanel()
         group = try LayoutPanel()
         try panel.append(group.object)
@@ -644,8 +658,16 @@ final class ModifierBox {
         // What the content asks for even beyond the room (a stack's children at their smallest), so
         // the box's own answer is its true size: a stack measuring it with nothing offered learns
         // its smallest size.
-        let desired = content.measureRequested(ActionUIWinUISize(width: inner(available.width, geometry.padding.horizontal),
-                                                        height: inner(available.height, geometry.padding.vertical)))
+        let offer = ActionUIWinUISize(width: inner(available.width, geometry.padding.horizontal),
+                                      height: inner(available.height, geometry.padding.vertical))
+        var desired = content.measureRequested(offer)
+        // A control keeps its own height (see the header): its answer capped at a smaller room is
+        // measured again with no height limit, which leaves its desired size at the natural one.
+        if contentIsControl, !contentExpansion.contains(.vertical), !contentCompression.contains(.vertical),
+           offer.height.isFinite, desired.height >= offer.height - 0.5 {
+            let natural = content.measure(ActionUIWinUISize(width: offer.width, height: .infinity))
+            desired.height = max(desired.height, natural.height)
+        }
         padded = (StackSolver.length(desired.width, rounding: .up) + geometry.padding.horizontal.total,
                   StackSolver.length(desired.height, rounding: .up) + geometry.padding.vertical.total)
         // The background view, offered the frame's size (as the outer measure computes it), not the

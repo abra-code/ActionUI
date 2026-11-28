@@ -142,6 +142,7 @@ public final class RenderNode {
             do {
                 box = try ModifierBox(content: view)
                 box?.contentExpansion = UntrackedReads.perform { renderer.expansion(self) }
+                box?.contentCompression = UntrackedReads.perform { renderer.compression(self) }
             } catch {
                 ActionUIModel.shared.logger.log("RenderNode: \(error); \(element.type) shows without padding or frame", .error)
             }
@@ -356,6 +357,7 @@ public final class RenderNode {
                                                  applied: appliedShortcut)
             let geometry = boxGeometry(modifiers)
             box?.contentExpansion = renderer.expansion(self)
+            box?.contentCompression = renderer.compression(self)
             box?.update(geometry)
             let newExpansion = Self.expansion(renderer.expansion(self), geometry: geometry)
             let newCaps = (geometry.frame.horizontal.cap, geometry.frame.vertical.cap)

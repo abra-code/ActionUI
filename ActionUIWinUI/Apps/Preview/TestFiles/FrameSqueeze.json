@@ -1,0 +1,50 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 24, "padding": 20 },
+  "children": [
+    {
+      "type": "HStack",
+      "properties": { "spacing": 12, "alignment": "center" },
+      "children": [
+        {
+          "type": "Button",
+          "id": 1,
+          "properties": {
+            "title": "Delete",
+            "role": "destructive",
+            "font": "body",
+            "frame": { "width": 150.0, "height": 44.0, "alignment": "center" },
+            "padding": 12.0
+          }
+        },
+        {
+          "type": "Button",
+          "id": 2,
+          "properties": {
+            "title": "Cancel",
+            "role": "cancel",
+            "cornerRadius": 10.0,
+            "frame": { "width": 120.0, "height": 40.0, "alignment": "center" },
+            "padding": { "top": 10.0, "bottom": 10.0, "leading": 20.0, "trailing": 20.0 }
+          }
+        }
+      ]
+    },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 40, "alignment": "center" },
+      "children": [
+        {
+          "type": "Toggle",
+          "id": 3,
+          "properties": { "title": "On", "frame": { "width": 120.0, "height": 12.0 }, "border": { "color": "red" } }
+        },
+        {
+          "type": "TextField",
+          "id": 4,
+          "properties": { "prompt": "Name", "frame": { "width": 120.0, "height": 12.0 }, "border": { "color": "red" } }
+        }
+      ]
+    }
+  ]
+}

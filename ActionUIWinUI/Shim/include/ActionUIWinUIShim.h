@@ -656,6 +656,10 @@ ACTIONUI_WINUI_API bool actionUIWinUIPanelRemoveChild(ActionUIWinUIObject *panel
 // (its DesiredSize). {0, 0} on failure.
 ACTIONUI_WINUI_API ActionUIWinUISize actionUIWinUIElementMeasure(ActionUIWinUIObject *element,
                                                                  ActionUIWinUISize available);
+// Whether `element` is a WinUI Control (a Button, a TextBox, a CheckBox...): a control's template sets a
+// least size it does not go below, where a TextBlock or an Image can be made smaller. A ScrollViewer, a
+// viewport the layout sizes, is not counted. False on failure.
+ACTIONUI_WINUI_API bool actionUIWinUIElementIsControl(ActionUIWinUIObject *element);
 // In an arrange callback: places `element` at `frame`, in its parent's coordinates. Fails when the
 // position is not finite; a width or height that is not finite, or is negative, becomes 0.
 ACTIONUI_WINUI_API bool actionUIWinUIElementArrange(ActionUIWinUIObject *element, ActionUIWinUIRect frame);

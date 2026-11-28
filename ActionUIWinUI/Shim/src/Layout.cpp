@@ -426,6 +426,17 @@ ActionUIWinUISize actionUIWinUIElementMeasure(ActionUIWinUIObject *element, Acti
     return desired;
 }
 
+bool actionUIWinUIElementIsControl(ActionUIWinUIObject *element) {
+    bool control = false;
+    guarded("element is control", [&]() {
+        // A ScrollViewer is a viewport whose size the layout gives it, not a control of its own height.
+        mux::UIElement typed = elementFrom(element);
+        control = typed.try_as<muxc::Control>() != nullptr && typed.try_as<muxc::ScrollViewer>() == nullptr;
+        return true;
+    });
+    return control;
+}
+
 bool actionUIWinUIElementArrange(ActionUIWinUIObject *element, ActionUIWinUIRect frame) {
     return guarded("element arrange", [&]() {
         // Also false for NaN and infinity.

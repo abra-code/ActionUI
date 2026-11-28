@@ -390,6 +390,11 @@ PREVIEW_OPTIONS = {
     # "see more" flyout, above Export, and still work there.
     "ToolbarOverflow": ["320", "200", "--delay", "500", "--expect-width", "1", "320", "--invoke", "18", "--invoke", "25",
                         "--expect-action", "toolbar.sort", "--expect-action", "toolbar.export"],
+    # Controls in frames smaller than they are keep their own height (Fluent's button, check box and text box are 32
+    # high), centered in the room inside the padding and overflowing it, as on macOS. Delete: 12 of padding, 20 of
+    # room, so 12 - 6; Cancel: 10 - 6; the toggle and the text field in 12-high frames: -10.
+    "FrameSqueeze": ["--expect-content-frame", "1", "6", "32", "--expect-content-frame", "2", "4", "32",
+                     "--expect-content-frame", "3", "-10", "32", "--expect-content-frame", "4", "-10", "32"],
     "NavigationToolbars": ["--invoke", "6", "--invoke", "31", "--invoke", "12", "--wait", "--invoke", "24",
                            "--expect-action", "nav.compose", "--expect-action", "nav.refresh", "--expect-action", "nav.reply"],
     "FloorChanges": ["--set-property", "3", "padding", "40", "--set-property", "7", "padding", "40"],
