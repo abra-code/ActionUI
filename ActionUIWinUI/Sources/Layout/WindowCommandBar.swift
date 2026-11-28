@@ -10,6 +10,13 @@
    trailing edge, and a "see more" button (three dots) at the very end when there are overflow items
    (secondaryAction), which opens a flyout holding them, as a command bar shows its secondary
    commands. Items are 8 apart, the row 8 in from the sides and 6 from its top and bottom.
+ - Items that do not fit the window's width move to that flyout, above the overflow items, as a macOS
+   window's toolbar moves them to its overflow menu (measured on macOS 27): the trailing items first,
+   from the last, then the principal ones, then the leading ones, from the last; they come back as the
+   window widens. So the row needs only the "see more" button: a toolbar does not keep its window
+   from narrowing (leastWidth), though a window still opens wide enough for every item (up to 900).
+   WinUI refuses to move an element between panels during its layout pass: arrange decides from the
+   items' sizes in the last measure, and the items move right after (scheduleRebalance).
  - The bottom row: its items centered, with the same insets.
  - A row with no items takes no room. The content (the window's root element) fills what the rows
    leave, as it fills the window without them.
@@ -44,9 +51,26 @@ final class WindowCommandBar: ToolbarBar {
     private let bottom: CommandRow
     /// The overflow items' panel, the flyout's content, and the button that opens it.
     private let overflow: StackLayout
-    private var overflowButton: WinUIObject?
+    private let overflowButton: WinUIObject?
     /// Each toolbar's items, in the order the toolbars registered.
     private var owners: [(owner: ObjectIdentifier, items: [(slot: ToolbarSlot, view: WinUIObject)])] = []
+    /// The top row's items by slot, before any moves to the flyout, and the overflow (secondaryAction) items.
+    private var leadingItems: [WinUIObject] = []
+    private var principalItems: [WinUIObject] = []
+    private var trailingItems: [WinUIObject] = []
+    private var secondaryItems: [WinUIObject] = []
+    private var bottomItems: [WinUIObject] = []
+    /// How many of the top row's items are in the flyout, taken in dropOrder.
+    private var moved = 0
+    /// The top row's items' and the "see more" button's widths in the last measure, for arrange.
+    private var itemWidths: [ObjectIdentifier: Double] = [:]
+    private var buttonWidth = WindowCommandBar.leastButtonWidth
+    /// The "see more" button's width before it has ever been in the window, when WinUI has not styled it
+    /// and it measures as its glyph alone: the theme's button padding (11 a side) around the 16-point glyph.
+    static let leastButtonWidth = 38.0
+    /// The width of the last arrange, which rebalance fits the row to.
+    private var arrangedWidth = Double.infinity
+    private var rebalanceScheduled = false
     private var measuredTop = ActionUIWinUISize(width: 0, height: 0)
     private var measuredBottom = ActionUIWinUISize(width: 0, height: 0)
 
@@ -74,6 +98,11 @@ final class WindowCommandBar: ToolbarBar {
         bottom = try CommandRow()
         overflow = try StackLayout(axis: .vertical)
         overflow.alignment = .start
+        // Made once: whether the row needs it depends on its width, which changes in every resize.
+        overflowButton = WinUIObject(adopting: actionUIWinUIOverflowButtonCreate(overflow.panel.object.pointer))
+        if overflowButton == nil {
+            ActionUIModel.shared.logger.log("WindowCommandBar: \(WinUIError.last("making the overflow button")); items that do not fit stay in the row", .error)
+        }
         try panel.append(content)
         panel.measure = { [unowned self] available in measure(available) }
         panel.arrange = { [unowned self] finalSize in arrange(finalSize) }
@@ -98,32 +127,43 @@ final class WindowCommandBar: ToolbarBar {
     private func show() {
         let all = owners.flatMap(\.items)
         let views = { (slot: ToolbarSlot) in all.filter { $0.slot == slot }.map(\.view) }
-        let overflowViews = views(.overflow)
-        if !overflowViews.isEmpty, overflowButton == nil {
-            overflowButton = WinUIObject(adopting: actionUIWinUIOverflowButtonCreate(overflow.panel.object.pointer))
-            if overflowButton == nil {
-                ActionUIModel.shared.logger.log("WindowCommandBar: \(WinUIError.last("making the overflow button"))", .error)
-            }
-        }
-        let leading = views(.leading)
-        let principal = views(.principal)
-        let trailing = views(.trailing) + (overflowViews.isEmpty ? [] : overflowButton.map { [$0] } ?? [])
-        let bottomViews = views(.bottom)
+        leadingItems = views(.leading)
+        principalItems = views(.principal)
+        trailingItems = views(.trailing)
+        secondaryItems = views(.overflow)
+        bottomItems = views(.bottom)
+        // The next arrange corrects it for items that came or went.
+        moved = min(moved, dropOrder.count)
+        distribute()
+    }
+
+    /// The top row's items in the order they leave it as the window narrows, as a macOS toolbar's: the
+    /// trailing ones from the last, then the principal ones, then the leading ones from the last.
+    private var dropOrder: [WinUIObject] {
+        overflowButton == nil ? [] : trailingItems.reversed() + principalItems.reversed() + leadingItems.reversed()
+    }
+
+    /// Puts the items in the rows and the flyout: the first `moved` of dropOrder in the flyout, above
+    /// the overflow items.
+    private func distribute() {
+        let gone = Set(dropOrder.prefix(moved).map(ObjectIdentifier.init))
+        let stays = { (views: [WinUIObject]) in views.filter { !gone.contains(ObjectIdentifier($0)) } }
+        let overflowViews = (leadingItems + principalItems + trailingItems).filter { gone.contains(ObjectIdentifier($0)) } + secondaryItems
+        let leading = stays(leadingItems)
+        let principal = stays(principalItems)
+        let trailing = stays(trailingItems) + (overflowViews.isEmpty ? [] : overflowButton.map { [$0] } ?? [])
         // An item whose placement changed moves to another panel, and WinUI refuses an element that
         // is still another panel's child: the panels whose items change are emptied before any is
-        // filled.
+        // filled. A row keeps the items it starts with in both, so a focused one keeps its focus as
+        // the window is resized.
         if !overflow.items.map(\.view).elementsEqual(overflowViews, by: ===) {
             overflow.setItems([])
         }
-        if !top.views.elementsEqual(leading + principal + trailing, by: ===) {
-            top.setItems(leading: [], principal: [], trailing: [])
-        }
-        if !bottom.views.elementsEqual(bottomViews, by: ===) {
-            bottom.setItems(leading: [], principal: [], trailing: [])
-        }
+        top.removeItems(notStarting: leading + principal + trailing)
+        bottom.removeItems(notStarting: bottomItems)
         overflow.setItems(overflowViews.map { StackLayout.Item(view: $0, spacerMinimum: nil) })
         top.setItems(leading: leading, principal: principal, trailing: trailing)
-        bottom.setItems(leading: [], principal: bottomViews, trailing: [])
+        bottom.setItems(leading: [], principal: bottomItems, trailing: [])
         do {
             try place(top.panel.object, shown: !top.isEmpty, at: 0)
             try place(bottom.panel.object, shown: !bottom.isEmpty, at: nil)
@@ -131,6 +171,57 @@ final class WindowCommandBar: ToolbarBar {
             ActionUIModel.shared.logger.log("WindowCommandBar: \(error)", .error)
         }
         panel.invalidateLayout()
+    }
+
+    /// How many items of dropOrder must leave the top row for it to fit `width`, from the widths of the
+    /// last measure: none when every item fits, or with no width given.
+    private func movedCount(for width: Double) -> Int {
+        let order = dropOrder
+        guard width.isFinite, !order.isEmpty else { return 0 }
+        func widths(_ views: [WinUIObject], without gone: Set<ObjectIdentifier>) -> [Double] {
+            views.filter { !gone.contains(ObjectIdentifier($0)) }.map { itemWidths[ObjectIdentifier($0)] ?? 0 }
+        }
+        for count in 0...order.count {
+            let gone = Set(order.prefix(count).map(ObjectIdentifier.init))
+            let button = count > 0 || !secondaryItems.isEmpty ? [buttonWidth] : []
+            let row = CommandRow.width(of: [widths(leadingItems, without: gone), widths(principalItems, without: gone),
+                                            widths(trailingItems, without: gone) + button])
+            // Within half a point: the widths are fractional, the window's are whole pixels.
+            if row <= width + 0.5 {
+                return count
+            }
+        }
+        return order.count
+    }
+
+    /// Moves the items between the row and the flyout for the width of the last arrange, after the layout
+    /// pass that found them not fitting.
+    private func scheduleRebalance() {
+        guard !rebalanceScheduled else { return }
+        rebalanceScheduled = true
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            rebalanceScheduled = false
+            let wanted = movedCount(for: arrangedWidth)
+            guard wanted != moved else { return }
+            moved = wanted
+            distribute()
+        }
+    }
+
+    /// The least width the rows need: the top row's "see more" button (every item can move to its flyout)
+    /// and the bottom row's items. Not the window's content, which has its own.
+    var leastWidth: Double {
+        let unbounded = ActionUIWinUISize(width: .infinity, height: .infinity)
+        var width = 0.0
+        if shows(top) {
+            width = overflowButton.map { 2 * CommandRow.sideInset + max($0.measureRequested(unbounded).width, Self.leastButtonWidth) }
+                ?? top.panel.object.measureRequested(unbounded).width
+        }
+        if shows(bottom) {
+            width = max(width, bottom.panel.object.measureRequested(unbounded).width)
+        }
+        return width
     }
 
     /// Puts `row` in the panel (at `index`, or at the end) or takes it out.
@@ -152,16 +243,33 @@ final class WindowCommandBar: ToolbarBar {
     }
 
     private func measure(_ available: ActionUIWinUISize) -> ActionUIWinUISize {
+        let unbounded = ActionUIWinUISize(width: .infinity, height: .infinity)
+        // Every item's own width, also those in the flyout, for arrange to choose which fit.
+        itemWidths = [:]
+        for view in dropOrder {
+            itemWidths[ObjectIdentifier(view)] = view.measureRequested(unbounded).width
+        }
+        buttonWidth = max(overflowButton?.measureRequested(unbounded).width ?? 0, Self.leastButtonWidth)
         let rowOffer = ActionUIWinUISize(width: available.width, height: .infinity)
         measuredTop = shows(top) ? top.panel.object.measureRequested(rowOffer) : ActionUIWinUISize(width: 0, height: 0)
         measuredBottom = shows(bottom) ? bottom.panel.object.measureRequested(rowOffer) : ActionUIWinUISize(width: 0, height: 0)
         let rows = measuredTop.height + measuredBottom.height
         let room = ActionUIWinUISize(width: available.width, height: available.height.isFinite ? max(available.height - rows, 0) : .infinity)
         let asked = content.measureRequested(room)
-        return ActionUIWinUISize(width: max(asked.width, measuredTop.width, measuredBottom.width), height: asked.height + rows)
+        // The top row asks for its items' width, but no more than it is offered: what does not fit moves to
+        // the flyout. At least its "see more" button.
+        var topWidth = measuredTop.width
+        if shows(top), overflowButton != nil, available.width.isFinite {
+            topWidth = min(topWidth, max(available.width, 2 * CommandRow.sideInset + buttonWidth))
+        }
+        return ActionUIWinUISize(width: max(asked.width, topWidth, measuredBottom.width), height: asked.height + rows)
     }
 
     private func arrange(_ finalSize: ActionUIWinUISize) {
+        arrangedWidth = finalSize.width
+        if movedCount(for: finalSize.width) != moved {
+            scheduleRebalance()
+        }
         if shows(top) {
             top.panel.object.arrange(ActionUIWinUIRect(x: 0, y: 0, width: finalSize.width, height: measuredTop.height))
         }
@@ -200,18 +308,30 @@ final class CommandRow {
 
     func setItems(leading: [WinUIObject], principal: [WinUIObject], trailing: [WinUIObject]) {
         let wanted = leading + principal + trailing
-        let current = self.leading + self.principal + self.trailing
         self.leading = leading
         self.principal = principal
         self.trailing = trailing
-        guard !wanted.elementsEqual(current, by: ===) else { return }
+        guard !panel.children.elementsEqual(wanted, by: ===) else { return }
+        removeItems(notStarting: wanted)
         do {
-            while !panel.children.isEmpty {
-                try panel.remove(at: panel.children.count - 1)
-            }
             // In reading order, so keyboard focus moves through them as they are read.
-            for view in wanted {
+            for view in wanted.dropFirst(panel.children.count) {
                 try panel.append(view)
+            }
+        } catch {
+            ActionUIModel.shared.logger.log("CommandRow: \(error)", .error)
+        }
+        panel.invalidateLayout()
+    }
+
+    /// Takes out the items after those the panel and `wanted` start with alike; those stay in place, so a
+    /// focused one keeps its focus. The row's measure reads its items as setItems gives them: call that next.
+    func removeItems(notStarting wanted: [WinUIObject]) {
+        let kept = zip(panel.children, wanted).prefix { $0 === $1 }.count
+        guard panel.children.count > kept else { return }
+        do {
+            while panel.children.count > kept {
+                try panel.remove(at: panel.children.count - 1)
             }
         } catch {
             ActionUIModel.shared.logger.log("CommandRow: \(error)", .error)
@@ -223,6 +343,15 @@ final class CommandRow {
         views.reduce(0) { $0 + (sizes[ObjectIdentifier($1)]?.width ?? 0) } + Self.spacing * Double(max(views.count - 1, 0))
     }
 
+    /// A row's width for its leading, principal and trailing items' widths: the items, the gaps between
+    /// them and between the groups that have items, and the side insets; 0 with no items.
+    static func width(of groups: [[Double]]) -> Double {
+        let shown = groups.filter { !$0.isEmpty }
+        guard !shown.isEmpty else { return 0 }
+        let items = shown.reduce(0) { $0 + $1.reduce(0, +) + spacing * Double($1.count - 1) }
+        return items + spacing * Double(shown.count - 1) + 2 * sideInset
+    }
+
     private func measure(_ available: ActionUIWinUISize) -> ActionUIWinUISize {
         sizes = [:]
         var height = 0.0
@@ -232,9 +361,8 @@ final class CommandRow {
             height = max(height, size.height)
         }
         guard !isEmpty else { return ActionUIWinUISize(width: 0, height: 0) }
-        let groups = [leading, principal, trailing].filter { !$0.isEmpty }
-        let width = groups.reduce(0) { $0 + self.width($1) } + Self.spacing * Double(max(groups.count - 1, 0)) + 2 * Self.sideInset
-        return ActionUIWinUISize(width: width, height: height + 2 * Self.verticalInset)
+        let widths = [leading, principal, trailing].map { $0.map { sizes[ObjectIdentifier($0)]?.width ?? 0 } }
+        return ActionUIWinUISize(width: Self.width(of: widths), height: height + 2 * Self.verticalInset)
     }
 
     private func arrange(_ finalSize: ActionUIWinUISize) {

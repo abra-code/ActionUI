@@ -386,6 +386,10 @@ PREVIEW_OPTIONS = {
               "--on-action", "menu.grid", "12", "Copied, then the grid turned on"],
     "Toolbars": ["--invoke", "15", "--invoke", "20", "--expect-action", "toolbar.add",
                  "--expect-action", "toolbar.export", "--on-action", "toolbar.export", "3", "Added, then exported"],
+    # The window stays 320 wide: the items that do not fit (the last trailing ones, Sort among them) move to the
+    # "see more" flyout, above Export, and still work there.
+    "ToolbarOverflow": ["320", "200", "--delay", "500", "--expect-width", "1", "320", "--invoke", "18", "--invoke", "25",
+                        "--expect-action", "toolbar.sort", "--expect-action", "toolbar.export"],
     "NavigationToolbars": ["--invoke", "6", "--invoke", "31", "--invoke", "12", "--wait", "--invoke", "24",
                            "--expect-action", "nav.compose", "--expect-action", "nav.refresh", "--expect-action", "nav.reply"],
     "FloorChanges": ["--set-property", "3", "padding", "40", "--set-property", "7", "padding", "40"],

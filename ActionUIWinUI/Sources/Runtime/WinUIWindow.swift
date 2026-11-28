@@ -370,10 +370,16 @@ package final class WinUIWindow {
             if !actionUIWinUIWindowSetContentSize(window.pointer, size.width, size.height + max(extraHeight(window), 0)) {
                 logger.log("WinUIWindow: \(WinUIError.last("sizing a window to its loaded content"))", .warning)
             }
-            // The user cannot make it smaller than its content's minimum either (its toolbar included), as a macOS
+            // The user cannot make it smaller than its content's minimum either (its toolbar's rows added), as a macOS
             // window keeps its content's minimum size, nor narrower than `minimumWidth`.
-            let least = setsMinimum ? self.root.map {
-                ContentSizeLimits.measured(view, expansion: $0.expansion, compression: $0.compression, caps: $0.caps).minSize
+            let least = setsMinimum ? self.root.map { root -> ContentSizeLimits.Size in
+                let limits = ContentSizeLimits.measured(view, expansion: root.expansion, compression: root.compression, caps: root.caps).minSize
+                // A toolbar's items that do not fit move to its "see more" flyout, as a macOS window's to its
+                // toolbar's overflow menu: the width is the content's own minimum and the command rows' least.
+                guard let commandBar = self.commandBar, let content = root.outerView, content !== view else { return limits }
+                let contentWidth = ContentSizeLimits.measured(content, expansion: root.expansion, compression: root.compression,
+                                                              caps: root.caps).minSize.width
+                return .init(width: max(contentWidth, commandBar.leastWidth), height: limits.height)
             } : nil
             let leastSize = ActionUIWinUISize(width: max(leastWidth, (least?.width ?? 0).rounded(.up)),
                                               height: least.map { ($0.height + max(extraHeight(window), 0)).rounded(.up) } ?? 0)

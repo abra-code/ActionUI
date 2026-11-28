@@ -1,0 +1,29 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 8, "alignment": "leading", "padding": 16 },
+  "toolbar": [
+    { "type": "ToolbarItem", "id": 10, "properties": { "placement": "navigation" },
+      "content": { "type": "Button", "id": 11, "properties": { "title": "Sidebar" } } },
+    { "type": "ToolbarItem", "id": 12, "properties": { "placement": "principal" },
+      "content": { "type": "Text", "id": 13, "properties": { "text": "Library", "font": "headline" } } },
+    { "type": "ToolbarItem", "id": 14,
+      "content": { "type": "Button", "id": 15, "properties": { "title": "Add", "actionID": "toolbar.add" } } },
+    { "type": "ToolbarItemGroup", "id": 16, "properties": { "placement": "primaryAction" },
+      "children": [
+        { "type": "Button", "id": 17, "properties": { "title": "Share" } },
+        { "type": "Button", "id": 18, "properties": { "title": "Sort", "actionID": "toolbar.sort" } }
+      ] },
+    { "type": "ToolbarItem", "id": 19,
+      "content": { "type": "Toggle", "id": 20, "properties": { "title": "Live" } } },
+    { "type": "ToolbarItem", "id": 21,
+      "content": { "type": "Menu", "id": 22, "properties": { "title": "More" }, "children": [
+        { "type": "Button", "id": 23, "properties": { "title": "One" } } ] } },
+    { "type": "ToolbarItem", "id": 24, "properties": { "placement": "secondaryAction" },
+      "content": { "type": "Button", "id": 25, "properties": { "title": "Export", "actionID": "toolbar.export" } } }
+  ],
+  "children": [
+    { "type": "Text", "id": 2, "properties": { "text": "A window narrower than its toolbar" } },
+    { "type": "Text", "id": 3, "properties": { "text": "Items that do not fit are in the three dots", "foregroundStyle": "secondary" } }
+  ]
+}

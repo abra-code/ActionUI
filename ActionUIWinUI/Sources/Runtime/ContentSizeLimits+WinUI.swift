@@ -19,8 +19,8 @@
 
  A fixed root frame gives minSize == maxSize, which a host reads as a window of a fixed size. The measures are
  WinUI's own, made outside its layout pass; the root is measured again for its window's size afterwards. A window
- fit to its content (WinUIWindow.fit) takes the same minimum, toolbar included, as the least size the user can
- resize it to.
+ fit to its content (WinUIWindow.fit) takes the same minimum, its toolbar's rows added (at their least width:
+ items that do not fit move to the "see more" flyout), as the least size the user can resize it to.
 */
 
 #if canImport(FoundationEssentials)
