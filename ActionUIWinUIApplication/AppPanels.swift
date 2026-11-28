@@ -522,7 +522,7 @@ public enum AppPanels {
         let dialog = withExtendedLifetime(titles) {
             titles.pointers.withUnsafeBufferPointer { buffer in
                 actionUIWinUIAlertShow(content.pointer, request.title, request.message, buffer.baseAddress,
-                                       Int32(buffer.count), Int32(request.escapeButton ?? -1), alertAnswered, context)
+                                       Int32(buffer.count), Int32(request.escapeButton ?? -1), 0, alertAnswered, context)
             }
         }
         return WinUIObject(adopting: dialog)
@@ -548,25 +548,5 @@ public enum AppPanels {
             alert.index = index
             alert.done.pointee = true
         }
-    }
-}
-
-/// Strings as C strings for a call, freed with it.
-private final class CStrings {
-    let pointers: [UnsafePointer<CChar>?]
-    private let copies: [UnsafeMutablePointer<CChar>]
-
-    init(_ strings: [String]) {
-        copies = strings.map { text in
-            let bytes = Array(text.utf8CString)
-            let copy = UnsafeMutablePointer<CChar>.allocate(capacity: bytes.count)
-            copy.initialize(from: bytes, count: bytes.count)
-            return copy
-        }
-        pointers = copies.map { UnsafePointer($0) }
-    }
-
-    deinit {
-        copies.forEach { $0.deallocate() }
     }
 }

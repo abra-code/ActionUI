@@ -39,7 +39,7 @@ struct AlertState {
     // in the content, Escape).
     std::optional<int32_t> answer;
     bool finished = false;
-    // The dialog's first focus, given to a button in the content, went to the primary button.
+    // The dialog's first focus, given to a button in the content, went to the default button.
     bool firstFocusMoved = false;
     winrt::weak_ref<muxc::ContentDialog> dialog;
 
@@ -487,7 +487,8 @@ bool actionUIWinUIRunNestedLoop(const volatile bool *done) {
 
 ActionUIWinUIObject *actionUIWinUIAlertShow(ActionUIWinUIObject *anchor, const char *title, const char *message,
                                             const char *const *buttons, int32_t buttonCount, int32_t escapeIndex,
-                                            ActionUIWinUIAlertCompletion completion, void *context) {
+                                            int32_t defaultIndex, ActionUIWinUIAlertCompletion completion,
+                                            void *context) {
     return guardedObject("alert show", [&]() -> ActionUIWinUIObject * {
         if (completion == nullptr) {
             fail("alert show", "the completion is NULL");
@@ -530,11 +531,10 @@ ActionUIWinUIObject *actionUIWinUIAlertShow(ActionUIWinUIObject *anchor, const c
             text.TextWrapping(mux::TextWrapping::Wrap);
             content.Children().Append(text);
         }
-        // Fluent's places, left to right: the first button is the primary one and the default (Enter);
-        // the button Escape answers is the close button; the others take the secondary place, then the
-        // close place when Escape answers none, then a column in the content.
+        // Fluent's places, left to right: the first button is the primary one; the button Escape answers
+        // is the close button; the others take the secondary place, then the close place when Escape
+        // answers none, then a column in the content.
         dialog.PrimaryButtonText(toHString(buttons[0]));
-        dialog.DefaultButton(muxc::ContentDialogButton::Primary);
         if (state->escapeIndex > 0) {
             state->closeIndex = state->escapeIndex;
         }
@@ -557,12 +557,32 @@ ActionUIWinUIObject *actionUIWinUIAlertShow(ActionUIWinUIObject *anchor, const c
         if (state->closeIndex >= 0) {
             dialog.CloseButtonText(toHString(buttons[state->closeIndex]));
         }
+        // The default button (Enter), and the one the dialog's first focus goes to: one in the dialog's
+        // places only (none when `defaultIndex` names a button in the content column, which takes the first
+        // focus below, or names none).
+        const wchar_t *defaultName = L"PrimaryButton";
+        if (defaultIndex == 0) {
+            dialog.DefaultButton(muxc::ContentDialogButton::Primary);
+        } else if (defaultIndex >= 0 && defaultIndex == state->secondaryIndex) {
+            dialog.DefaultButton(muxc::ContentDialogButton::Secondary);
+            defaultName = L"SecondaryButton";
+        } else if (defaultIndex >= 0 && defaultIndex == state->closeIndex) {
+            dialog.DefaultButton(muxc::ContentDialogButton::Close);
+            defaultName = L"CloseButton";
+        } else {
+            dialog.DefaultButton(muxc::ContentDialogButton::None);
+        }
         if (!others.empty()) {
             muxc::StackPanel column;
             column.Spacing(8);
             std::weak_ptr<AlertState> weak = state;
+            // The default button, when `defaultIndex` names one in the column.
+            winrt::weak_ref<muxc::Button> columnDefault;
             for (int32_t index : others) {
                 muxc::Button button;
+                if (index == defaultIndex) {
+                    columnDefault = winrt::make_weak(button);
+                }
                 button.Content(winrt::box_value(toHString(buttons[index])));
                 button.HorizontalAlignment(mux::HorizontalAlignment::Stretch);
                 button.Click([weak, index](auto &&, auto &&) {
@@ -579,9 +599,11 @@ ActionUIWinUIObject *actionUIWinUIAlertShow(ActionUIWinUIObject *anchor, const c
             }
             content.Children().Append(column);
             // The dialog gives its first focus to the first button in its content, which Enter would then
-            // press: that focus goes to the primary (default) button instead, as it is given.
+            // press: that focus goes to the default button instead (the primary one when there is none),
+            // as it is given. A default button in the column keeps it, as Enter presses the focused button.
             winrt::weak_ref<muxc::StackPanel> columnRef = winrt::make_weak(column);
-            dialog.GettingFocus([weak, columnRef](mux::UIElement const &sender, mux::Input::GettingFocusEventArgs const &args) {
+            dialog.GettingFocus([weak, columnRef, columnDefault, defaultName](mux::UIElement const &sender,
+                                                                              mux::Input::GettingFocusEventArgs const &args) {
                 std::shared_ptr<AlertState> alert = weak.lock();
                 muxc::StackPanel buttons = columnRef.get();
                 if (alert == nullptr || alert->firstFocusMoved || buttons == nullptr || args.NewFocusedElement() == nullptr) {
@@ -591,9 +613,12 @@ ActionUIWinUIObject *actionUIWinUIAlertShow(ActionUIWinUIObject *anchor, const c
                     return;
                 }
                 alert->firstFocusMoved = true;
-                mux::FrameworkElement primary = findNamed(sender, L"PrimaryButton");
-                if (primary != nullptr) {
-                    args.TrySetNewFocusedElement(primary);
+                mux::FrameworkElement target = columnDefault.get();
+                if (target == nullptr) {
+                    target = findNamed(sender, defaultName);
+                }
+                if (target != nullptr) {
+                    args.TrySetNewFocusedElement(target);
                 }
             });
         }

@@ -35,6 +35,8 @@ package final class WinUIWindow {
     /// The command rows around the root, when the ActionUI JSON declares a toolbar outside a navigation
     /// container (WindowCommandBar).
     private var commandBar: WindowCommandBar?
+    /// The window-level presentations the host asks for (alerts, confirmation dialogs).
+    private var presenter: WindowPresenter?
 
     /// The title of the WindowGroup at the JSON's root, when it is one and names a title.
     package private(set) var groupTitle: String?
@@ -242,6 +244,9 @@ package final class WinUIWindow {
             }
         }
         root.sync()
+        if let view {
+            presenter = WindowPresenter(windowModel: windowModel, anchor: view)
+        }
     }
 
     /// Whether `element` or an element under it, outside a navigation container, declares a toolbar.
@@ -521,6 +526,7 @@ package final class WinUIWindow {
         if Self.growers[windowModel.windowUUID]?.owner === self {
             Self.growers[windowModel.windowUUID] = nil
         }
+        presenter?.stop()
         root?.detach()
         // Only its own: another window may have taken the id since.
         if let commandBar, WindowCommandBar.of(windowUUID: windowModel.windowUUID) === commandBar {
@@ -529,6 +535,7 @@ package final class WinUIWindow {
     }
 
     isolated deinit {
+        presenter?.stop()
         root?.detach()
     }
 }

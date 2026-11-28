@@ -1250,14 +1250,17 @@ ACTIONUI_WINUI_API bool actionUIWinUIDialogOnClosed(ActionUIWinUIObject *dialog,
 typedef void (*ActionUIWinUIAlertCompletion)(void *context, int32_t index);
 // Shows an alert over the window `anchor` is in: a ContentDialog titled `title` (NULL: none) with
 // `message` (NULL or empty: none) and `buttons`, `buttonCount` UTF-8 titles (at least one). The first
-// button is the primary one and the default (Enter); the button `escapeIndex` names answers Escape and,
-// unless it is the first, is the close button (-1: Escape does nothing); the others take the secondary
-// place, then the close place, then a column in the content. completion(context, index) runs once on the
-// UI thread, when the alert closes. Returns the dialog (a new reference), or NULL when `anchor` is in no
-// window or another dialog is open in it (WinUI shows one at a time).
+// button is the primary one; the button `escapeIndex` names answers Escape and, unless it is the first, is
+// the close button (-1: Escape does nothing); the others take the secondary place, then the close place,
+// then a column in the content. The button `defaultIndex` names takes the first focus, so Enter presses it;
+// in the primary, secondary or close place it is the dialog's default button too (-1: none, and the first
+// focus goes to the primary button). completion(context, index) runs once on the UI thread, when the alert
+// closes. Returns the dialog (a new reference), or NULL when `anchor` is in no window or another dialog is
+// open in it (WinUI shows one at a time).
 ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIAlertShow(ActionUIWinUIObject *anchor, const char *title,
                                                                const char *message, const char *const *buttons,
                                                                int32_t buttonCount, int32_t escapeIndex,
+                                                               int32_t defaultIndex,
                                                                ActionUIWinUIAlertCompletion completion, void *context);
 // Closes the alert unanswered: its completion runs at once with -1, unless it has answered already. For
 // a window closing under it, or the application ending.
