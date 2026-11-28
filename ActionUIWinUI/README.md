@@ -30,6 +30,8 @@ It builds the shim (`.build\winui-shim\<arch>\ActionUIWinUIShim.dll`), compiles 
 
 ActionUIWinUIPreview renders one ActionUI JSON file into a PNG of the window's content: `ActionUIWinUIPreview UI.json OUT.png [WIDTH HEIGHT] [options]`; without a size, the window opens at the size its content asks for, as an application's window does. Its options operate elements as a user or an accessibility tool would (invoke, toggle, select, type, scroll, drag with the real mouse), change the model as a host does (rows, values, properties), wait for network loads, and check what must follow (actions fired, widths, states); `Apps/PreviewSupport/Preview.swift` lists them. **ActionUIWinUIAddOnPreview** (`Library`) is the same tool with the add-ons `ActionUI.dll` links; the script renders `Apps/Preview/TestFiles/AddOns` with it. The GitHub workflow `.github/workflows/windows.yml` runs the same script on GitHub's x64 and Arm64 Windows runners.
 
+**ActionUIWinUIDemo** (`Apps/Demo`, a package of its own that links the add-ons) is the Windows counterpart of ActionUISwiftTestApp, as ActionUIAdwaitaDemo is on Linux: a launcher of the test app's JSON files and those of the add-ons that work on Windows, with the test app's own action handlers. `--resources <folder>` names the folder of the JSON files (else the program's own folder), `--open <Name>` also opens one at launch, `--action <actionID>` fires an action on it, and `--screenshot <file.png>` saves it and quits. The script builds it in `.build\ci-windows-demo` and runs it on a folder holding `ActionUISwiftTestApp/Resources` and the files of the add-ons that work on Windows from `Add-ons/ActionUIAddOnTestApp/Resources`, saving `ci-results\demo-<name>.png`.
+
 ## What a program ships
 
 An unpackaged Windows program that shows ActionUI UIs carries, beside its `.exe`:
@@ -102,4 +104,5 @@ A program that ships the shim, and a distribution of ActionUI that includes it, 
 - `CWinUI/`: the module map through which Swift sees the shim's header.
 - `Sources/`: the Swift renderer: `Elements/` (one file per element type), `Layout/` (stacks, grids, the modifier box), `Runtime/` (render nodes, syncing, toolbars, the registry), `Interop/` (the shim's objects and events in Swift), `Styling/`.
 - `Apps/Smoke/`: the Swift smoke test (`ActionUIWinUISmoke`) and the program manifest it and the preview use.
+- `Apps/Demo/`: ActionUIWinUIDemo, the test app's counterpart, a package of its own that links the add-ons.
 - `Apps/Preview/`: ActionUIWinUIPreview, and in `TestFiles/` the ActionUI JSON files CI renders and checks (in `TestFiles/AddOns/` those of the add-on elements, which CI renders with ActionUIWinUIAddOnPreview from `Library/`). They are test files only; nothing ships them.

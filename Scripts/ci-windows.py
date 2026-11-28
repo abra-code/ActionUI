@@ -1313,6 +1313,96 @@ def check_viewer(shim_out, bin_path, results, summary, env):
     return passed
 
 
+def check_demo(shim_out, bin_path, results, summary, env):
+    """Builds ActionUIWinUI/Apps/Demo's program, the test app's counterpart (its own package, as on Linux), with
+    the shim's import library, puts the shim's DLL, the bootstrapper, WebView2's Core DLL and the programs'
+    manifest beside it, gathers its resources (the test app's JSON files and those of the add-ons that work on
+    Windows) in one folder, and runs it as the Linux demo's tests do: the launcher, JSON files with and without an
+    action (which must change the window), add-on elements (RichText must be registered: its Markdown changes the
+    window), JSON that cannot be loaded, and bad arguments. True when each run answered as expected."""
+    scratch = ["--scratch-path", str(REPO_DIR / ".build" / "ci-windows-demo"), "--manifest-cache", "none"]
+    package = ["--package-path", str(REPO_DIR / "ActionUIWinUI" / "Apps" / "Demo")]
+    step = run_step("demo-build", ["swift", "build"] + package + scratch + ["-Xswiftc", f"-L{shim_out}"], results, env)
+    summary["steps"].append(step)
+    if step["status"] != 0:
+        summary["errors"] = first_errors(results / step["log"])
+        return False
+    if fails_on_warnings(step, results, summary):
+        return False
+    shown = capture(["swift", "build"] + package + scratch + ["--show-bin-path"]).splitlines()
+    demo_bin = Path(shown[-1].strip()) if shown else Path()
+    demo = demo_bin / "ActionUIWinUIDemo.exe"
+    if not demo.is_file():
+        summary["findings"].append(f"demo: no ActionUIWinUIDemo.exe in {demo_bin}")
+        return False
+    for name in ["ActionUIWinUIShim.dll", "Microsoft.WindowsAppRuntime.Bootstrap.dll", WEBVIEW2_CORE]:
+        shutil.copy2(bin_path / name, demo_bin / name)
+    shutil.copy2(REPO_DIR / "ActionUIWinUI" / "Apps" / "Smoke" / "ActionUIWinUISmoke.exe.manifest",
+                 demo_bin / "ActionUIWinUIDemo.exe.manifest")
+    resources = REPO_DIR / ".build" / "ci-windows-demo" / "Resources"
+    shutil.rmtree(resources, ignore_errors=True)
+    shutil.copytree(REPO_DIR / "ActionUISwiftTestApp" / "Resources", resources)
+    # The JSON files of the add-ons that work on Windows, as the Linux bundle has them: the others show only a
+    # placeholder.
+    add_on_resources = REPO_DIR / "Add-ons" / "ActionUIAddOnTestApp" / "Resources"
+    for name in ["RichText.json", "RichText.remoteImages.json", "CachedImage.json", "Diff.json", "DiffSampleOld.txt",
+                 "DiffSampleNew.txt", "HostSurface.json"]:
+        shutil.copy2(add_on_resources / name, resources / name)
+    bad = results / "demo-bad"
+    bad.mkdir(exist_ok=True)
+    (bad / "Bad.json").write_text("{", encoding="utf-8")
+    empty = results / "demo-empty"
+    empty.mkdir(exist_ok=True)
+    # One file name in two folders, so the window title is the same and only the JSON differs: without the add-on,
+    # both show the same placeholder.
+    samples = {}
+    for name, markdown in [("demo-richtext-empty", ""), ("demo-richtext-text", "# A heading")]:
+        samples[name] = results / name
+        samples[name].mkdir(exist_ok=True)
+        (samples[name] / "Sample.json").write_text(
+            '{"type": "RichText", "id": 1, "properties": {"markdown": "' + markdown + '", "frame": {"width": 320, "height": 200}}}',
+            encoding="utf-8")
+    # (name, arguments, expected exit status, whether a PNG is expected)
+    runs = [
+        ("demo-launcher", ["--resources", resources], 0, True),
+        ("demo-button", ["--resources", resources, "--open", "Button"], 0, True),
+        ("demo-list-empty", ["--resources", resources, "--open", "List"], 0, True),
+        ("demo-list", ["--resources", resources, "--open", "List", "--action", "list.demo.load"], 0, True),
+        ("demo-richtext", ["--resources", resources, "--open", "RichText"], 0, True),
+        ("demo-richtext-empty", ["--resources", samples["demo-richtext-empty"], "--open", "Sample"], 0, True),
+        ("demo-richtext-text", ["--resources", samples["demo-richtext-text"], "--open", "Sample"], 0, True),
+        ("demo-diff", ["--resources", resources, "--open", "Diff"], 0, True),
+        ("demo-bad", ["--resources", bad, "--open", "Bad"], 65, True),
+        ("demo-unknown", ["--resources", resources, "--open", "NoSuchSample"], 66, False),
+        ("demo-empty", ["--resources", empty], 66, False),
+        ("demo-arguments", ["--frobnicate"], 64, False),
+        ("demo-action-alone", ["--action", "list.demo.load"], 64, False),
+    ]
+    passed = True
+    for name, arguments, expected, wants_png in runs:
+        png = results / f"{name}.png"
+        png.unlink(missing_ok=True)
+        step = run_step(name, [demo] + arguments + (["--screenshot", png] if wants_png else []), results, env,
+                        cwd=demo_bin, timeout=SMOKE_TIMEOUT_SECONDS)
+        summary["steps"].append(step)
+        answered = step["status"] == expected and (not wants_png or (png.is_file() and png.stat().st_size > 0))
+        summary["findings"].append(f"demo {name}: exit {step['status']}"
+                                   + (f", {'a PNG' if png.is_file() else 'no PNG'}" if wants_png else "")
+                                   + f" ({'as expected' if answered else 'NOT as expected'})")
+        # The exit code is the answer, not the step's failure.
+        step["status"] = 0 if answered else (step["status"] or 1)
+        passed = passed and answered
+    # The screenshots of one window are the same from run to run, so a change shows the action or the add-on worked.
+    for first, second, meaning in [("demo-list-empty", "demo-list", "list.demo.load changed nothing"),
+                                   ("demo-richtext-empty", "demo-richtext-text",
+                                    "the Markdown made no difference: RichText is not registered")]:
+        first_png, second_png = results / f"{first}.png", results / f"{second}.png"
+        if first_png.is_file() and second_png.is_file() and first_png.read_bytes() == second_png.read_bytes():
+            summary["findings"].append(f"demo: {first}.png and {second}.png are the same: {meaning}")
+            passed = False
+    return passed
+
+
 # MARK: - The Windows library package and the language bindings
 
 # The pinned commits of the symbol fonts the shim's outlines come from, and where their licenses are.
@@ -1992,6 +2082,7 @@ def check_swift_smoke(shim_out, bootstrap, results, summary, msvc, host_build, q
         passed = check_c_app(bin_path, results, summary, msvc, env) and passed
         passed = check_host_app(bin_path, results, summary, msvc, env, host_build) and passed
     passed = check_viewer(shim_out, bin_path, results, summary, env) and passed
+    passed = check_demo(shim_out, bin_path, results, summary, env) and passed
     passed = check_mcp_and_package(shim_out, results, summary, msvc, env, host_build, mcp_package) and passed
     if library_built:
         package = make_library_package(bin_path, results, summary, msvc, host_build["webview2_license"])
