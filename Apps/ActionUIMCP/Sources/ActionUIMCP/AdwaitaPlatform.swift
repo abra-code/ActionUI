@@ -132,8 +132,9 @@ final class AdwaitaPlatform: WindowPlatform {
     /// time and Save (AdwaitaPlatform+HazardStrip.swift, AdwaitaPlatform+ShowFooter.swift), as on
     /// macOS; it adds its height to the window's, not to its content's. The title starts with who
     /// asked, so the provenance line shows only where the title is out of sight, and in sheets.
+    /// The mark carries the window's Ctrl+W (LinuxWindowMark.closesWindow).
     static func addChrome(to options: inout AdwaitaApplication.WindowOptions, mark: WindowMark, footer: ShowFooter?, windowID: String) {
-        options.topBar = { LinuxWindowMark.widget(mark, footer: footer, windowID: windowID) }
+        options.topBar = { LinuxWindowMark.closesWindow(LinuxWindowMark.widget(mark, footer: footer, windowID: windowID)) }
         options.titleCarriesSubtitle = true
     }
 

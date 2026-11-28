@@ -88,9 +88,9 @@ final class AppKitPlatform: NSObject, NSWindowDelegate, WindowPlatform {
         NSApp.terminate(nil)
     }
 
-    /// The app menu (About, Services, Hide), a File menu with Save... (Command-S, a `show` window's
-    /// Save: SaveCopyCommand), and Edit and Window menus, so text fields get copy, paste, undo and
-    /// select all, and Cmd-W closes a window. The Window menu is the application's
+    /// The app menu (About, Services, Hide), a File menu with Close (Command-W) and Save...
+    /// (Command-S, a `show` window's Save: SaveCopyCommand), in that order as in Apple's apps, and
+    /// Edit and Window menus, so text fields get copy, paste, undo and select all. The Window menu is the application's
     /// windows menu, where AppKit lists the open windows, and the Services submenu its services menu.
     /// No Quit item in the server: quitting would end the client's server; closing windows is
     /// enough. The keeper serves no one and gets one.
@@ -122,7 +122,7 @@ final class AppKitPlatform: NSObject, NSWindowDelegate, WindowPlatform {
         NSApplication.shared.servicesMenu = services
         let save = item("Save\u{2026}", #selector(SaveCopyCommand.saveCopy(_:)), "s")
         save.target = SaveCopyCommand.shared
-        submenu("File", [save])
+        submenu("File", [item("Close", #selector(NSWindow.performClose(_:)), "w"), save])
         submenu("Edit", [
             item("Undo", Selector(("undo:")), "z"),
             item("Redo", Selector(("redo:")), "z", [.command, .shift]),
@@ -134,7 +134,6 @@ final class AppKitPlatform: NSObject, NSWindowDelegate, WindowPlatform {
         ])
         // AppKit adds a separator and the list of windows below these.
         NSApplication.shared.windowsMenu = submenu("Window", [
-            item("Close", #selector(NSWindow.performClose(_:)), "w"),
             item("Minimize", #selector(NSWindow.performMiniaturize(_:)), "m"),
             item("Zoom", #selector(NSWindow.performZoom(_:)), ""),
             .separator(),

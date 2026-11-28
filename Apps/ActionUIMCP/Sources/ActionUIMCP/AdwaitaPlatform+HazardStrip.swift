@@ -10,6 +10,7 @@
 // others a thin striped line. It is one of the window's own bars
 // (AdwaitaApplication.WindowOptions.topBar), outside the widgets that show the ActionUI JSON, so
 // nothing the agent writes can remove or restyle it. Who asked leads the window's title (windowTitle).
+// The mark also gives its window Ctrl+W, which closes it (LinuxWindowMark.closesWindow).
 
 #if os(Linux)
 import FoundationEssentials
@@ -55,6 +56,94 @@ enum LinuxWindowMark {
         // row, which GtkOverlay would otherwise give its minimum width past the window's edge.
         gtk_overlay_set_measure_overlay(overlayView, row, 1)
         return UnsafeMutableRawPointer(overlay)
+    }
+
+    /// Makes Ctrl+W, GNOME's key for closing a window, close the window `mark` is in, wherever its
+    /// focus is, as the title bar's close button does (gtk_window_close, which asks close-request)
+    /// and as Command-W does on macOS. Every actionui-mcp window has the mark, so every one closes
+    /// this way, kept windows too. It is a shortcut of the window's own, not the application's, which
+    /// GTK runs before any widget. The window's shortcuts run before its content's managed ones (a
+    /// view's keyboardShortcut, ViewShortcut), so it leaves the key to the content when one of those
+    /// that is enabled and mapped takes it, as a macOS window's views see Command-W before the menu:
+    /// a `show_ui` window's own Ctrl+W control keeps it. Put on the window when the mark is first
+    /// realized, as the runtime adds the mark to the window after this returns.
+    @MainActor
+    static func closesWindow(_ mark: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer {
+        g_signal_connect_data(mark, "realize", unsafeBitCast(markRealized, to: GCallback.self), nil, nil, GConnectFlags(rawValue: 0))
+        return mark
+    }
+
+    private static let closeShortcutKey = "actionui-mcp-close-shortcut"
+
+    private static let markRealized: @convention(c) (UnsafeMutablePointer<GtkWidget>?, gpointer?) -> Void = { mark, _ in
+        guard let mark, let root = gtk_widget_get_root(mark) else { return }
+        let window = UnsafeMutableRawPointer(root).assumingMemoryBound(to: GObject.self)
+        guard g_object_get_data(window, LinuxWindowMark.closeShortcutKey) == nil else { return }
+        g_object_set_data(window, LinuxWindowMark.closeShortcutKey, UnsafeMutableRawPointer(window))
+        guard let trigger = gtk_shortcut_trigger_parse_string("<Control>w") else { return }
+        // Local and in the bubble phase, the defaults: the window's own key, after its children's.
+        let controller = gtk_shortcut_controller_new()!
+        let action = gtk_callback_action_new(LinuxWindowMark.closeWindow, UnsafeMutableRawPointer(controller), nil)
+        gtk_shortcut_controller_add_shortcut(controller, gtk_shortcut_new(trigger, action))
+        gtk_widget_add_controller(UnsafeMutableRawPointer(root).assumingMemoryBound(to: GtkWidget.self), controller)
+    }
+
+    /// The shortcut's action: closes the window unless its content takes the key. False lets the
+    /// key go on to the window's managed shortcuts.
+    private static let closeWindow: GtkShortcutFunc = { window, _, controller in
+        guard let window, let controller else { return 0 }
+        if let event = gtk_event_controller_get_current_event(OpaquePointer(controller)),
+           LinuxWindowMark.contentTakes(event, under: window) {
+            return 0
+        }
+        gtk_window_close(UnsafeMutableRawPointer(window).assumingMemoryBound(to: GtkWindow.self))
+        return 1
+    }
+
+    /// Whether a managed shortcut of a widget under `widget`, enabled and mapped, as GTK runs only
+    /// those, answers `event`.
+    private static func contentTakes(_ event: OpaquePointer, under widget: UnsafeMutablePointer<GtkWidget>) -> Bool {
+        var child = gtk_widget_get_first_child(widget)
+        while let current = child {
+            if gtk_widget_is_sensitive(current) != 0, gtk_widget_get_mapped(current) != 0,
+               hasShortcut(for: event, current) || contentTakes(event, under: current) {
+                return true
+            }
+            child = gtk_widget_get_next_sibling(current)
+        }
+        return false
+    }
+
+    private static func hasShortcut(for event: OpaquePointer, _ widget: UnsafeMutablePointer<GtkWidget>) -> Bool {
+        // A list GTK keeps up to date only while it is held: let go before returning.
+        guard let controllers = gtk_widget_observe_controllers(widget) else { return false }
+        defer { g_object_unref(UnsafeMutableRawPointer(controllers)) }
+        for index in 0..<g_list_model_get_n_items(controllers) {
+            guard let item = g_list_model_get_item(controllers, index) else { continue }
+            defer { g_object_unref(item) }
+            guard g_type_check_instance_is_a(item.assumingMemoryBound(to: GTypeInstance.self), gtk_shortcut_controller_get_type()) != 0,
+                  gtk_shortcut_controller_get_scope(OpaquePointer(item)) == GTK_SHORTCUT_SCOPE_MANAGED else { continue }
+            let shortcuts = OpaquePointer(item)
+            for position in 0..<g_list_model_get_n_items(shortcuts) {
+                guard let shortcut = g_list_model_get_item(shortcuts, position) else { continue }
+                defer { g_object_unref(shortcut) }
+                // GTK's activate action (ViewShortcut's) fails, and lets the key go on, on a widget
+                // with nothing to activate, as a keyboardShortcut on a Text: not taken then.
+                if let trigger = gtk_shortcut_get_trigger(OpaquePointer(shortcut)),
+                   gtk_shortcut_trigger_trigger(trigger, event, 0) != GDK_KEY_MATCH_NONE,
+                   UnsafeRawPointer(gtk_shortcut_get_action(OpaquePointer(shortcut))) != UnsafeRawPointer(gtk_activate_action_get())
+                    || activates(widget) {
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
+    /// Whether gtk_widget_activate does something for `widget`: its class has an activate signal.
+    private static func activates(_ widget: UnsafeMutablePointer<GtkWidget>) -> Bool {
+        guard let widgetClass = UnsafeMutableRawPointer(widget).assumingMemoryBound(to: GTypeInstance.self).pointee.g_class else { return false }
+        return gtk_widget_class_get_activate_signal(UnsafeMutableRawPointer(widgetClass).assumingMemoryBound(to: GtkWidgetClass.self)) != 0
     }
 
     private static let drawStrip: GtkDrawingAreaDrawFunc = { _, cairo, width, height, _ in
