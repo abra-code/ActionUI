@@ -1,8 +1,7 @@
 // Sources/Runtime/WindowPresenter+WinUI.swift
 /*
- The window-level presentations of one window: what ActionUIModel.presentModal, presentAlert and
- presentConfirmationDialog put in the window model, as WindowPresenter does on Linux. presentToast is not
- shown yet.
+ The window-level presentations of one window: what ActionUIModel.presentModal, presentAlert,
+ presentConfirmationDialog and presentToast put in the window model, as WindowPresenter does on Linux.
 
  - A modal (sheet or fullScreenCover): a ContentDialog over the window showing the modal's element alone,
    as an element's own sheet is shown (NodePresentations): no title or buttons, as a macOS sheet shows its
@@ -27,6 +26,14 @@
    is open is not shown. It is logged and dismissed in the model (a modal's onDismissActionID fires), so a
    later one can be shown.
 
+ - A toast: a Fluent InfoBar floating over the window's content at its top center, where macOS puts a toast
+   (the shim's actionUIWinUIToastShow): the message, the optional action as the bar's button, and the bar's
+   close button. It is taken down after its duration, after its action button fires its action, or when the
+   user closes it; the model then shows the next queued toast. Narrator announces it as it opens. It is
+   placed on the content below the window's toolbar rows, as macOS puts it below the toolbar. A toast shown
+   while a dialog is open is above the dialog's dimming and takes clicks (the popups stack in the order they
+   open), where on macOS the window behind a sheet takes none.
+
  The presenter watches the model values with withObservationTracking and shows what they hold after each
  change, from the main queue (onChange runs before the new value is stored). Each presentation is matched
  by its model value's id: an answer for a dialog the presenter has already taken down fires nothing. A
@@ -48,22 +55,27 @@ final class WindowPresenter {
     let windowModel: WindowModel
     /// An element in the window's content, which the dialogs open over.
     private let anchor: WinUIObject
+    /// The content below the window's toolbar rows, whose top the toast is placed at (below the toolbar, as
+    /// on macOS).
+    private let toastAnchor: WinUIObject
     private var isActive = true
     private var updateQueued = false
-    /// Whether the anchor entering a window updates again: connected the first time a modal finds it in
-    /// no window, once.
+    /// Whether the anchor entering a window updates again: connected the first time a modal or a toast
+    /// finds it in no window, once.
     private var watchesLoaded = false
 
     private var modal: PresentedModal?
     private var dialog: PresentedDialog?
+    private var toast: PresentedToast?
 
     private var windowUUID: String { windowModel.windowUUID }
 
     /// Starts showing `windowModel`'s presentations over the window `anchor` is in (or will be in: the
-    /// shim's alert waits for the content to load).
-    init(windowModel: WindowModel, anchor: WinUIObject) {
+    /// shim's alert waits for the content to load), toasts at the top of `toastAnchor`.
+    init(windowModel: WindowModel, anchor: WinUIObject, toastAnchor: WinUIObject) {
         self.windowModel = windowModel
         self.anchor = anchor
+        self.toastAnchor = toastAnchor
         update()
     }
 
@@ -73,14 +85,15 @@ final class WindowPresenter {
         isActive = false
         closeModal()
         closeDialog()
+        closeToast()
     }
 
     // MARK: Watching
 
     private func update() {
         guard isActive else { return }
-        let (modal, dialog) = withObservationTracking {
-            (windowModel.windowModal, windowModel.windowDialog)
+        let (modal, dialog, toast) = withObservationTracking {
+            (windowModel.windowModal, windowModel.windowDialog, windowModel.windowToast)
         } onChange: { [weak self] in
             MainActor.assumeIsolated { self?.queueUpdate() }
         }
@@ -89,6 +102,7 @@ final class WindowPresenter {
         // other content (stop).
         guard isActive else { return }
         show(dialog)
+        show(toast)
     }
 
     private func queueUpdate() {
@@ -300,6 +314,79 @@ final class WindowPresenter {
         dialog = nil
         if let object = presented.object, !actionUIWinUIAlertDismiss(object.pointer) {
             ActionUIModel.shared.logger.log("WindowPresenter: \(WinUIError.last("closing a dialog in window \(windowUUID)"))", .warning)
+        }
+    }
+
+    // MARK: Toast
+
+    private final class PresentedToast {
+        let id: UUID
+        let object: WinUIObject
+        /// Takes the toast down after its duration; canceled when it goes earlier.
+        var timer: DispatchWorkItem?
+
+        init(id: UUID, object: WinUIObject) {
+            self.id = id
+            self.object = object
+        }
+    }
+
+    private func show(_ windowToast: WindowToast?) {
+        guard toast?.id != windowToast?.id else { return }
+        closeToast()
+        guard let windowToast else { return }
+        guard actionUIWinUIElementIsInWindow(anchor.pointer), actionUIWinUIElementIsInWindow(toastAnchor.pointer) else {
+            // The window is still being built: again once its content is in it.
+            updateWhenLoaded()
+            return
+        }
+        let id = windowToast.id
+        guard let object = WinUIObject(adopting: actionUIWinUIToastShow(toastAnchor.pointer, windowToast.message, windowToast.action?.title)) else {
+            ActionUIModel.shared.logger.log("WindowPresenter: \(WinUIError.last("showing a toast in window \(windowUUID)")); it is skipped", .warning)
+            // On to the next queued toast.
+            if windowModel.windowToast?.id == id {
+                ActionUIModel.shared.dismissToast(windowUUID: windowUUID)
+            }
+            return
+        }
+        let presented = PresentedToast(id: id, object: object)
+        toast = presented
+        if let action = windowToast.action {
+            WinUIEvents.connect(object, actionUIWinUIToastOnAction, "a toast's action") { [weak self] in
+                guard let self, self.toast?.id == id else { return }
+                ActionUIModel.shared.actionHandler(action.actionID, windowUUID: self.windowUUID, viewID: 0, viewPartID: 0, origin: .host)
+                self.toastDismissed(id)
+            }
+        }
+        WinUIEvents.connect(object, actionUIWinUIToastOnClosed, "a toast's closing") { [weak self] in
+            self?.toastDismissed(id)
+        }
+        // Clamped: NaN and a negative duration are 0, an infinite or huge one about 49 days, as on Linux.
+        let seconds = windowToast.duration > 0 ? min(windowToast.duration, Double(UInt32.max) / 1000) : 0
+        let timer = DispatchWorkItem { [weak self] in
+            MainActor.assumeIsolated { self?.toastDismissed(id) }
+        }
+        presented.timer = timer
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds, execute: timer)
+    }
+
+    /// The toast's duration ran out, its action fired, or the user closed it: it comes down and the model
+    /// moves on to the next queued toast.
+    private func toastDismissed(_ id: UUID) {
+        guard let presented = toast, presented.id == id else { return }
+        closeToast()
+        if windowModel.windowToast?.id == id {
+            ActionUIModel.shared.dismissToast(windowUUID: windowUUID)
+        }
+    }
+
+    /// Takes down the toast shown, leaving the model as it is.
+    private func closeToast() {
+        guard let presented = toast else { return }
+        toast = nil
+        presented.timer?.cancel()
+        if !actionUIWinUIToastHide(presented.object.pointer) {
+            ActionUIModel.shared.logger.log("WindowPresenter: \(WinUIError.last("closing a toast in window \(windowUUID)"))", .warning)
         }
     }
 }

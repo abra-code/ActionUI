@@ -245,7 +245,7 @@ package final class WinUIWindow {
         }
         root.sync()
         if let view {
-            presenter = WindowPresenter(windowModel: windowModel, anchor: view)
+            presenter = WindowPresenter(windowModel: windowModel, anchor: view, toastAnchor: root.outerView ?? view)
         }
     }
 

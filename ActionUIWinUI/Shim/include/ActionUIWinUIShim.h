@@ -1243,6 +1243,23 @@ ACTIONUI_WINUI_API bool actionUIWinUIDialogHide(ActionUIWinUIObject *dialog);
 ACTIONUI_WINUI_API bool actionUIWinUIDialogOnClosed(ActionUIWinUIObject *dialog, ActionUIWinUICallback handler, void *context,
                                                     ActionUIWinUICallback destroyContext);
 
+// The host's toast: a Fluent InfoBar with `message` (informational: its icon and its close button), and with
+// `actionTitle` (not NULL) its action button, floating over the window's content at the top center of
+// `anchor`'s box (16 from its top, at most 520 wide and 16 from each side), on the theme's in-app acrylic
+// with a flyout's corners and shadow. Kept there as `anchor` changes size. It is in the window's content (an
+// in-window popup), so a rendering of the window includes it; Narrator announces it as it opens (InfoBar's
+// own notification). A new reference, or NULL when `anchor` is in no window.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIToastShow(ActionUIWinUIObject *anchor, const char *message,
+                                                               const char *actionTitle);
+// Takes the toast down (no Closed handler runs).
+ACTIONUI_WINUI_API bool actionUIWinUIToastHide(ActionUIWinUIObject *toast);
+// A click on the toast's action button; fails for a toast without one.
+ACTIONUI_WINUI_API bool actionUIWinUIToastOnAction(ActionUIWinUIObject *toast, ActionUIWinUICallback handler, void *context,
+                                                   ActionUIWinUICallback destroyContext);
+// The user closed the toast with its close button.
+ACTIONUI_WINUI_API bool actionUIWinUIToastOnClosed(ActionUIWinUIObject *toast, ActionUIWinUICallback handler, void *context,
+                                                   ActionUIWinUICallback destroyContext);
+
 // MARK: - The application's alert (Panels.cpp)
 
 // The answer to an alert: the index of the chosen button (from 0), or -1 when it closed unanswered
